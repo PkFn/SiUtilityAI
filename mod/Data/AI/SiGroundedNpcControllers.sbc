@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <!-- Attach a controller subtype to an entity container to tune its grounded locomotion. -->
+  <Definition xsi:type="MyObjectBuilder_SiGroundedNpcControllerComponentDefinition">
+    <Id Type="MyObjectBuilder_SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
+    <MoveSpeed>2.5</MoveSpeed>
+    <Acceleration>10</Acceleration>
+    <BrakingAcceleration>16</BrakingAcceleration>
+    <ArrivalRadius>0.25</ArrivalRadius>
+    <StepHeight>0.45</StepHeight>
+    <GroundProbeDistance>0.2</GroundProbeDistance>
+    <GroundOffset>0.02</GroundOffset>
+    <ObstacleProbeHeight>0.8</ObstacleProbeHeight>
+    <CollisionRadius>0.25</CollisionRadius>
+    <MaximumFallSpeed>50</MaximumFallSpeed>
+    <ModelFacesBackward>true</ModelFacesBackward>
+  </Definition>
+</Definitions>

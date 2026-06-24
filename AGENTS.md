@@ -34,6 +34,13 @@
 - Match nearby file style for namespaces, visibility, attributes, nullability, and update/event patterns.
 - Avoid introducing new framework abstractions unless they fit the game's script-loading constraints and existing project style.
 
+## Data-Driven Component Tuning
+
+- Store exact gameplay tuning values in `.sbc` entity component definitions under `mod/Data/`, not in C# constants, property initializers, or overridable properties. Keep only true algorithmic invariants in code.
+- In C#, provide the object builder, definition, and runtime component plumbing needed to read and validate those values. Do not duplicate `.sbc` tuning values as hidden code defaults.
+- Attach the chosen component-definition subtype from the entity's `MyObjectBuilder_ContainerDefinition`. A new archetype or another mod should be able to reuse the C# controller by defining and attaching a different `.sbc` subtype instead of creating a tuning-only subclass.
+- When adding a configurable system, follow the existing utility-brain and grounded-NPC component patterns: keep reusable logic policy-neutral, keep per-archetype values in `.sbc`, and make the component boundary clear enough for other modders to compose.
+
 ## API Discovery
 
 - First search `mod/`, then `ref_si_core/`, then read-only dependencies (`ref_equi_core/`, `ref_pax_core/`) for examples of any unknown method, type, component, or `.sbc` pattern.

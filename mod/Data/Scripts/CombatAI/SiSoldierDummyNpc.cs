@@ -20,6 +20,5 @@ namespace Si.UtilityAI
 
         public override string Archetype => SiNpcManager.SoldierDummyArchetype;
         protected override MyDefinitionId EntityDefinition => DefinitionId;
-        protected override bool ModelFacesBackward => true;
     }
 }
