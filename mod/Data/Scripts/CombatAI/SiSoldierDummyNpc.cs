@@ -5,9 +5,9 @@ using VRageMath;
 namespace Si.UtilityAI
 {
     /// <summary>
-    /// First framework proof: a visible soldier which intentionally remains idle.
+    /// First framework proof: a visible soldier using grounded waypoint locomotion.
     /// </summary>
-    public sealed class SiSoldierDummyNpc : SiNpc
+    public sealed class SiSoldierDummyNpc : SiGroundedNpc
     {
         private static readonly MyDefinitionId DefinitionId =
             new MyDefinitionId(typeof(MyObjectBuilder_EntityBase), "SiSoldierDummy");
@@ -19,7 +19,6 @@ namespace Si.UtilityAI
 
         public override string Archetype => SiNpcManager.SoldierDummyArchetype;
         protected override MyDefinitionId EntityDefinition => DefinitionId;
-
-        // Intentionally idle.  The first real behavior can override OnUpdate here.
+        protected override bool ModelFacesBackward => true;
     }
 }

@@ -29,6 +29,9 @@ namespace Si.UtilityAI
 
         public IReadOnlyDictionary<long, SiNpc> Npcs => _npcs;
 
+        public event Action<long, Vector3D> WaypointSet;
+        public event Action<long> WaypointCleared;
+
         /// <summary>
         /// Adds an NPC kind to the manager.  Future behaviors only need a new
         /// <see cref="SiNpc"/> implementation and one registration call.
@@ -47,6 +50,47 @@ namespace Si.UtilityAI
 
         public bool IsKnownArchetype(string name) =>
             !string.IsNullOrWhiteSpace(name) && _archetypes.ContainsKey(name);
+
+        /// <summary>
+        /// Assigns a world-space steering target to an NPC which supports
+        /// waypoint locomotion.  Behavior systems should use this manager API so
+        /// the session component can replicate the command to clients.
+        /// </summary>
+        public bool TrySetWaypoint(long entityId, in Vector3D waypoint)
+        {
+            if (!ApplyWaypoint(entityId, waypoint))
+                return false;
+
+            WaypointSet?.Invoke(entityId, waypoint);
+            return true;
+        }
+
+        public bool TryClearWaypoint(long entityId)
+        {
+            if (!ApplyClearWaypoint(entityId))
+                return false;
+
+            WaypointCleared?.Invoke(entityId);
+            return true;
+        }
+
+        internal bool ApplyWaypoint(long entityId, in Vector3D waypoint)
+        {
+            if (!_npcs.TryGetValue(entityId, out var npc) || !(npc is ISiWaypointMover mover))
+                return false;
+
+            mover.SetWaypoint(waypoint);
+            return true;
+        }
+
+        internal bool ApplyClearWaypoint(long entityId)
+        {
+            if (!_npcs.TryGetValue(entityId, out var npc) || !(npc is ISiWaypointMover mover))
+                return false;
+
+            mover.ClearWaypoint();
+            return true;
+        }
 
         public bool TrySpawn(string archetype, long entityId, in MatrixD transform, out SiNpc npc)
         {

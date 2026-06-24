@@ -25,6 +25,7 @@ namespace Si.UtilityAI
         [Automatic]
         private readonly MyChatSystem _chat = null;
 
+        public static SiNpcSessionComponent Instance => _instance;
         public SiNpcManager Npcs { get; private set; }
 
         protected override void OnLoad()
@@ -32,6 +33,8 @@ namespace Si.UtilityAI
             base.OnLoad();
             _instance = this;
             Npcs = new SiNpcManager();
+            Npcs.WaypointSet += OnWaypointSet;
+            Npcs.WaypointCleared += OnWaypointCleared;
 
             _chat?.RegisterChatCommand(
                 Command,
@@ -49,6 +52,11 @@ namespace Si.UtilityAI
 
         protected override void OnUnload()
         {
+            if (Npcs != null)
+            {
+                Npcs.WaypointSet -= OnWaypointSet;
+                Npcs.WaypointCleared -= OnWaypointCleared;
+            }
             Npcs?.CloseAll();
             Npcs = null;
             if (_instance == this)
@@ -152,6 +160,23 @@ namespace Si.UtilityAI
                 MyMultiplayerModApi.Static.RaiseStaticEvent(x => ClearNpcsClient);
         }
 
+        private static void OnWaypointSet(long entityId, Vector3D waypoint)
+        {
+            if (MyMultiplayerModApi.Static != null && MyMultiplayerModApi.Static.IsServer)
+                MyMultiplayerModApi.Static.RaiseStaticEvent(
+                    x => SetNpcWaypointClient,
+                    entityId,
+                    waypoint);
+        }
+
+        private static void OnWaypointCleared(long entityId)
+        {
+            if (MyMultiplayerModApi.Static != null && MyMultiplayerModApi.Static.IsServer)
+                MyMultiplayerModApi.Static.RaiseStaticEvent(
+                    x => ClearNpcWaypointClient,
+                    entityId);
+        }
+
         [Event, Reliable, Broadcast]
         private static void SpawnNpcClient(long entityId, string archetype, MatrixD transform)
         {
@@ -162,6 +187,18 @@ namespace Si.UtilityAI
         private static void ClearNpcsClient()
         {
             _instance?.Npcs?.CloseAll();
+        }
+
+        [Event, Reliable, Broadcast]
+        private static void SetNpcWaypointClient(long entityId, Vector3D waypoint)
+        {
+            _instance?.Npcs?.ApplyWaypoint(entityId, waypoint);
+        }
+
+        [Event, Reliable, Broadcast]
+        private static void ClearNpcWaypointClient(long entityId)
+        {
+            _instance?.Npcs?.ApplyClearWaypoint(entityId);
         }
 
         [Event, Reliable, Server]
@@ -179,14 +216,23 @@ namespace Si.UtilityAI
                     npc.EntityId,
                     npc.Archetype,
                     transform,
+                    npc is ISiWaypointMover mover && mover.HasWaypoint,
+                    npc is ISiWaypointMover waypointMover ? waypointMover.Waypoint : Vector3D.Zero,
                     endpoint);
             }
         }
 
         [Event, Reliable, Client]
-        private static void SpawnNpcSnapshotClient(long entityId, string archetype, MatrixD transform)
+        private static void SpawnNpcSnapshotClient(
+            long entityId,
+            string archetype,
+            MatrixD transform,
+            bool hasWaypoint,
+            Vector3D waypoint)
         {
             SpawnNpcClient(entityId, archetype, transform);
+            if (hasWaypoint)
+                _instance?.Npcs?.ApplyWaypoint(entityId, waypoint);
         }
     }
 }
