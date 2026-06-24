@@ -6,6 +6,7 @@ using VRage.Components.Session;
 using VRage.Entities.Gravity;
 using VRage.Game.Components;
 using VRage.Game.Entity;
+using VRage.Scene;
 using VRage.Network;
 using VRage.Session;
 using VRage.Utils;
