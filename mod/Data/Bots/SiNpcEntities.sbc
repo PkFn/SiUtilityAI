@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Definition xsi:type="MyObjectBuilder_ContainerDefinition">
+    <Id Type="EntityBase" Subtype="SiSoldierDummy" />
+    <Component Type="ModelComponent" Subtype="SiSoldierDummy" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_ModelComponentDefinition">
+    <Id Type="ModelComponent" Subtype="SiSoldierDummy" />
+    <Model>Models\RifleDefenderAiming_US_Rifle.mwm</Model>
+  </Definition>
+</Definitions>
