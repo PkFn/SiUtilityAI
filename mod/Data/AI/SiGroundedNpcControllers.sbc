@@ -13,6 +13,6 @@
     <ObstacleProbeHeight>0.8</ObstacleProbeHeight>
     <CollisionRadius>0.25</CollisionRadius>
     <MaximumFallSpeed>50</MaximumFallSpeed>
-    <ModelFacesBackward>true</ModelFacesBackward>
+    <ModelFacesBackward>false</ModelFacesBackward>
   </Definition>
 </Definitions>
