@@ -177,7 +177,7 @@ namespace Si.UtilityAI
         private MyEntity FindNearestPlayer(in Vector3D origin, out double nearestDistance)
         {
             MyEntity nearest = null;
-            var nearestDistanceSquared = _definition.SearchRadius * _definition.SearchRadius;
+            var nearestDistanceSquared = (double)(_definition.SearchRadius * _definition.SearchRadius);
             if (MyPlayers.Static == null)
             {
                 nearestDistance = 0;
