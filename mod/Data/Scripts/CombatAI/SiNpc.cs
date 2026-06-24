@@ -14,6 +14,9 @@ namespace Si.UtilityAI
     /// </summary>
     public abstract class SiNpc
     {
+        private SiNpcManager _manager;
+        private SiUtilityBrainComponent _utilityBrain;
+
         protected SiNpc(long entityId, in MatrixD transform)
         {
             EntityId = entityId;
@@ -56,6 +59,8 @@ namespace Si.UtilityAI
                 }
 
                 Entity = entity;
+                _utilityBrain = Entity.Components.Get<SiUtilityBrainComponent>();
+                _utilityBrain?.Bind(this);
                 OnActivated();
                 return true;
             }
@@ -63,6 +68,8 @@ namespace Si.UtilityAI
             {
                 MyAPIGateway.Utilities?.ShowNotification(
                     $"Failed to create {Archetype}: {exception.Message}", 5000);
+                _utilityBrain?.Unbind();
+                _utilityBrain = null;
                 entity?.Close();
                 return false;
             }
@@ -73,6 +80,7 @@ namespace Si.UtilityAI
             if (Entity == null || Entity.Closed || Entity.MarkedForClose)
                 return false;
 
+            _utilityBrain?.UpdateDecision(elapsedMilliseconds);
             OnUpdate(elapsedMilliseconds);
             if (Entity == null || Entity.Closed || Entity.MarkedForClose)
                 return false;
@@ -85,6 +93,8 @@ namespace Si.UtilityAI
             if (Entity == null)
                 return;
 
+            _utilityBrain?.Unbind();
+            _utilityBrain = null;
             OnClosing();
             Entity.Close();
             Entity = null;
@@ -101,5 +111,16 @@ namespace Si.UtilityAI
         protected virtual void OnClosing()
         {
         }
+
+        internal void AttachManager(SiNpcManager manager)
+        {
+            _manager = manager ?? throw new ArgumentNullException(nameof(manager));
+        }
+
+        internal bool TrySetWaypoint(in Vector3D waypoint) =>
+            _manager?.TrySetWaypoint(EntityId, waypoint) ?? false;
+
+        internal bool TryClearWaypoint() =>
+            _manager?.TryClearWaypoint(EntityId) ?? false;
     }
 }

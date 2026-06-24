@@ -147,11 +147,16 @@ namespace Si.UtilityAI
                 return;
 
             var transform = npc.Transform;
+            var mover = npc as ISiWaypointMover;
+            var hasWaypoint = mover?.HasWaypoint ?? false;
+            var waypoint = mover?.Waypoint ?? Vector3D.Zero;
             MyMultiplayerModApi.Static.RaiseStaticEvent(
                 x => SpawnNpcClient,
                 npc.EntityId,
                 npc.Archetype,
-                transform);
+                transform,
+                hasWaypoint,
+                waypoint);
         }
 
         private static void BroadcastClear()
@@ -178,9 +183,16 @@ namespace Si.UtilityAI
         }
 
         [Event, Reliable, Broadcast]
-        private static void SpawnNpcClient(long entityId, string archetype, MatrixD transform)
+        private static void SpawnNpcClient(
+            long entityId,
+            string archetype,
+            MatrixD transform,
+            bool hasWaypoint,
+            Vector3D waypoint)
         {
             _instance?.Npcs?.TrySpawn(archetype, entityId, transform, out _);
+            if (hasWaypoint)
+                _instance?.Npcs?.ApplyWaypoint(entityId, waypoint);
         }
 
         [Event, Reliable, Broadcast]
@@ -230,9 +242,7 @@ namespace Si.UtilityAI
             bool hasWaypoint,
             Vector3D waypoint)
         {
-            SpawnNpcClient(entityId, archetype, transform);
-            if (hasWaypoint)
-                _instance?.Npcs?.ApplyWaypoint(entityId, waypoint);
+            SpawnNpcClient(entityId, archetype, transform, hasWaypoint, waypoint);
         }
     }
 }

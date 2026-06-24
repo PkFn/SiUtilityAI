@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <!-- The brain is policy-neutral; attach behavior components beside it. -->
+  <Definition xsi:type="MyObjectBuilder_SiUtilityBrainComponentDefinition">
+    <Id Type="MyObjectBuilder_SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
+    <DecisionIntervalMilliseconds>250</DecisionIntervalMilliseconds>
+    <SwitchScoreMargin>0.05</SwitchScoreMargin>
+  </Definition>
+
+  <!-- This definition is deliberately independent of the soldier entity. -->
+  <Definition xsi:type="MyObjectBuilder_SiFollowNearbyPlayerBehaviorDefinition">
+    <Id Type="MyObjectBuilder_SiFollowNearbyPlayerBehavior" Subtype="SiSoldierFollowNearbyPlayer" />
+    <SearchRadius>40</SearchRadius>
+    <StopDistance>2</StopDistance>
+    <ResumeDistance>3</ResumeDistance>
+    <WaypointRefreshDistance>0.75</WaypointRefreshDistance>
+    <BaseScore>0.2</BaseScore>
+    <DistanceScore>0.8</DistanceScore>
+    <DistanceExponent>1.5</DistanceExponent>
+  </Definition>
+</Definitions>

@@ -100,13 +100,21 @@ namespace Si.UtilityAI
                 return false;
 
             npc = factory(entityId, transform);
-            if (npc == null || !npc.TryActivate())
+            if (npc == null)
             {
                 npc = null;
                 return false;
             }
 
+            npc.AttachManager(this);
             _npcs.Add(entityId, npc);
+            if (!npc.TryActivate())
+            {
+                _npcs.Remove(entityId);
+                npc = null;
+                return false;
+            }
+
             return true;
         }
 

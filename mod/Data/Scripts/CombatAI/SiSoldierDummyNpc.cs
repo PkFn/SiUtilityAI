@@ -5,7 +5,8 @@ using VRageMath;
 namespace Si.UtilityAI
 {
     /// <summary>
-    /// First framework proof: a visible soldier using grounded waypoint locomotion.
+    /// A visible grounded soldier.  Its utility brain and available behaviors
+    /// are selected entirely by components attached to its entity definition.
     /// </summary>
     public sealed class SiSoldierDummyNpc : SiGroundedNpc
     {

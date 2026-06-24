@@ -3,6 +3,8 @@
   <Definition xsi:type="MyObjectBuilder_ContainerDefinition">
     <Id Type="EntityBase" Subtype="SiSoldierDummy" />
     <Component Type="ModelComponent" Subtype="SiSoldierDummy" />
+    <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
+    <Component Type="SiFollowNearbyPlayerBehavior" Subtype="SiSoldierFollowNearbyPlayer" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_ModelComponentDefinition">
