@@ -1,0 +1,69 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="MedievalEngineers.Game">
+      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\MedievalEngineers.Game.dll</HintPath>
+    </Reference>
+    <Reference Include="MedievalEngineers.ObjectBuilders">
+      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\MedievalEngineers.ObjectBuilders.dll</HintPath>
+    </Reference>
+    <Reference Include="MedievalEngineers.ObjectBuilders.XmlSerializers">
+      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\MedievalEngineers.ObjectBuilders.XmlSerializers.dll</HintPath>
+    </Reference>
+    <Reference Include="Sandbox.Game">
+      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\Sandbox.Game.dll</HintPath>
+    </Reference>
+    <Reference Include="Sandbox.Graphics">
+      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\Sandbox.Graphics.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage">
+      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Audio">
+      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Audio.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Game">
+      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Game.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Game.XmlSerializers">
+      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Game.XmlSerializers.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Input">
+      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Input.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Library">
+      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Library.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Math">
+      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Math.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Native">
+      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Native.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.OpenVRWrapper">
+      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.OpenVRWrapper.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Render">
+      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Render.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Render11">
+      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Render11.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Scripting">
+      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Scripting.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Steam">
+      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Steam.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.XmlSerializers">
+      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.XmlSerializers.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
