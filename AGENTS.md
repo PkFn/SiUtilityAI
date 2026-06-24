@@ -3,7 +3,7 @@
 ## Project Shape
 
 - This is a Visual Studio C# in-game mod project for Medieval Engineers / VRage.
-- The project references the game's DLLs directly from the local Medieval Engineers install. To discover the current DLL paths, inspect `VehicleAI.csproj` and read the `<Reference>` / `<HintPath>` entries.
+- The project references the game's DLLs directly from the local Medieval Engineers install. To discover the current DLL paths, inspect `SiUtilityAI.csproj` and read the `<Reference>` / `<HintPath>` entries.
 - The actual mod payload is under `mod/`. This folder contains `metadata.mod`, `Data/`, scripts, `.sbc` definitions, UI data, block definitions, and other files that are loaded by the game.
 - `mod/` is soft-linked into the game's local mod directory. Treat `mod/` as the game-facing folder tree, not just a source folder.
 - The game supports both `.cs` C# scripts and `.sbc` XML entity/definition files.
@@ -37,11 +37,14 @@
 ## API Discovery
 
 - First search `mod/`, then `ref_si_core/`, then read-only dependencies (`ref_equi_core/`, `ref_pax_core/`) for examples of any unknown method, type, component, or `.sbc` pattern.
-- If an API is still unclear, inspect the referenced game DLLs from `VehicleAI.csproj` `<HintPath>` values. Use metadata/decompiler tools or IDE navigation against those DLLs instead of guessing signatures.
+- If an API is still unclear, inspect the referenced game DLLs from `SiUtilityAI.csproj` `<HintPath>` values. Use metadata/decompiler tools or IDE navigation against those DLLs instead of guessing signatures.
 - Prefer examples from `ref_equi_core/` when several sources disagree.
 
 ## Verification
 
-- Do not build the project as a verification step. This mod is checked in-game.
-- Verify changes with static methods available in the repo: targeted code search, XML well-formedness checks for `.sbc`, careful signature checks against scripts/references/DLL metadata, and consistency checks against `ref_equi_core` structure.
-- Mention when a change still needs in-game validation.
+- Build `SiUtilityAI.sln` as the primary verification step after changes. From the repository root, run `dotnet build .\SiUtilityAI.sln --no-restore --nologo --verbosity:minimal "-consoleloggerparameters:ErrorsOnly;Summary"`; if restore inputs are missing or stale, run the same command once without `--no-restore`.
+- The solution compiles scripts reached through the linked dependency folders as well as code under `mod/` and `ref_si_core/`, so the build may fail because of unrelated dependency diagnostics. Review the complete compiler output and attribute each error to its root cause.
+- Treat an error as actionable when it is caused by code under `mod/` or `ref_si_core/`, including errors reported in another folder when a change in one of those two trees caused them. Fix actionable errors before considering verification complete.
+- Ignore errors that are not caused by `mod/` or `ref_si_core/`; in particular, do not modify `ref_equi_core/`, `ref_pax_core/`, or `ref_pax_defenders/` to make the build pass. A nonzero build exit code is acceptable only when every remaining error has been reviewed and classified as unrelated.
+- Static checks such as targeted search, XML well-formedness checks for `.sbc`, and signature comparison may supplement the build where useful, but they do not replace it for C# changes.
+- Report the build command and result, summarize any ignored unrelated errors, and mention when the change still needs in-game validation.
