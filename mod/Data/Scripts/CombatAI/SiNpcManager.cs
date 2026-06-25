@@ -156,10 +156,10 @@ namespace Si.UtilityAI
                 _npcs.Remove(id);
         }
 
-        public void CloseAll()
+        public void CloseAll(bool deleteDiplomaticIdentities = true)
         {
             foreach (var npc in _npcs.Values)
-                npc.Close();
+                npc.Close(deleteDiplomaticIdentities);
             _npcs.Clear();
             _closedNpcIds.Clear();
         }

@@ -91,7 +91,7 @@ namespace Si.UtilityAI
             return true;
         }
 
-        public void Close()
+        public void Close(bool deleteDiplomaticIdentity = true)
         {
             if (Entity == null)
                 return;
@@ -99,7 +99,8 @@ namespace Si.UtilityAI
             _utilityBrain?.Unbind();
             _utilityBrain = null;
             OnClosing();
-            DeleteDiplomaticIdentity();
+            if (deleteDiplomaticIdentity)
+                DeleteDiplomaticIdentity();
             Entity.Close();
             Entity = null;
         }

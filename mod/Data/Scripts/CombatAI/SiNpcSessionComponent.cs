@@ -1,15 +1,20 @@
 using System;
 using System.Collections.Generic;
+using System.Xml.Serialization;
 using Medieval.GameSystems.Factions;
 using Sandbox.Game.GameSystems.Chat;
 using Sandbox.Game.Players;
 using Sandbox.ModAPI;
+using VRage;
 using VRage.Components;
+using VRage.Game;
 using VRage.Entities.Gravity;
 using VRage.Game.Components;
 using VRage.Scene;
 using VRage.Game.Entity.EntityComponents;
 using VRage.Network;
+using VRage.ObjectBuilders;
+using VRage.ObjectBuilders.Components;
 using VRage.Session;
 using VRage.Utils;
 using VRageMath;
@@ -18,7 +23,7 @@ using VRageRender;
 namespace Si.UtilityAI
 {
     [StaticEventOwner]
-    [MySessionComponent(AllowAutomaticCreation = true, AlwaysOn = true)]
+    [MySessionComponent(typeof(MyObjectBuilder_SiNpcSessionComponent), AllowAutomaticCreation = true, AlwaysOn = true)]
     [MyDependency(typeof(MyChatSystem), Critical = false)]
     public sealed class SiNpcSessionComponent : MySessionComponent, IDraw
     {
@@ -31,6 +36,8 @@ namespace Si.UtilityAI
         private static SiNpcSessionComponent _instance;
         private readonly Dictionary<long, SiSquadCommandState> _squadOrders =
             new Dictionary<long, SiSquadCommandState>();
+        private List<MyObjectBuilder_SiNpcSessionComponent.SavedNpc> _savedNpcs;
+        private List<MyObjectBuilder_SiNpcSessionComponent.SquadOrder> _savedSquadOrders;
 
         [Automatic]
         private readonly MyChatSystem _chat = null;
@@ -69,7 +76,9 @@ namespace Si.UtilityAI
         protected override void OnSessionReady()
         {
             base.OnSessionReady();
-            if (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer)
+            if (IsAuthoritative)
+                RestoreSavedState();
+            else if (MyMultiplayerModApi.Static != null)
                 MyMultiplayerModApi.Static.RaiseStaticEvent(x => RequestNpcSnapshot);
         }
 
@@ -80,9 +89,11 @@ namespace Si.UtilityAI
                 Npcs.WaypointSet -= OnWaypointSet;
                 Npcs.WaypointCleared -= OnWaypointCleared;
             }
-            Npcs?.CloseAll();
+            Npcs?.CloseAll(false);
             Npcs = null;
             _squadOrders.Clear();
+            _savedNpcs = null;
+            _savedSquadOrders = null;
             Squads?.ClearNpcs();
             Squads = null;
             if (_instance == this)
@@ -96,6 +107,32 @@ namespace Si.UtilityAI
             if (IsAuthoritative)
                 UpdateSquadOrders();
             Npcs?.Update(elapsedMilliseconds);
+        }
+
+        protected override bool IsSerialized =>
+            (Npcs != null && Npcs.Npcs.Count > 0)
+            || (_savedNpcs != null && _savedNpcs.Count > 0)
+            || _squadOrders.Count > 0
+            || (_savedSquadOrders != null && _savedSquadOrders.Count > 0);
+
+        protected override MyObjectBuilder_SessionComponent Serialize()
+        {
+            var ob = (MyObjectBuilder_SiNpcSessionComponent)base.Serialize();
+
+            var npcs = Npcs != null ? CreateSavedNpcs() : _savedNpcs;
+            ob.Npcs = npcs != null && npcs.Count > 0 ? npcs : null;
+
+            var orders = _squadOrders.Count > 0 ? CreateSavedSquadOrders() : _savedSquadOrders;
+            ob.SquadOrders = orders != null && orders.Count > 0 ? orders : null;
+            return ob;
+        }
+
+        protected override void Deserialize(MyObjectBuilder_SessionComponent objectBuilder)
+        {
+            base.Deserialize(objectBuilder);
+            var ob = (MyObjectBuilder_SiNpcSessionComponent)objectBuilder;
+            _savedNpcs = ob.Npcs;
+            _savedSquadOrders = ob.SquadOrders;
         }
 
         internal void RequestUtilityCommand(SiUtilityCommandMenuCommand command)
@@ -678,6 +715,155 @@ namespace Si.UtilityAI
             return true;
         }
 
+        private List<MyObjectBuilder_SiNpcSessionComponent.SavedNpc> CreateSavedNpcs()
+        {
+            var saved = new List<MyObjectBuilder_SiNpcSessionComponent.SavedNpc>();
+            if (Npcs == null)
+                return saved;
+
+            foreach (var npc in Npcs.Npcs.Values)
+                saved.Add(CreateSavedNpc(npc));
+            return saved;
+        }
+
+        private List<MyObjectBuilder_SiNpcSessionComponent.SquadOrder> CreateSavedSquadOrders()
+        {
+            var saved = new List<MyObjectBuilder_SiNpcSessionComponent.SquadOrder>();
+            foreach (var entry in _squadOrders)
+                saved.Add(new MyObjectBuilder_SiNpcSessionComponent.SquadOrder
+                {
+                    LeaderIdentityId = entry.Key,
+                    Mode = (byte)entry.Value.Mode,
+                    Formation = (byte)entry.Value.Formation,
+                });
+            return saved;
+        }
+
+        private void RestoreSavedState()
+        {
+            RestoreSavedNpcs();
+            RestoreSavedSquadOrders();
+        }
+
+        private void RestoreSavedNpcs()
+        {
+            var savedNpcs = _savedNpcs;
+            _savedNpcs = null;
+            if (savedNpcs == null || Npcs == null)
+                return;
+
+            foreach (var saved in savedNpcs)
+                RestoreSavedNpc(saved);
+        }
+
+        private void RestoreSavedNpc(MyObjectBuilder_SiNpcSessionComponent.SavedNpc saved)
+        {
+            if (saved == null
+                || saved.EntityId == 0
+                || string.IsNullOrWhiteSpace(saved.Archetype)
+                || !Npcs.IsKnownArchetype(saved.Archetype))
+                return;
+
+            SiNpc npc;
+            if (!Npcs.TrySpawn(saved.Archetype, saved.EntityId, saved.Transform.GetMatrix(), out npc))
+                return;
+
+            RestoreDiplomaticIdentity(saved, npc);
+            RestoreSquadAssignment(saved, npc);
+
+            if (saved.HasWaypoint)
+                Npcs.ApplyWaypoint(saved.EntityId, saved.Waypoint);
+        }
+
+        private void RestoreDiplomaticIdentity(
+            MyObjectBuilder_SiNpcSessionComponent.SavedNpc saved,
+            SiNpc npc)
+        {
+            if (saved.DiplomaticIdentityId == 0 || npc == null)
+                return;
+
+            var identity = MyIdentities.Static?.GetIdentity(saved.DiplomaticIdentityId);
+            if (identity == null)
+                identity = MyIdentities.Static?.CreateIdentity(
+                    !string.IsNullOrWhiteSpace(saved.LeaderName)
+                        ? saved.LeaderName
+                        : EnemyTrooperName(npc));
+            if (identity == null)
+                return;
+
+            npc.SetDiplomaticIdentity(identity, true);
+            var ownership = npc.Entity?.Components.Get<MyEntityOwnershipComponent>();
+            if (ownership != null)
+                ownership.OwnerId = identity.Id;
+        }
+
+        private void RestoreSquadAssignment(
+            MyObjectBuilder_SiNpcSessionComponent.SavedNpc saved,
+            SiNpc npc)
+        {
+            if (!saved.HasSquadAssignment
+                || !Enum.IsDefined(typeof(SiSquadLeaderKind), (int)saved.SquadLeaderKind)
+                || !Enum.IsDefined(typeof(SiArmyKind), (int)saved.SquadArmyKind))
+                return;
+
+            Squads?.AssignNpcToLeader(
+                npc,
+                (SiSquadLeaderKind)saved.SquadLeaderKind,
+                saved.SquadLeaderId,
+                (SiArmyKind)saved.SquadArmyKind,
+                saved.SquadArmyId,
+                saved.LeaderName,
+                saved.IsSquadLeader);
+        }
+
+        private void RestoreSavedSquadOrders()
+        {
+            var savedOrders = _savedSquadOrders;
+            _savedSquadOrders = null;
+            if (savedOrders == null)
+                return;
+
+            _squadOrders.Clear();
+            foreach (var saved in savedOrders)
+            {
+                if (saved == null
+                    || saved.LeaderIdentityId == 0
+                    || !Enum.IsDefined(typeof(SiSquadOrderMode), (int)saved.Mode)
+                    || !Enum.IsDefined(typeof(SiSquadFormation), (int)saved.Formation))
+                    continue;
+
+                _squadOrders[saved.LeaderIdentityId] = new SiSquadCommandState
+                {
+                    Mode = (SiSquadOrderMode)saved.Mode,
+                    Formation = (SiSquadFormation)saved.Formation,
+                };
+            }
+        }
+
+        private static MyObjectBuilder_SiNpcSessionComponent.SavedNpc CreateSavedNpc(SiNpc npc)
+        {
+            var mover = npc as ISiWaypointMover;
+            SiAssignedNpc assignment = null;
+            var hasAssignment = _instance?.Squads != null
+                                && _instance.Squads.TryGetAssignment(npc.EntityId, out assignment);
+            return new MyObjectBuilder_SiNpcSessionComponent.SavedNpc
+            {
+                EntityId = npc.EntityId,
+                Archetype = npc.Archetype,
+                Transform = new MyPositionAndOrientation(npc.Transform),
+                HasWaypoint = mover?.HasWaypoint ?? false,
+                Waypoint = (SerializableVector3D)(mover?.Waypoint ?? Vector3D.Zero),
+                HasSquadAssignment = hasAssignment,
+                SquadLeaderKind = hasAssignment ? (byte)assignment.Leader.Kind : (byte)0,
+                SquadLeaderId = hasAssignment ? assignment.Leader.Id : 0,
+                SquadArmyKind = hasAssignment ? (byte)assignment.Leader.Army.Kind : (byte)0,
+                SquadArmyId = hasAssignment ? assignment.Leader.Army.Id : 0,
+                IsSquadLeader = hasAssignment && assignment.IsLeader,
+                LeaderName = hasAssignment ? assignment.LeaderName : null,
+                DiplomaticIdentityId = npc.DiplomaticIdentityId,
+            };
+        }
+
         private static SiNpcSnapshot CreateSnapshot(SiNpc npc)
         {
             var mover = npc as ISiWaypointMover;
@@ -839,6 +1025,67 @@ namespace Si.UtilityAI
             public long SquadArmyId;
             public bool IsSquadLeader;
             public string LeaderName;
+        }
+    }
+
+    [MyObjectBuilderDefinition]
+    [XmlSerializerAssembly("MedievalEngineers.ObjectBuilders.XmlSerializers")]
+    public class MyObjectBuilder_SiNpcSessionComponent : MyObjectBuilder_SessionComponent
+    {
+        [XmlElement("Npc")]
+        public List<SavedNpc> Npcs;
+
+        [XmlElement("SquadOrder")]
+        public List<SquadOrder> SquadOrders;
+
+        public class SavedNpc
+        {
+            [XmlAttribute]
+            public long EntityId;
+
+            [XmlAttribute]
+            public string Archetype;
+
+            public MyPositionAndOrientation Transform;
+
+            public bool HasWaypoint;
+
+            public SerializableVector3D Waypoint;
+
+            public bool HasSquadAssignment;
+
+            [XmlAttribute]
+            public byte SquadLeaderKind;
+
+            [XmlAttribute]
+            public long SquadLeaderId;
+
+            [XmlAttribute]
+            public byte SquadArmyKind;
+
+            [XmlAttribute]
+            public long SquadArmyId;
+
+            [XmlAttribute]
+            public bool IsSquadLeader;
+
+            [XmlAttribute]
+            public string LeaderName;
+
+            [XmlAttribute]
+            public long DiplomaticIdentityId;
+        }
+
+        public class SquadOrder
+        {
+            [XmlAttribute]
+            public long LeaderIdentityId;
+
+            [XmlAttribute]
+            public byte Mode;
+
+            [XmlAttribute]
+            public byte Formation;
         }
     }
 
