@@ -43,6 +43,99 @@ namespace Si.UtilityAI
             _staleNpcIds.Clear();
         }
 
+        public void AssignNpcToPlayerIdentity(SiNpc npc, long identityId, string leaderName)
+        {
+            if (npc == null || identityId == 0)
+                return;
+
+            _assignedNpcs[npc.EntityId] = new SiAssignedNpc(
+                CreatePlayerLeader(identityId),
+                string.IsNullOrWhiteSpace(leaderName) ? "Player " + identityId : leaderName,
+                npc.Archetype);
+        }
+
+        public bool TryGetAssignment(long npcId, out SiAssignedNpc assignment) =>
+            _assignedNpcs.TryGetValue(npcId, out assignment);
+
+        public List<SiNpc> GetLeaderNpcs(SiNpcManager npcManager, long leaderIdentityId)
+        {
+            var result = new List<SiNpc>();
+            if (npcManager == null || leaderIdentityId == 0)
+                return result;
+
+            PurgeClosedNpcs(npcManager);
+            foreach (var entry in _assignedNpcs)
+            {
+                var assignment = entry.Value;
+                if (!IsPlayerLeader(assignment.Leader, leaderIdentityId))
+                    continue;
+
+                SiNpc npc;
+                if (npcManager.Npcs.TryGetValue(entry.Key, out npc))
+                    result.Add(npc);
+            }
+
+            result.Sort(CompareNpcs);
+            return result;
+        }
+
+        public List<string> CreateRosterLinesForLeader(SiNpcManager npcManager, long leaderIdentityId)
+        {
+            var lines = new List<string>();
+            if (Definition == null)
+            {
+                lines.Add("Squad data definition is missing.");
+                return lines;
+            }
+
+            PurgeClosedNpcs(npcManager);
+            var squads = BuildSquads(npcManager);
+            squads.Sort(CompareSquads);
+
+            foreach (var squad in squads)
+                if (IsPlayerLeader(squad.Leader, leaderIdentityId))
+                {
+                    squad.Members.Sort(CompareMembers);
+                    lines.Add(FormatSquadLine(squad));
+                    return lines;
+                }
+
+            lines.Add("No squad is available for your identity.");
+            return lines;
+        }
+
+        public List<SiSquadNpcMarker> CreateNpcMarkers(SiNpcManager npcManager, long leaderIdentityId)
+        {
+            var markers = new List<SiSquadNpcMarker>();
+            if (Definition == null || npcManager == null || leaderIdentityId == 0)
+                return markers;
+
+            PurgeClosedNpcs(npcManager);
+            var squads = BuildSquads(npcManager);
+            squads.Sort(CompareSquads);
+
+            foreach (var squad in squads)
+                if (IsPlayerLeader(squad.Leader, leaderIdentityId))
+                {
+                    squad.Members.Sort(CompareMembers);
+                    foreach (var member in squad.Members)
+                    {
+                        if (member.Kind != SiSquadMemberKind.Npc)
+                            continue;
+
+                        SiNpc npc;
+                        if (npcManager.Npcs.TryGetValue(member.Id, out npc))
+                            markers.Add(new SiSquadNpcMarker(
+                                npc,
+                                FormatMarkerLabel(squad, member)));
+                    }
+
+                    return markers;
+                }
+
+            return markers;
+        }
+
         public List<string> CreateRosterLines(SiNpcManager npcManager)
         {
             var lines = new List<string>();
@@ -254,6 +347,12 @@ namespace Si.UtilityAI
             return name != 0 ? name : left.Id.CompareTo(right.Id);
         }
 
+        private static int CompareNpcs(SiNpc left, SiNpc right) =>
+            left.EntityId.CompareTo(right.EntityId);
+
+        private static bool IsPlayerLeader(SiSquadLeaderKey leader, long identityId) =>
+            leader.Kind == SiSquadLeaderKind.Player && leader.Id == identityId;
+
         private static int RankOrder(SiRankDefinition rank) => rank?.Order ?? 0;
 
         private string FormatSquadLine(SiSquadView squad)
@@ -273,6 +372,26 @@ namespace Si.UtilityAI
                 builder.Append(FormatMember(squad.Members[i]));
             }
 
+            return builder.ToString();
+        }
+
+        private static string FormatMarkerLabel(SiSquadView squad, SiSquadMemberView member)
+        {
+            var builder = new StringBuilder();
+            if (squad.Letter != null)
+            {
+                builder.Append(squad.Letter.CallSign);
+                builder.Append(' ');
+            }
+
+            var rank = member.Rank?.ShortName;
+            if (!string.IsNullOrWhiteSpace(rank))
+            {
+                builder.Append(rank);
+                builder.Append(' ');
+            }
+
+            builder.Append(member.Name);
             return builder.ToString();
         }
 
@@ -465,6 +584,18 @@ namespace Si.UtilityAI
         public SiSquadLeaderKey Leader { get; }
         public string LeaderName { get; }
         public string Archetype { get; }
+    }
+
+    internal sealed class SiSquadNpcMarker
+    {
+        public SiSquadNpcMarker(SiNpc npc, string label)
+        {
+            Npc = npc;
+            Label = label;
+        }
+
+        public SiNpc Npc { get; }
+        public string Label { get; }
     }
 
     internal enum SiSquadMemberKind

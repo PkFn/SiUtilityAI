@@ -5,7 +5,6 @@
     <Component Type="ModelComponent" Subtype="SiTrooper" />
     <Component Type="SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
     <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
-    <Component Type="SiFollowNearbyPlayerBehavior" Subtype="SiSoldierFollowNearbyPlayer" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_ModelComponentDefinition">

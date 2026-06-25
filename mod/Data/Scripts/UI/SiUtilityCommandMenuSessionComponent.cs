@@ -93,8 +93,7 @@ namespace Si.UtilityAI
 
         private static void RequestCommand(SiUtilityCommandMenuCommand command)
         {
-            // Intentionally deferred: the menu and script hooks are in place,
-            // but command behavior belongs to the next implementation pass.
+            SiNpcSessionComponent.Instance?.RequestUtilityCommand(command);
         }
     }
 

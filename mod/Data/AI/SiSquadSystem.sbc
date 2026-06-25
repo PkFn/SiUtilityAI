@@ -4,6 +4,15 @@
     <Id Type="MyObjectBuilder_SiSquadSystemDefinition" Subtype="SiDefaultSquadSystem" />
     <PlayerRank>corporal</PlayerRank>
     <NpcRank>private</NpcRank>
+    <FollowDistance>2.5</FollowDistance>
+    <ColumnSpacing>2.75</ColumnSpacing>
+    <FileSpacing>1.5</FileSpacing>
+    <LineSpacing>2.25</LineSpacing>
+    <VeeSpacing>2.25</VeeSpacing>
+    <WaypointRefreshDistance>0.75</WaypointRefreshDistance>
+    <MarkerHeight>2.2</MarkerHeight>
+    <MarkerMaxDistance>75</MarkerMaxDistance>
+    <MarkerTextScale>0.65</MarkerTextScale>
 
     <Ranks>
       <Rank Id="private" DisplayName="Private" Abbreviation="Pvt" Order="10" />

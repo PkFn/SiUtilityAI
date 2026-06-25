@@ -19,6 +19,15 @@ namespace Si.UtilityAI
         public IReadOnlyList<SiRankDefinition> Ranks => _ranks;
         public string PlayerRankId { get; private set; }
         public string NpcRankId { get; private set; }
+        public double FollowDistance { get; private set; }
+        public double ColumnSpacing { get; private set; }
+        public double FileSpacing { get; private set; }
+        public double LineSpacing { get; private set; }
+        public double VeeSpacing { get; private set; }
+        public double WaypointRefreshDistance { get; private set; }
+        public double MarkerHeight { get; private set; }
+        public double MarkerMaxDistance { get; private set; }
+        public float MarkerTextScale { get; private set; }
 
         public SiRankDefinition PlayerRank => GetRank(PlayerRankId);
         public SiRankDefinition NpcRank => GetRank(NpcRankId);
@@ -52,6 +61,15 @@ namespace Si.UtilityAI
 
             PlayerRankId = ob.PlayerRank;
             NpcRankId = ob.NpcRank;
+            FollowDistance = Math.Max(0, ob.FollowDistance);
+            ColumnSpacing = Math.Max(0, ob.ColumnSpacing);
+            FileSpacing = Math.Max(0, ob.FileSpacing);
+            LineSpacing = Math.Max(0, ob.LineSpacing);
+            VeeSpacing = Math.Max(0, ob.VeeSpacing);
+            WaypointRefreshDistance = Math.Max(0, ob.WaypointRefreshDistance);
+            MarkerHeight = Math.Max(0, ob.MarkerHeight);
+            MarkerMaxDistance = Math.Max(0, ob.MarkerMaxDistance);
+            MarkerTextScale = Math.Max(0, ob.MarkerTextScale);
         }
 
         public SiSquadLetterDefinition GetLetter(int index)
@@ -123,6 +141,33 @@ namespace Si.UtilityAI
 
         [XmlElement]
         public string NpcRank;
+
+        [XmlElement]
+        public double FollowDistance;
+
+        [XmlElement]
+        public double ColumnSpacing;
+
+        [XmlElement]
+        public double FileSpacing;
+
+        [XmlElement]
+        public double LineSpacing;
+
+        [XmlElement]
+        public double VeeSpacing;
+
+        [XmlElement]
+        public double WaypointRefreshDistance;
+
+        [XmlElement]
+        public double MarkerHeight;
+
+        [XmlElement]
+        public double MarkerMaxDistance;
+
+        [XmlElement]
+        public float MarkerTextScale;
 
         [XmlArrayItem("Letter")]
         public List<SquadLetter> Letters;
