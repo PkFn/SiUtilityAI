@@ -10,7 +10,7 @@
 
     <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
         <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuRoot" />
-        <Title>Si Utility AI Command Menu</Title>
+        <Title>Trooper Command Menu</Title>
         <Width>800</Width>
         <AutoCommit>true</AutoCommit>
         <Embedded>
