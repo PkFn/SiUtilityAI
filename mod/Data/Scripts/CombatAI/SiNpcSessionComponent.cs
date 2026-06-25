@@ -18,6 +18,7 @@ namespace Si.UtilityAI
     public sealed class SiNpcSessionComponent : MySessionComponent
     {
         private const string Command = "/si-npc";
+        private const string SquadCommand = "/si-squad";
         private const double SpawnDistance = 2.5;
 
         private static SiNpcSessionComponent _instance;
@@ -27,12 +28,14 @@ namespace Si.UtilityAI
 
         public static SiNpcSessionComponent Instance => _instance;
         public SiNpcManager Npcs { get; private set; }
+        internal SiSquadBook Squads { get; private set; }
 
         protected override void OnLoad()
         {
             base.OnLoad();
             _instance = this;
             Npcs = new SiNpcManager();
+            Squads = new SiSquadBook();
             Npcs.WaypointSet += OnWaypointSet;
             Npcs.WaypointCleared += OnWaypointCleared;
 
@@ -40,6 +43,11 @@ namespace Si.UtilityAI
                 Command,
                 HandleCommand,
                 "Manage custom Si Utility AI NPCs. /si-npc spawn [soldier-dummy] | list | clear",
+                MyChatCommandType.Server);
+            _chat?.RegisterChatCommand(
+                SquadCommand,
+                HandleSquadCommand,
+                "Show Si Utility AI squad rosters. /si-squad list | members",
                 MyChatCommandType.Server);
         }
 
@@ -59,6 +67,8 @@ namespace Si.UtilityAI
             }
             Npcs?.CloseAll();
             Npcs = null;
+            Squads?.ClearNpcs();
+            Squads = null;
             if (_instance == this)
                 _instance = null;
             base.OnUnload();
@@ -90,6 +100,7 @@ namespace Si.UtilityAI
                 case "clear":
                     var removed = Npcs.Npcs.Count;
                     Npcs.CloseAll();
+                    Squads?.ClearNpcs();
                     BroadcastClear();
                     return Respond(sender, $"Removed {removed} custom NPC(s).");
                 default:
@@ -112,8 +123,25 @@ namespace Si.UtilityAI
             if (!Npcs.TrySpawn(archetype, entityId, transform, out var npc))
                 return Respond(sender, $"Failed to spawn custom NPC '{archetype}'; its model or entity definition could not be loaded.");
 
+            Squads?.AssignNpcToPlayer(npc, player);
             BroadcastSpawn(npc);
             return Respond(sender, $"Spawned {archetype} ({entityId}).");
+        }
+
+        private bool HandleSquadCommand(ulong sender, string message, MyChatCommandType handledAsType)
+        {
+            var tokens = message.Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length < 2)
+                return Respond(sender, SquadHelpText());
+
+            switch (tokens[1].ToLowerInvariant())
+            {
+                case "list":
+                case "members":
+                    return RespondSquadRoster(sender);
+                default:
+                    return Respond(sender, SquadHelpText());
+            }
         }
 
         private static MatrixD CreateSpawnTransform(in MatrixD playerTransform)
@@ -135,9 +163,23 @@ namespace Si.UtilityAI
         private static string HelpText() =>
             $"{Command} spawn [{SiNpcManager.SoldierDummyArchetype}] | list | clear";
 
+        private static string SquadHelpText() =>
+            $"{SquadCommand} list | members";
+
         private bool Respond(ulong sender, string response)
         {
             _chat?.SendMessageToClient(sender, MyStringHash.GetOrCompute("System"), 0, response);
+            return true;
+        }
+
+        private bool RespondSquadRoster(ulong sender)
+        {
+            var lines = Squads?.CreateRosterLines(Npcs);
+            if (lines == null || lines.Count == 0)
+                return Respond(sender, "No squad roster is available.");
+
+            foreach (var line in lines)
+                Respond(sender, line);
             return true;
         }
 
