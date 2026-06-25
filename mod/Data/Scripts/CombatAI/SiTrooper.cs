@@ -18,7 +18,7 @@ namespace Si.UtilityAI
         {
         }
 
-        public override string Archetype => SiNpcManager.SoldierDummyArchetype;
+        public override string Archetype => SiNpcManager.SoldierArchetype;
         protected override MyDefinitionId EntityDefinition => DefinitionId;
     }
 }

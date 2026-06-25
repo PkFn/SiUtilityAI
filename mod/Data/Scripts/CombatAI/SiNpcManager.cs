@@ -15,7 +15,7 @@ namespace Si.UtilityAI
     /// </summary>
     public sealed class SiNpcManager
     {
-        public const string SoldierDummyArchetype = "soldier-dummy";
+        public const string SoldierArchetype = "trooper";
 
         private readonly Dictionary<string, Func<long, MatrixD, SiNpc>> _archetypes =
             new Dictionary<string, Func<long, MatrixD, SiNpc>>(StringComparer.OrdinalIgnoreCase);
@@ -24,7 +24,7 @@ namespace Si.UtilityAI
 
         public SiNpcManager()
         {
-            RegisterArchetype(SoldierDummyArchetype, (id, transform) => new SiTrooperNpc(id, transform));
+            RegisterArchetype(SoldierArchetype, (id, transform) => new SiTrooperNpc(id, transform));
         }
 
         public IReadOnlyDictionary<long, SiNpc> Npcs => _npcs;

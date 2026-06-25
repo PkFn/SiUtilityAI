@@ -363,14 +363,15 @@ namespace Si.UtilityAI
             builder.Append(squad.Letter != null
                 ? squad.Letter.CallSign
                 : "#" + (squad.LetterIndex + 1));
-            builder.Append(": ");
+            builder.Append(": \n");
 
             for (var i = 0; i < squad.Members.Count; i++)
             {
                 if (i > 0)
-                    builder.Append("; ");
+                    builder.Append("; \n");
                 builder.Append(FormatMember(squad.Members[i]));
             }
+            builder.Append("; \n");
 
             return builder.ToString();
         }

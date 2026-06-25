@@ -48,7 +48,7 @@ namespace Si.UtilityAI
             _chat?.RegisterChatCommand(
                 Command,
                 HandleCommand,
-                "Manage custom Si Utility AI NPCs. /si-npc spawn [soldier-dummy] | list | clear",
+                "Manage custom Si Utility AI NPCs. /si-npc spawn [trooper] | list | clear",
                 MyChatCommandType.Server);
             _chat?.RegisterChatCommand(
                 SquadCommand,
@@ -259,7 +259,7 @@ namespace Si.UtilityAI
                 case "spawn":
                     return SpawnFromCommand(sender, tokens.Length >= 3
                         ? tokens[2]
-                        : SiNpcManager.SoldierDummyArchetype);
+                        : SiNpcManager.SoldierArchetype);
                 case "list":
                     return Respond(sender, $"Custom NPCs alive: {Npcs.Npcs.Count}.");
                 case "clear":
@@ -277,7 +277,7 @@ namespace Si.UtilityAI
         private bool SpawnFromCommand(ulong sender, string archetype)
         {
             if (!Npcs.IsKnownArchetype(archetype))
-                return Respond(sender, $"Unknown NPC archetype '{archetype}'. Available: {SiNpcManager.SoldierDummyArchetype}.");
+                return Respond(sender, $"Unknown NPC archetype '{archetype}'. Available: {SiNpcManager.SoldierArchetype}.");
 
             var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(sender, 0));
             var playerPosition = player?.ControlledEntity?.Get<MyPositionComponentBase>();
@@ -527,7 +527,7 @@ namespace Si.UtilityAI
         }
 
         private static string HelpText() =>
-            $"{Command} spawn [{SiNpcManager.SoldierDummyArchetype}] | list | clear";
+            $"{Command} spawn [{SiNpcManager.SoldierArchetype}] | list | clear";
 
         private static string SquadHelpText() =>
             $"{SquadCommand} list | members";
