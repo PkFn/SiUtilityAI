@@ -1,68 +1,116 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+    <TargetFramework>net461</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <ImplicitlyExpandNETStandardFacades>false</ImplicitlyExpandNETStandardFacades>
+    <ImplicitlyExpandDesignTimeFacades>false</ImplicitlyExpandDesignTimeFacades>
+    <GameBinPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64</GameBinPath>
   </PropertyGroup>
 
   <ItemGroup>
+    <Reference Include="$(GameBinPath)\Microsoft*.dll" Private="false" SpecificVersion="false" />
+    <Reference Include="$(GameBinPath)\netstandard.dll" Private="false" SpecificVersion="false" />
+    <Reference Include="$(GameBinPath)\System*.dll" Private="false" SpecificVersion="false" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="MedievalEngineers.Game">
-      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\MedievalEngineers.Game.dll</HintPath>
+      <HintPath>$(GameBinPath)\MedievalEngineers.Game.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
     </Reference>
     <Reference Include="MedievalEngineers.ObjectBuilders">
-      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\MedievalEngineers.ObjectBuilders.dll</HintPath>
+      <HintPath>$(GameBinPath)\MedievalEngineers.ObjectBuilders.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
     </Reference>
     <Reference Include="MedievalEngineers.ObjectBuilders.XmlSerializers">
-      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\MedievalEngineers.ObjectBuilders.XmlSerializers.dll</HintPath>
+      <HintPath>$(GameBinPath)\MedievalEngineers.ObjectBuilders.XmlSerializers.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
     </Reference>
     <Reference Include="Sandbox.Game">
-      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\Sandbox.Game.dll</HintPath>
+      <HintPath>$(GameBinPath)\Sandbox.Game.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
     </Reference>
     <Reference Include="Sandbox.Graphics">
-      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\Sandbox.Graphics.dll</HintPath>
+      <HintPath>$(GameBinPath)\Sandbox.Graphics.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
     </Reference>
     <Reference Include="VRage">
-      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.dll</HintPath>
+      <HintPath>$(GameBinPath)\VRage.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
     </Reference>
     <Reference Include="VRage.Audio">
-      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Audio.dll</HintPath>
+      <HintPath>$(GameBinPath)\VRage.Audio.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
     </Reference>
     <Reference Include="VRage.Game">
-      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Game.dll</HintPath>
+      <HintPath>$(GameBinPath)\VRage.Game.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
     </Reference>
     <Reference Include="VRage.Game.XmlSerializers">
-      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Game.XmlSerializers.dll</HintPath>
+      <HintPath>$(GameBinPath)\VRage.Game.XmlSerializers.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
     </Reference>
     <Reference Include="VRage.Input">
-      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Input.dll</HintPath>
+      <HintPath>$(GameBinPath)\VRage.Input.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
     </Reference>
     <Reference Include="VRage.Library">
-      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Library.dll</HintPath>
+      <HintPath>$(GameBinPath)\VRage.Library.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
     </Reference>
     <Reference Include="VRage.Math">
-      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Math.dll</HintPath>
+      <HintPath>$(GameBinPath)\VRage.Math.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
     </Reference>
     <Reference Include="VRage.Native">
-      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Native.dll</HintPath>
+      <HintPath>$(GameBinPath)\VRage.Native.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
     </Reference>
     <Reference Include="VRage.OpenVRWrapper">
-      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.OpenVRWrapper.dll</HintPath>
+      <HintPath>$(GameBinPath)\VRage.OpenVRWrapper.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
     </Reference>
     <Reference Include="VRage.Render">
-      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Render.dll</HintPath>
+      <HintPath>$(GameBinPath)\VRage.Render.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
     </Reference>
     <Reference Include="VRage.Render11">
-      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Render11.dll</HintPath>
+      <HintPath>$(GameBinPath)\VRage.Render11.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
     </Reference>
     <Reference Include="VRage.Scripting">
-      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Scripting.dll</HintPath>
+      <HintPath>$(GameBinPath)\VRage.Scripting.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
     </Reference>
     <Reference Include="VRage.Steam">
-      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.Steam.dll</HintPath>
+      <HintPath>$(GameBinPath)\VRage.Steam.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
     </Reference>
     <Reference Include="VRage.XmlSerializers">
-      <HintPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64\VRage.XmlSerializers.dll</HintPath>
+      <HintPath>$(GameBinPath)\VRage.XmlSerializers.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
     </Reference>
   </ItemGroup>
 
