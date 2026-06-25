@@ -8,8 +8,8 @@
     <BrakingAcceleration>16</BrakingAcceleration>
     <ArrivalRadius>0.25</ArrivalRadius>
     <StepHeight>0.45</StepHeight>
-    <GroundProbeDistance>0.2</GroundProbeDistance>
-    <GroundOffset>0.02</GroundOffset>
+    <GroundProbeDistance>1.0</GroundProbeDistance>
+    <GroundOffset>0.82</GroundOffset>
     <ObstacleProbeHeight>0.8</ObstacleProbeHeight>
     <CollisionRadius>0.25</CollisionRadius>
     <MaximumFallSpeed>50</MaximumFallSpeed>
