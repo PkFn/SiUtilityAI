@@ -8,12 +8,12 @@ namespace Si.UtilityAI
     /// A visible grounded soldier.  Its utility brain and available behaviors
     /// are selected entirely by components attached to its entity definition.
     /// </summary>
-    public sealed class SiSoldierDummyNpc : SiGroundedNpc
+    public sealed class SiTrooperNpc : SiGroundedNpc
     {
         private static readonly MyDefinitionId DefinitionId =
-            new MyDefinitionId(typeof(MyObjectBuilder_EntityBase), "SiSoldierDummy");
+            new MyDefinitionId(typeof(MyObjectBuilder_EntityBase), "SiTrooper");
 
-        public SiSoldierDummyNpc(long entityId, in MatrixD transform)
+        public SiTrooperNpc(long entityId, in MatrixD transform)
             : base(entityId, transform)
         {
         }

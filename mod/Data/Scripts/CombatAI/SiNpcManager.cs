@@ -24,7 +24,7 @@ namespace Si.UtilityAI
 
         public SiNpcManager()
         {
-            RegisterArchetype(SoldierDummyArchetype, (id, transform) => new SiSoldierDummyNpc(id, transform));
+            RegisterArchetype(SoldierDummyArchetype, (id, transform) => new SiTrooperNpc(id, transform));
         }
 
         public IReadOnlyDictionary<long, SiNpc> Npcs => _npcs;
