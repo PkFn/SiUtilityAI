@@ -167,7 +167,7 @@ namespace Si.UtilityAI
             if (player?.Identity == null)
                 return;
 
-            var sender = player.SteamUserId;
+            var sender = player.Id.SteamId;
             var leaderIdentityId = player.Identity.Id;
             switch (command)
             {
@@ -562,13 +562,16 @@ namespace Si.UtilityAI
             var leaderName = PlayerName(leader);
             MyMultiplayerModApi.Static.RaiseStaticEvent(
                 x => SpawnNpcClient,
-                npc.EntityId,
-                npc.Archetype,
-                transform,
-                hasWaypoint,
-                waypoint,
-                leaderIdentityId,
-                leaderName);
+                new SiNpcSnapshot
+                {
+                    EntityId = npc.EntityId,
+                    Archetype = npc.Archetype,
+                    Transform = transform,
+                    HasWaypoint = hasWaypoint,
+                    Waypoint = waypoint,
+                    LeaderIdentityId = leaderIdentityId,
+                    LeaderName = leaderName,
+                });
         }
 
         private static void BroadcastClear()
@@ -595,21 +598,21 @@ namespace Si.UtilityAI
         }
 
         [Event, Reliable, Broadcast]
-        private static void SpawnNpcClient(
-            long entityId,
-            string archetype,
-            MatrixD transform,
-            bool hasWaypoint,
-            Vector3D waypoint,
-            long leaderIdentityId,
-            string leaderName)
+        private static void SpawnNpcClient(SiNpcSnapshot snapshot)
         {
             SiNpc npc = null;
-            _instance?.Npcs?.TrySpawn(archetype, entityId, transform, out npc);
-            if (npc != null && leaderIdentityId != 0)
-                _instance?.Squads?.AssignNpcToPlayerIdentity(npc, leaderIdentityId, leaderName);
-            if (hasWaypoint)
-                _instance?.Npcs?.ApplyWaypoint(entityId, waypoint);
+            _instance?.Npcs?.TrySpawn(
+                snapshot.Archetype,
+                snapshot.EntityId,
+                snapshot.Transform,
+                out npc);
+            if (npc != null && snapshot.LeaderIdentityId != 0)
+                _instance?.Squads?.AssignNpcToPlayerIdentity(
+                    npc,
+                    snapshot.LeaderIdentityId,
+                    snapshot.LeaderName);
+            if (snapshot.HasWaypoint)
+                _instance?.Npcs?.ApplyWaypoint(snapshot.EntityId, snapshot.Waypoint);
         }
 
         [Event, Reliable, Broadcast]
@@ -647,37 +650,29 @@ namespace Si.UtilityAI
                                     && _instance.Squads.TryGetAssignment(npc.EntityId, out assignment);
                 MyMultiplayerModApi.Static.RaiseStaticEvent(
                     x => SpawnNpcSnapshotClient,
-                    npc.EntityId,
-                    npc.Archetype,
-                    transform,
-                    npc is ISiWaypointMover mover && mover.HasWaypoint,
-                    npc is ISiWaypointMover waypointMover ? waypointMover.Waypoint : Vector3D.Zero,
-                    hasAssignment && assignment.Leader.Kind == SiSquadLeaderKind.Player
-                        ? assignment.Leader.Id
-                        : 0,
-                    hasAssignment ? assignment.LeaderName : null,
+                    new SiNpcSnapshot
+                    {
+                        EntityId = npc.EntityId,
+                        Archetype = npc.Archetype,
+                        Transform = transform,
+                        HasWaypoint = npc is ISiWaypointMover mover && mover.HasWaypoint,
+                        Waypoint = npc is ISiWaypointMover waypointMover
+                            ? waypointMover.Waypoint
+                            : Vector3D.Zero,
+                        LeaderIdentityId = hasAssignment
+                                           && assignment.Leader.Kind == SiSquadLeaderKind.Player
+                            ? assignment.Leader.Id
+                            : 0,
+                        LeaderName = hasAssignment ? assignment.LeaderName : null,
+                    },
                     endpoint);
             }
         }
 
         [Event, Reliable, Client]
-        private static void SpawnNpcSnapshotClient(
-            long entityId,
-            string archetype,
-            MatrixD transform,
-            bool hasWaypoint,
-            Vector3D waypoint,
-            long leaderIdentityId,
-            string leaderName)
+        private static void SpawnNpcSnapshotClient(SiNpcSnapshot snapshot)
         {
-            SpawnNpcClient(
-                entityId,
-                archetype,
-                transform,
-                hasWaypoint,
-                waypoint,
-                leaderIdentityId,
-                leaderName);
+            SpawnNpcClient(snapshot);
         }
 
         [Event, Reliable, Server]
@@ -706,6 +701,18 @@ namespace Si.UtilityAI
             if (player?.Identity != null)
                 return "Player " + player.Identity.Id;
             return "Player";
+        }
+
+        [RpcSerializable]
+        private struct SiNpcSnapshot
+        {
+            public long EntityId;
+            public string Archetype;
+            public MatrixD Transform;
+            public bool HasWaypoint;
+            public Vector3D Waypoint;
+            public long LeaderIdentityId;
+            public string LeaderName;
         }
     }
 

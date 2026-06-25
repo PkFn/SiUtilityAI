@@ -7,8 +7,15 @@
     <Nullable>disable</Nullable>
     <ImplicitlyExpandNETStandardFacades>false</ImplicitlyExpandNETStandardFacades>
     <ImplicitlyExpandDesignTimeFacades>false</ImplicitlyExpandDesignTimeFacades>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <GameBinPath>F:\SteamLibrary\steamapps\common\MedievalEngineers\Bin64</GameBinPath>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="mod\Data\Scripts\**\*.cs" />
+    <Compile Include="ref_si_core\Data\Scripts\**\*.cs" />
+    <Compile Include="ref_equi_core\Data\Scripts\**\*.cs" />
+  </ItemGroup>
 
   <ItemGroup>
     <Reference Include="$(GameBinPath)\Microsoft*.dll" Private="false" SpecificVersion="false" />
