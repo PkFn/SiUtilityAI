@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://storage.googleapis.com/unofficial-keen-schemas/latest/medieval-modded.xsd">
+    <Definition xsi:type="MyObjectBuilder_ControlCategoryDefinition">
+        <Id Type="MyObjectBuilder_ControlCategoryDefinition" Subtype="SiUtilityAICategory" />
+        <DisplayName>Si Utility AI</DisplayName>
+        <Description>Bindings for Si Utility AI commands.</Description>
+        <Icon>Textures/GUI/Icons/Controls/RemoteRope.png</Icon>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_ControlDefinition">
+        <Id Type="MyObjectBuilder_ControlDefinition" Subtype="SiUtilityCommandMenu" />
+        <DisplayName>Open Si Utility AI Command Menu</DisplayName>
+        <Description>Opens the Si Utility AI command menu.</Description>
+        <Category>SiUtilityAICategory</Category>
+        <Primary Key="J" />
+    </Definition>
+</Definitions>

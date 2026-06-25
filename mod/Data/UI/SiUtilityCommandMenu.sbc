@@ -1,0 +1,121 @@
+<?xml version="1.0"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://storage.googleapis.com/unofficial-keen-schemas/latest/medieval-modded.xsd">
+    <Definition xsi:type="MyObjectBuilder_ContextMenuDefinition">
+        <Id Type="MyObjectBuilder_ContextMenu" Subtype="SiUtilityCommandMenu" />
+        <StyleName>ContextMenuDefault</StyleName>
+        <Position x="0.35" y="0.32" />
+        <MainController Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuRoot" />
+        <ContextType>MyObjectBuilder_SiUtilityCommandMenuContext</ContextType>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+        <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuRoot" />
+        <Title>Si Utility AI Command Menu</Title>
+        <Width>800</Width>
+        <AutoCommit>true</AutoCommit>
+        <Embedded>
+            <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityCommandMenuRootButtons" />
+        </Embedded>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
+        <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityCommandMenuRootButtons" />
+        <Columns>5</Columns>
+        <Rows>1</Rows>
+        <ButtonStyleId>ButtonListWide</ButtonStyleId>
+        <Buttons>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Info</Text>
+                <Tooltip>Show information for commanded utility AI units.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandRootInfo" />
+            </Button>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Stop</Text>
+                <Tooltip>Stop commanded utility AI units.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandRootStop" />
+            </Button>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Follow</Text>
+                <Tooltip>Order utility AI units to follow.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandRootFollow" />
+            </Button>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Form</Text>
+                <Tooltip>Choose a utility AI formation.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_AddController">
+                    <Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuFormation" />
+                </Action>
+            </Button>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Settings</Text>
+                <Tooltip>Open utility AI command settings.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_AddController">
+                    <Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuSettings" />
+                </Action>
+            </Button>
+        </Buttons>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+        <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuFormation" />
+        <Title>Si Utility AI Formation</Title>
+        <Width>800</Width>
+        <AutoCommit>true</AutoCommit>
+        <Embedded>
+            <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityCommandMenuFormationButtons" />
+        </Embedded>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
+        <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityCommandMenuFormationButtons" />
+        <Columns>4</Columns>
+        <Rows>1</Rows>
+        <ButtonStyleId>ButtonListWide</ButtonStyleId>
+        <Buttons>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Column</Text>
+                <Tooltip>Queue utility AI units one after another with a wider gap.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandFormationColumn" />
+            </Button>
+            <Button StyleName="ContextButtonSliced">
+                <Text>File</Text>
+                <Tooltip>Queue utility AI units one after another with a tighter gap.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandFormationFile" />
+            </Button>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Line</Text>
+                <Tooltip>Arrange utility AI units in a line.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandFormationLine" />
+            </Button>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Vee</Text>
+                <Tooltip>Arrange utility AI units in a vee formation.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandFormationVee" />
+            </Button>
+        </Buttons>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+        <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuSettings" />
+        <Title>Si Utility AI Settings</Title>
+        <Width>800</Width>
+        <AutoCommit>true</AutoCommit>
+        <Embedded>
+            <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityCommandMenuSettingsButtons" />
+        </Embedded>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
+        <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityCommandMenuSettingsButtons" />
+        <Columns>1</Columns>
+        <Rows>1</Rows>
+        <ButtonStyleId>ButtonListWide</ButtonStyleId>
+        <Buttons>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Toggle UI</Text>
+                <Tooltip>Show or hide utility AI command markers.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandSettingsToggleUi" />
+            </Button>
+        </Buttons>
+    </Definition>
+</Definitions>
