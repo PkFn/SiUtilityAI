@@ -433,14 +433,14 @@ namespace Si.UtilityAI
             if (squad.Letter != null)
             {
                 builder.Append(squad.Letter.CallSign);
-                builder.Append(' ');
+                builder.Append('\n');
             }
 
             var rank = member.Rank?.ShortName;
             if (!string.IsNullOrWhiteSpace(rank))
             {
                 builder.Append(rank);
-                builder.Append(' ');
+                builder.Append('\n');
             }
 
             builder.Append(member.Name);
@@ -557,7 +557,7 @@ namespace Si.UtilityAI
             var name = !string.IsNullOrWhiteSpace(assignment?.Archetype)
                 ? assignment.Archetype
                 : npc?.Archetype;
-            return name + " " + npc.EntityId;
+            return name;
         }
     }
 
