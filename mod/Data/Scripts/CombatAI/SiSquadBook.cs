@@ -30,11 +30,11 @@ namespace Si.UtilityAI
             if (npc == null || player?.Identity == null)
                 return;
 
-            var leader = CreatePlayerLeader(player.Identity.Id);
-            _assignedNpcs[npc.EntityId] = new SiAssignedNpc(
-                leader,
+            AssignNpcToLeader(
+                npc,
+                CreatePlayerLeader(player.Identity.Id),
                 PlayerName(player),
-                npc.Archetype);
+                false);
         }
 
         public void ClearNpcs()
@@ -48,10 +48,61 @@ namespace Si.UtilityAI
             if (npc == null || identityId == 0)
                 return;
 
-            _assignedNpcs[npc.EntityId] = new SiAssignedNpc(
+            AssignNpcToLeader(
+                npc,
                 CreatePlayerLeader(identityId),
                 string.IsNullOrWhiteSpace(leaderName) ? "Player " + identityId : leaderName,
-                npc.Archetype);
+                false);
+        }
+
+        public void AssignNpcAsAiLeader(SiNpc npc, string leaderName, long enemyArmyId)
+        {
+            if (npc == null)
+                return;
+
+            AssignNpcToLeader(
+                npc,
+                new SiSquadLeaderKey(
+                    SiSquadLeaderKind.Ai,
+                    npc.EntityId,
+                    new SiArmyKey(SiArmyKind.Enemy, enemyArmyId)),
+                string.IsNullOrWhiteSpace(leaderName) ? NpcName(npc, null) : leaderName,
+                true);
+        }
+
+        public void AssignNpcToLeader(
+            SiNpc npc,
+            SiSquadLeaderKind leaderKind,
+            long leaderId,
+            SiArmyKind armyKind,
+            long armyId,
+            string leaderName,
+            bool isLeader)
+        {
+            if (npc == null || leaderId == 0)
+                return;
+
+            AssignNpcToLeader(
+                npc,
+                new SiSquadLeaderKey(
+                    leaderKind,
+                    leaderId,
+                    new SiArmyKey(armyKind, armyId)),
+                leaderName,
+                isLeader);
+        }
+
+        private void AssignNpcToLeader(
+            SiNpc npc,
+            SiSquadLeaderKey leader,
+            string leaderName,
+            bool isLeader)
+        {
+            _assignedNpcs[npc.EntityId] = new SiAssignedNpc(
+                leader,
+                string.IsNullOrWhiteSpace(leaderName) ? NpcName(npc, null) : leaderName,
+                npc.Archetype,
+                isLeader);
         }
 
         public bool TryGetAssignment(long npcId, out SiAssignedNpc assignment) =>
@@ -213,7 +264,7 @@ namespace Si.UtilityAI
                         SiSquadMemberKind.Npc,
                         npc.EntityId,
                         NpcName(npc, assignment),
-                        Definition.NpcRank,
+                        assignment.IsLeader ? Definition.PlayerRank : Definition.NpcRank,
                         true));
                 }
 
@@ -440,6 +491,9 @@ namespace Si.UtilityAI
                 return "House " + army.Id;
             }
 
+            if (army.Kind == SiArmyKind.Enemy)
+                return "Enemy force";
+
             return "Independent " + fallbackLeaderName;
         }
 
@@ -500,9 +554,9 @@ namespace Si.UtilityAI
 
         private static string NpcName(SiNpc npc, SiAssignedNpc assignment)
         {
-            var name = !string.IsNullOrWhiteSpace(assignment.Archetype)
+            var name = !string.IsNullOrWhiteSpace(assignment?.Archetype)
                 ? assignment.Archetype
-                : npc.Archetype;
+                : npc?.Archetype;
             return name + " " + npc.EntityId;
         }
     }
@@ -511,6 +565,7 @@ namespace Si.UtilityAI
     {
         Faction,
         Player,
+        Enemy,
     }
 
     internal struct SiArmyKey : IEquatable<SiArmyKey>
@@ -575,16 +630,18 @@ namespace Si.UtilityAI
 
     internal sealed class SiAssignedNpc
     {
-        public SiAssignedNpc(SiSquadLeaderKey leader, string leaderName, string archetype)
+        public SiAssignedNpc(SiSquadLeaderKey leader, string leaderName, string archetype, bool isLeader)
         {
             Leader = leader;
             LeaderName = leaderName;
             Archetype = archetype;
+            IsLeader = isLeader;
         }
 
         public SiSquadLeaderKey Leader { get; }
         public string LeaderName { get; }
         public string Archetype { get; }
+        public bool IsLeader { get; }
     }
 
     internal sealed class SiSquadNpcMarker

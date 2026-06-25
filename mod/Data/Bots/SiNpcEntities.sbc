@@ -7,8 +7,21 @@
     <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
   </Definition>
 
+  <Definition xsi:type="MyObjectBuilder_ContainerDefinition">
+    <Id Type="EntityBase" Subtype="SiEnemyTrooper" />
+    <Component Type="ModelComponent" Subtype="SiEnemyTrooper" />
+    <Component Type="EntityOwnershipComponent" />
+    <Component Type="SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
+    <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
+  </Definition>
+
   <Definition xsi:type="MyObjectBuilder_ModelComponentDefinition">
     <Id Type="ModelComponent" Subtype="SiTrooper" />
     <Model>Models\RifleDefenderAiming_US_Rifle.mwm</Model>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_ModelComponentDefinition">
+    <Id Type="ModelComponent" Subtype="SiEnemyTrooper" />
+    <Model>Models\RifleDefenderAiming_German_Rifle.mwm</Model>
   </Definition>
 </Definitions>

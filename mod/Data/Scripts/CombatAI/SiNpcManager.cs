@@ -16,6 +16,7 @@ namespace Si.UtilityAI
     public sealed class SiNpcManager
     {
         public const string SoldierArchetype = "trooper";
+        public const string EnemyTrooperArchetype = "enemy-trooper";
 
         private readonly Dictionary<string, Func<long, MatrixD, SiNpc>> _archetypes =
             new Dictionary<string, Func<long, MatrixD, SiNpc>>(StringComparer.OrdinalIgnoreCase);
@@ -25,6 +26,7 @@ namespace Si.UtilityAI
         public SiNpcManager()
         {
             RegisterArchetype(SoldierArchetype, (id, transform) => new SiTrooperNpc(id, transform));
+            RegisterArchetype(EnemyTrooperArchetype, (id, transform) => new SiEnemyTrooperNpc(id, transform));
         }
 
         public IReadOnlyDictionary<long, SiNpc> Npcs => _npcs;
@@ -50,6 +52,28 @@ namespace Si.UtilityAI
 
         public bool IsKnownArchetype(string name) =>
             !string.IsNullOrWhiteSpace(name) && _archetypes.ContainsKey(name);
+
+        public string KnownArchetypesText
+        {
+            get
+            {
+                var names = new List<string>(_archetypes.Keys);
+                names.Sort(StringComparer.OrdinalIgnoreCase);
+                return string.Join(", ", names);
+            }
+        }
+
+        public bool Close(long entityId)
+        {
+            SiNpc npc;
+            if (!_npcs.TryGetValue(entityId, out npc))
+                return false;
+
+            npc.Close();
+            _npcs.Remove(entityId);
+            _closedNpcIds.Remove(entityId);
+            return true;
+        }
 
         /// <summary>
         /// Assigns a world-space steering target to an NPC which supports
@@ -123,7 +147,10 @@ namespace Si.UtilityAI
             _closedNpcIds.Clear();
             foreach (var entry in _npcs)
                 if (!entry.Value.Update(elapsedMilliseconds))
+                {
+                    entry.Value.Close();
                     _closedNpcIds.Add(entry.Key);
+                }
 
             foreach (var id in _closedNpcIds)
                 _npcs.Remove(id);

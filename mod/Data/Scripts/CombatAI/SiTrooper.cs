@@ -21,4 +21,22 @@ namespace Si.UtilityAI
         public override string Archetype => SiNpcManager.SoldierArchetype;
         protected override MyDefinitionId EntityDefinition => DefinitionId;
     }
+
+    /// <summary>
+    /// A hostile test soldier using the PAX defenders German rifle model.
+    /// Combat behavior is intentionally absent until squad decision code lands.
+    /// </summary>
+    public sealed class SiEnemyTrooperNpc : SiGroundedNpc
+    {
+        private static readonly MyDefinitionId DefinitionId =
+            new MyDefinitionId(typeof(MyObjectBuilder_EntityBase), "SiEnemyTrooper");
+
+        public SiEnemyTrooperNpc(long entityId, in MatrixD transform)
+            : base(entityId, transform)
+        {
+        }
+
+        public override string Archetype => SiNpcManager.EnemyTrooperArchetype;
+        protected override MyDefinitionId EntityDefinition => DefinitionId;
+    }
 }

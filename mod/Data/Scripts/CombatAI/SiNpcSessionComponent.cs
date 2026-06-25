@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Medieval.GameSystems.Factions;
 using Sandbox.Game.GameSystems.Chat;
 using Sandbox.Game.Players;
 using Sandbox.ModAPI;
@@ -7,6 +8,7 @@ using VRage.Components;
 using VRage.Entities.Gravity;
 using VRage.Game.Components;
 using VRage.Scene;
+using VRage.Game.Entity.EntityComponents;
 using VRage.Network;
 using VRage.Session;
 using VRage.Utils;
@@ -21,8 +23,10 @@ namespace Si.UtilityAI
     public sealed class SiNpcSessionComponent : MySessionComponent, IDraw
     {
         private const string Command = "/si-npc";
+        private const string EnemyCommand = "/si-enemy";
         private const string SquadCommand = "/si-squad";
         private const double SpawnDistance = 2.5;
+        private static readonly MyStringHash HostileRelationship = MyStringHash.GetOrCompute("War");
 
         private static SiNpcSessionComponent _instance;
         private readonly Dictionary<long, SiSquadCommandState> _squadOrders =
@@ -48,7 +52,12 @@ namespace Si.UtilityAI
             _chat?.RegisterChatCommand(
                 Command,
                 HandleCommand,
-                "Manage custom Si Utility AI NPCs. /si-npc spawn [trooper] | list | clear",
+                "Manage custom Si Utility AI NPCs. /si-npc spawn [trooper|enemy-trooper] | spawn-enemy | list | clear",
+                MyChatCommandType.Server);
+            _chat?.RegisterChatCommand(
+                EnemyCommand,
+                HandleEnemyCommand,
+                "Spawn a hostile test Si Utility AI trooper. /si-enemy [spawn]",
                 MyChatCommandType.Server);
             _chat?.RegisterChatCommand(
                 SquadCommand,
@@ -247,7 +256,7 @@ namespace Si.UtilityAI
 
         private bool HandleCommand(ulong sender, string message, MyChatCommandType handledAsType)
         {
-            if (!MyAPIGateway.Session.CreativeMode && !MyAPIGateway.Session.IsAdminModeEnabled(sender))
+            if (!CanManageNpcs(sender))
                 return Respond(sender, "Enable Medieval Master to manage custom NPCs in survival.");
 
             var tokens = message.Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
@@ -260,6 +269,9 @@ namespace Si.UtilityAI
                     return SpawnFromCommand(sender, tokens.Length >= 3
                         ? tokens[2]
                         : SiNpcManager.SoldierArchetype);
+                case "spawn-enemy":
+                case "enemy":
+                    return SpawnFromCommand(sender, SiNpcManager.EnemyTrooperArchetype);
                 case "list":
                     return Respond(sender, $"Custom NPCs alive: {Npcs.Npcs.Count}.");
                 case "clear":
@@ -274,10 +286,22 @@ namespace Si.UtilityAI
             }
         }
 
+        private bool HandleEnemyCommand(ulong sender, string message, MyChatCommandType handledAsType)
+        {
+            if (!CanManageNpcs(sender))
+                return Respond(sender, "Enable Medieval Master to manage custom NPCs in survival.");
+
+            var tokens = message.Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length > 1 && !string.Equals(tokens[1], "spawn", StringComparison.OrdinalIgnoreCase))
+                return Respond(sender, $"{EnemyCommand} [spawn]");
+
+            return SpawnFromCommand(sender, SiNpcManager.EnemyTrooperArchetype);
+        }
+
         private bool SpawnFromCommand(ulong sender, string archetype)
         {
             if (!Npcs.IsKnownArchetype(archetype))
-                return Respond(sender, $"Unknown NPC archetype '{archetype}'. Available: {SiNpcManager.SoldierArchetype}.");
+                return Respond(sender, $"Unknown NPC archetype '{archetype}'. Available: {Npcs.KnownArchetypesText}.");
 
             var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(sender, 0));
             var playerPosition = player?.ControlledEntity?.Get<MyPositionComponentBase>();
@@ -289,10 +313,112 @@ namespace Si.UtilityAI
             if (!Npcs.TrySpawn(archetype, entityId, transform, out var npc))
                 return Respond(sender, $"Failed to spawn custom NPC '{archetype}'; its model or entity definition could not be loaded.");
 
-            Squads?.AssignNpcToPlayer(npc, player);
-            BroadcastSpawn(npc, player);
+            string failure;
+            if (!ConfigureSpawnedNpc(archetype, npc, player, out failure))
+            {
+                Npcs.Close(entityId);
+                return Respond(sender, failure ?? $"Failed to configure custom NPC '{archetype}'.");
+            }
+
+            BroadcastSpawn(npc);
             return Respond(sender, $"Spawned {archetype} ({entityId}).");
         }
+
+        private bool ConfigureSpawnedNpc(
+            string archetype,
+            SiNpc npc,
+            MyPlayer player,
+            out string failure)
+        {
+            failure = null;
+            if (string.Equals(archetype, SiNpcManager.EnemyTrooperArchetype, StringComparison.OrdinalIgnoreCase))
+                return ConfigureEnemyTrooper(npc, player, out failure);
+
+            Squads?.AssignNpcToPlayer(npc, player);
+            return true;
+        }
+
+        private bool ConfigureEnemyTrooper(SiNpc npc, MyPlayer player, out string failure)
+        {
+            failure = null;
+            if (npc == null || player?.Identity == null)
+            {
+                failure = "You must control a character to spawn an enemy NPC.";
+                return false;
+            }
+
+            var identity = MyIdentities.Static?.CreateIdentity(EnemyTrooperName(npc));
+            if (identity == null)
+            {
+                failure = "Failed to create a diplomatic identity for the enemy NPC.";
+                return false;
+            }
+
+            npc.SetDiplomaticIdentity(identity, true);
+            var ownership = npc.Entity?.Components.Get<MyEntityOwnershipComponent>();
+            if (ownership != null)
+                ownership.OwnerId = identity.Id;
+
+            if (!TryMarkHostileToCaller(player, identity.Id, out failure))
+                return false;
+
+            Squads?.AssignNpcAsAiLeader(npc, EnemyTrooperName(npc), EnemyArmyIdFor(player));
+            return true;
+        }
+
+        private static bool TryMarkHostileToCaller(MyPlayer player, long enemyIdentityId, out string failure)
+        {
+            failure = null;
+            var diplomacy = MyDiplomacyManager.Instance;
+            if (diplomacy == null)
+            {
+                failure = "Diplomacy manager is not available; enemy relation could not be set.";
+                return false;
+            }
+
+            try
+            {
+                var enemyParty = new MyDiplomaticParty(DiplomaticPartyType.Player, enemyIdentityId);
+                diplomacy.SetRelationshipBetweenParties(
+                    new MyDiplomaticParty(DiplomaticPartyType.Player, player.Identity.Id),
+                    enemyParty,
+                    HostileRelationship);
+
+                var faction = PlayerFaction(player.Identity.Id);
+                if (faction != null)
+                    diplomacy.SetRelationshipBetweenParties(
+                        new MyDiplomaticParty(faction),
+                        enemyParty,
+                        HostileRelationship);
+                return true;
+            }
+            catch (Exception exception)
+            {
+                failure = "Failed to mark the enemy NPC hostile: " + exception.Message;
+                return false;
+            }
+        }
+
+        private static long EnemyArmyIdFor(MyPlayer player)
+        {
+            var faction = player?.Identity != null ? PlayerFaction(player.Identity.Id) : null;
+            return faction?.FactionId ?? player?.Identity?.Id ?? 0;
+        }
+
+        private static MyFaction PlayerFaction(long identityId)
+        {
+            try
+            {
+                return MyFactionManager.GetPlayerFaction(identityId);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string EnemyTrooperName(SiNpc npc) =>
+            "Enemy trooper " + npc.EntityId;
 
         private bool HandleSquadCommand(ulong sender, string message, MyChatCommandType handledAsType)
         {
@@ -507,6 +633,9 @@ namespace Si.UtilityAI
         private static MyPlayer LocalPlayer() =>
             MyAPIGateway.Session?.Player as MyPlayer;
 
+        private static bool CanManageNpcs(ulong sender) =>
+            MyAPIGateway.Session.CreativeMode || MyAPIGateway.Session.IsAdminModeEnabled(sender);
+
         private static bool IsAuthoritative =>
             MyMultiplayerModApi.Static == null || MyMultiplayerModApi.Static.IsServer;
 
@@ -527,7 +656,7 @@ namespace Si.UtilityAI
         }
 
         private static string HelpText() =>
-            $"{Command} spawn [{SiNpcManager.SoldierArchetype}] | list | clear";
+            $"{Command} spawn [{SiNpcManager.SoldierArchetype}|{SiNpcManager.EnemyTrooperArchetype}] | spawn-enemy | list | clear";
 
         private static string SquadHelpText() =>
             $"{SquadCommand} list | members";
@@ -549,29 +678,37 @@ namespace Si.UtilityAI
             return true;
         }
 
-        private static void BroadcastSpawn(SiNpc npc, MyPlayer leader)
+        private static SiNpcSnapshot CreateSnapshot(SiNpc npc)
+        {
+            var mover = npc as ISiWaypointMover;
+            SiAssignedNpc assignment = null;
+            var hasAssignment = _instance?.Squads != null
+                                && _instance.Squads.TryGetAssignment(npc.EntityId, out assignment);
+            return new SiNpcSnapshot
+            {
+                EntityId = npc.EntityId,
+                Archetype = npc.Archetype,
+                Transform = npc.Transform,
+                HasWaypoint = mover?.HasWaypoint ?? false,
+                Waypoint = mover?.Waypoint ?? Vector3D.Zero,
+                HasSquadAssignment = hasAssignment,
+                SquadLeaderKind = hasAssignment ? (byte)assignment.Leader.Kind : (byte)0,
+                SquadLeaderId = hasAssignment ? assignment.Leader.Id : 0,
+                SquadArmyKind = hasAssignment ? (byte)assignment.Leader.Army.Kind : (byte)0,
+                SquadArmyId = hasAssignment ? assignment.Leader.Army.Id : 0,
+                IsSquadLeader = hasAssignment && assignment.IsLeader,
+                LeaderName = hasAssignment ? assignment.LeaderName : null,
+            };
+        }
+
+        private static void BroadcastSpawn(SiNpc npc)
         {
             if (MyMultiplayerModApi.Static == null)
                 return;
 
-            var transform = npc.Transform;
-            var mover = npc as ISiWaypointMover;
-            var hasWaypoint = mover?.HasWaypoint ?? false;
-            var waypoint = mover?.Waypoint ?? Vector3D.Zero;
-            var leaderIdentityId = leader?.Identity?.Id ?? 0;
-            var leaderName = PlayerName(leader);
             MyMultiplayerModApi.Static.RaiseStaticEvent(
                 x => SpawnNpcClient,
-                new SiNpcSnapshot
-                {
-                    EntityId = npc.EntityId,
-                    Archetype = npc.Archetype,
-                    Transform = transform,
-                    HasWaypoint = hasWaypoint,
-                    Waypoint = waypoint,
-                    LeaderIdentityId = leaderIdentityId,
-                    LeaderName = leaderName,
-                });
+                CreateSnapshot(npc));
         }
 
         private static void BroadcastClear()
@@ -606,11 +743,15 @@ namespace Si.UtilityAI
                 snapshot.EntityId,
                 snapshot.Transform,
                 out npc);
-            if (npc != null && snapshot.LeaderIdentityId != 0)
-                _instance?.Squads?.AssignNpcToPlayerIdentity(
+            if (npc != null && snapshot.HasSquadAssignment)
+                _instance?.Squads?.AssignNpcToLeader(
                     npc,
-                    snapshot.LeaderIdentityId,
-                    snapshot.LeaderName);
+                    (SiSquadLeaderKind)snapshot.SquadLeaderKind,
+                    snapshot.SquadLeaderId,
+                    (SiArmyKind)snapshot.SquadArmyKind,
+                    snapshot.SquadArmyId,
+                    snapshot.LeaderName,
+                    snapshot.IsSquadLeader);
             if (snapshot.HasWaypoint)
                 _instance?.Npcs?.ApplyWaypoint(snapshot.EntityId, snapshot.Waypoint);
         }
@@ -643,30 +784,10 @@ namespace Si.UtilityAI
 
             var endpoint = MyEventContext.Current.Sender;
             foreach (var npc in _instance.Npcs.Npcs.Values)
-            {
-                var transform = npc.Transform;
-                SiAssignedNpc assignment = null;
-                var hasAssignment = _instance.Squads != null
-                                    && _instance.Squads.TryGetAssignment(npc.EntityId, out assignment);
                 MyMultiplayerModApi.Static.RaiseStaticEvent(
                     x => SpawnNpcSnapshotClient,
-                    new SiNpcSnapshot
-                    {
-                        EntityId = npc.EntityId,
-                        Archetype = npc.Archetype,
-                        Transform = transform,
-                        HasWaypoint = npc is ISiWaypointMover mover && mover.HasWaypoint,
-                        Waypoint = npc is ISiWaypointMover waypointMover
-                            ? waypointMover.Waypoint
-                            : Vector3D.Zero,
-                        LeaderIdentityId = hasAssignment
-                                           && assignment.Leader.Kind == SiSquadLeaderKind.Player
-                            ? assignment.Leader.Id
-                            : 0,
-                        LeaderName = hasAssignment ? assignment.LeaderName : null,
-                    },
+                    CreateSnapshot(npc),
                     endpoint);
-            }
         }
 
         [Event, Reliable, Client]
@@ -711,7 +832,12 @@ namespace Si.UtilityAI
             public MatrixD Transform;
             public bool HasWaypoint;
             public Vector3D Waypoint;
-            public long LeaderIdentityId;
+            public bool HasSquadAssignment;
+            public byte SquadLeaderKind;
+            public long SquadLeaderId;
+            public byte SquadArmyKind;
+            public long SquadArmyId;
+            public bool IsSquadLeader;
             public string LeaderName;
         }
     }

@@ -1,4 +1,5 @@
 ﻿using System;
+using Sandbox.Game.Players;
 using Sandbox.ModAPI;
 using VRage.Session;
 using VRage.Game;
@@ -16,6 +17,7 @@ namespace Si.UtilityAI
     {
         private SiNpcManager _manager;
         private SiUtilityBrainComponent _utilityBrain;
+        private bool _deleteDiplomaticIdentityOnClose;
 
         protected SiNpc(long entityId, in MatrixD transform)
         {
@@ -24,6 +26,7 @@ namespace Si.UtilityAI
         }
 
         public long EntityId { get; }
+        public long DiplomaticIdentityId { get; private set; }
         public MatrixD Transform { get; protected set; }
         public MyEntity Entity { get; private set; }
 
@@ -96,6 +99,7 @@ namespace Si.UtilityAI
             _utilityBrain?.Unbind();
             _utilityBrain = null;
             OnClosing();
+            DeleteDiplomaticIdentity();
             Entity.Close();
             Entity = null;
         }
@@ -122,5 +126,30 @@ namespace Si.UtilityAI
 
         internal bool TryClearWaypoint() =>
             _manager?.TryClearWaypoint(EntityId) ?? false;
+
+        internal void SetDiplomaticIdentity(MyIdentity identity, bool deleteOnClose)
+        {
+            DiplomaticIdentityId = identity?.Id ?? 0;
+            _deleteDiplomaticIdentityOnClose = deleteOnClose && DiplomaticIdentityId != 0;
+        }
+
+        private void DeleteDiplomaticIdentity()
+        {
+            if (!_deleteDiplomaticIdentityOnClose || DiplomaticIdentityId == 0)
+                return;
+
+            try
+            {
+                var identity = MyIdentities.Static?.GetIdentity(DiplomaticIdentityId);
+                if (identity != null)
+                    MyIdentities.Static.DeleteIdentity(identity);
+            }
+            catch
+            {
+            }
+
+            DiplomaticIdentityId = 0;
+            _deleteDiplomaticIdentityOnClose = false;
+        }
     }
 }
