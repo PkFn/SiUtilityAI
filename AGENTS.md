@@ -14,7 +14,7 @@
 - `ref_pax_core/` is a soft-linked Steam Workshop dependency that adds many industrial blocks. Do not modify it.
 - `ref_si_core/` is a soft link to another Visual Studio project and is editable. It is the shared core for reusable code across the user's mods.
 - If a change reveals reusable code that belongs in shared infrastructure, it is acceptable to add or update code in `ref_si_core/`, following its existing structure and style.
-- `ref_pax_defenders/` is a soft-linked Steam Workshop dependency that adds static defenders.
+- `ref_pax_defenders/` is a soft-linked Steam Workshop dependency that adds static defenders. This mod developer gave a permission to re-use models from here.
 
 ## Folder Layout Rules
 
