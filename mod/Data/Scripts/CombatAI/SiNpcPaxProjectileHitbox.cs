@@ -1,8 +1,9 @@
+using Pax.Cannons;
+using Pax.Misc;
+using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
 using System.Xml.Serialization;
-using Pax.Misc;
-using Sandbox.ModAPI;
 using VRage.Components;
 using VRage.Components.Interfaces;
 using VRage.Game;
@@ -157,6 +158,13 @@ namespace Si.UtilityAI
             var amount = damage * _definition.DamageMultiplier;
             if (amount <= 0)
                 return;
+
+            var bullet = MyAPIGateway.Entities.GetEntityById(projectileId)?.Components.Get<MyPAX_CustomProjectile>();
+            if (bullet != null)
+            {
+                if (receiver.Entity.Id == bullet.GetOwnerId())
+                    return;
+            }
 
             var hitInfo = new MyHitInfo { Position = Entity.WorldMatrix.Translation };
             var damageInfo = new MyDamageInformation(amount, MyDamageType.Bullet, null, hitInfo)

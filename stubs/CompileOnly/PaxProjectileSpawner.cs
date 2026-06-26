@@ -22,4 +22,12 @@ namespace Pax.Cannons
             throw new NotSupportedException("Compile-only PAX API stub was executed. Load the real PAX core mod in game.");
         }
     }
+
+    public class MyPAX_CustomProjectile
+    {
+        public long GetOwnerId()
+        {
+            throw new NotSupportedException("Compile-only PAX API stub was executed. Load the real PAX core mod in game.");
+        }
+    }
 }
