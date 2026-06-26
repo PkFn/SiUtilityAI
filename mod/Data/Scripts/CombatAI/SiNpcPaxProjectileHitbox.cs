@@ -133,6 +133,7 @@ namespace Si.UtilityAI
             _recentProjectileSet.Clear();
         }
 
+        [FixedUpdate(false)]
         private void SyncColliderTransforms()
         {
             if (_faceEntities == null || Entity == null)
