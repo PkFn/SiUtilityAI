@@ -23,7 +23,7 @@
   <!-- Uses PAX defender projectile definitions through the PAX projectile spawner. -->
   <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
     <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Garand" />
-    <SearchRadius>60</SearchRadius>
+    <SearchRadius>200</SearchRadius>
     <BaseScore>0.85</BaseScore>
     <DistanceScore>0.15</DistanceScore>
     <DistanceExponent>1</DistanceExponent>
@@ -73,7 +73,7 @@
 
   <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
     <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_K98" />
-    <SearchRadius>60</SearchRadius>
+    <SearchRadius>200</SearchRadius>
     <BaseScore>0.85</BaseScore>
     <DistanceScore>0.15</DistanceScore>
     <DistanceExponent>1</DistanceExponent>
