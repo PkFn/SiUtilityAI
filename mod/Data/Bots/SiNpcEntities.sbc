@@ -65,7 +65,7 @@
 
   <Definition xsi:type="MyObjectBuilder_SiNpcDamageComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcDamageComponent" Subtype="SiRifleTrooperHealth" />
-    <MaximumHealth>100</MaximumHealth>
+    <MaximumHealth>50</MaximumHealth>
     <DamageMultiplier>1</DamageMultiplier>
     <ProjectileDamageMultiplier>1</ProjectileDamageMultiplier>
     <DeathRemovalMilliseconds>4500</DeathRemovalMilliseconds>
@@ -75,7 +75,7 @@
     <DeathHorizontalVelocityMultiplierPerSecond>0.65</DeathHorizontalVelocityMultiplierPerSecond>
     <DeathMaximumFallSpeed>8</DeathMaximumFallSpeed>
     <DeathPitchSpeedDegreesPerSecond>180</DeathPitchSpeedDegreesPerSecond>
-    <DeathRollSpeedDegreesPerSecond>90</DeathRollSpeedDegreesPerSecond>
+    <DeathRollSpeedDegreesPerSecond>0</DeathRollSpeedDegreesPerSecond>
     <DeathRestAngleDegrees>88</DeathRestAngleDegrees>
   </Definition>
 
