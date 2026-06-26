@@ -4,6 +4,7 @@
   <Definition xsi:type="MyObjectBuilder_SiUtilityBrainComponentDefinition">
     <Id Type="MyObjectBuilder_SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
     <DecisionIntervalMilliseconds>250</DecisionIntervalMilliseconds>
+    <StartupDelayMilliseconds>5000</StartupDelayMilliseconds>
     <SwitchScoreMargin>0.05</SwitchScoreMargin>
   </Definition>
 

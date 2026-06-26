@@ -27,6 +27,9 @@ namespace Si.UtilityAI
         [DefaultValue(250)]
         public int DecisionIntervalMilliseconds = 250;
 
+        [DefaultValue(0)]
+        public int StartupDelayMilliseconds;
+
         [DefaultValue(0.05f)]
         public float SwitchScoreMargin = 0.05f;
     }
@@ -35,6 +38,7 @@ namespace Si.UtilityAI
     public class SiUtilityBrainComponentDefinition : MyEntityComponentDefinition
     {
         public int DecisionIntervalMilliseconds { get; private set; }
+        public int StartupDelayMilliseconds { get; private set; }
         public float SwitchScoreMargin { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
@@ -42,6 +46,7 @@ namespace Si.UtilityAI
             base.Init(builder);
             var ob = (MyObjectBuilder_SiUtilityBrainComponentDefinition)builder;
             DecisionIntervalMilliseconds = Math.Max(1, ob.DecisionIntervalMilliseconds);
+            StartupDelayMilliseconds = Math.Max(0, ob.StartupDelayMilliseconds);
             SwitchScoreMargin = Math.Max(0, ob.SwitchScoreMargin);
         }
     }
@@ -108,6 +113,7 @@ namespace Si.UtilityAI
         private SiUtilityContext _context;
         private ISiUtilityBehavior _activeBehavior;
         private long _decisionCountdown;
+        private long _startupDelayCountdown;
 
         public string ActiveBehaviorName => _activeBehavior?.BehaviorName;
         public float ActiveBehaviorScore { get; private set; }
@@ -129,7 +135,10 @@ namespace Si.UtilityAI
                 _behaviors.Add(behavior);
 
             _decisionCountdown = 0;
+            _startupDelayCountdown = _definition.StartupDelayMilliseconds;
             if (!IsAuthoritative)
+                return;
+            if (_startupDelayCountdown > 0)
                 return;
 
             Decide();
@@ -140,6 +149,15 @@ namespace Si.UtilityAI
         {
             if (_context == null || !IsAuthoritative)
                 return;
+
+            if (_startupDelayCountdown > 0)
+            {
+                _startupDelayCountdown -= elapsedMilliseconds;
+                if (_startupDelayCountdown > 0)
+                    return;
+
+                elapsedMilliseconds = 0;
+            }
 
             _decisionCountdown -= elapsedMilliseconds;
             if (_decisionCountdown <= 0)
@@ -158,6 +176,7 @@ namespace Si.UtilityAI
             _context = null;
             _behaviors.Clear();
             _decisionCountdown = 0;
+            _startupDelayCountdown = 0;
         }
 
         private void Decide()
