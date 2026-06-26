@@ -305,7 +305,6 @@ namespace Si.UtilityAI
             var state = GetSquadOrder(leaderIdentityId);
             state.Mode = SiSquadOrderMode.Stopped;
             var cleared = ClearLeaderWaypoints(leaderIdentityId);
-            Respond(sender, $"Stopped {cleared} utility AI troop(s).");
         }
 
         private void FollowSquad(ulong sender, long leaderIdentityId)
@@ -315,7 +314,6 @@ namespace Si.UtilityAI
 
             string failure;
             var ordered = ApplyFollowOrder(leaderIdentityId, state, true, out failure);
-            Respond(sender, failure ?? $"Following in {FormationName(state.Formation)} formation with {ordered} troop(s).");
         }
 
         private void SetFormation(ulong sender, long leaderIdentityId, SiSquadFormation formation)
@@ -326,7 +324,6 @@ namespace Si.UtilityAI
 
             string failure;
             var ordered = ApplyFollowOrder(leaderIdentityId, state, true, out failure);
-            Respond(sender, failure ?? $"Formation set to {FormationName(formation)} for {ordered} troop(s).");
         }
 
         private bool HandleCommand(ulong sender, string message, MyChatCommandType handledAsType)
