@@ -116,15 +116,15 @@ namespace Si.UtilityAI
         private Vector3D _horizontalVelocity;
         private Vector3D _verticalVelocity;
         private Vector3D _waypoint;
+        private Vector3D? _groundPosition;
         private bool _deathMotionInitialized;
+        private Vector3D _deathPivotPosition;
         private Vector3D _deathVelocity;
         private Vector3D _deathBaseForward;
         private Vector3D _deathBaseUp;
         private Vector3D _deathFallAxis;
         private double _deathPitch;
-        private double _deathRoll;
         private double _deathPitchSpeed;
-        private double _deathRollSpeed;
         private double _deathRestAngle;
 
         protected SiGroundedNpc(long entityId, in MatrixD transform)
@@ -190,7 +190,7 @@ namespace Si.UtilityAI
 
             var controller = GetControllerDefinition();
             if (!_deathMotionInitialized)
-                InitializeDeathMotion(definition);
+                InitializeDeathMotion(damage, controller);
 
             UpdateDeathMotion(deltaSeconds, definition, controller);
         }
@@ -198,10 +198,11 @@ namespace Si.UtilityAI
         protected override void OnClosing()
         {
             base.OnClosing();
+            _groundPosition = null;
             _deathMotionInitialized = false;
+            _deathPivotPosition = Vector3D.Zero;
             _deathVelocity = Vector3D.Zero;
             _deathPitch = 0;
-            _deathRoll = 0;
         }
 
         private void UpdateLocomotion(double deltaSeconds)
@@ -248,11 +249,13 @@ namespace Si.UtilityAI
                 _verticalVelocity = Vector3D.Zero;
                 IsGrounded = true;
                 GroundEntityId = hit.HitEntity?.EntityId;
+                _groundPosition = hit.Position;
             }
             else
             {
                 IsGrounded = false;
                 GroundEntityId = null;
+                _groundPosition = null;
             }
 
             var facing = CalculateFacing(world, up, desiredVelocity, definition);
@@ -334,35 +337,38 @@ namespace Si.UtilityAI
             return false;
         }
 
-        private void InitializeDeathMotion(SiNpcDamageComponentDefinition definition)
+        private void InitializeDeathMotion(
+            SiNpcDamageComponent damage,
+            SiGroundedNpcControllerComponentDefinition controllerDefinition)
         {
+            var definition = damage.Definition;
             var world = Entity.WorldMatrix;
             var gravity = (Vector3D)MyGravityProviderSystem.CalculateTotalGravityInPoint(world.Translation);
             var up = gravity.LengthSquared() > MinimumDirectionLengthSquared
                 ? -Vector3D.Normalize(gravity)
                 : NormalizedOrFallback(world.Up, Vector3D.Up);
+            var pivotPosition = FindCurrentBottomPosition(world.Translation, up, controllerDefinition);
             var forward = NormalizedOrFallback(
                 Vector3D.Reject(world.Forward, up),
                 Vector3D.CalculatePerpendicularVector(up));
+            var fallDirection = CalculateDeathFallDirection(
+                pivotPosition,
+                up,
+                forward,
+                damage.KillingHitPosition);
             var fallAxis = NormalizedOrFallback(
-                Vector3D.Reject(world.Right, up),
+                Vector3D.Cross(up, fallDirection),
                 Vector3D.CalculatePerpendicularVector(up));
 
-            if ((EntityId & 1L) == 0)
-                fallAxis = -fallAxis;
-
+            _deathPivotPosition = pivotPosition;
             _deathBaseForward = forward;
             _deathBaseUp = up;
             _deathFallAxis = fallAxis;
             _deathVelocity = Vector3D.Reject(Velocity, up)
-                             + fallAxis * definition.DeathInitialHorizontalSpeed
+                             + fallDirection * definition.DeathInitialHorizontalSpeed
                              - up * definition.DeathInitialDownwardSpeed;
             _deathPitch = 0;
-            _deathRoll = 0;
             _deathPitchSpeed = MathHelper.ToRadians((float)definition.DeathPitchSpeedDegreesPerSecond);
-            _deathRollSpeed = MathHelper.ToRadians((float)definition.DeathRollSpeedDegreesPerSecond);
-            if (((EntityId >> 1) & 1L) == 0)
-                _deathRollSpeed = -_deathRollSpeed;
             _deathRestAngle = MathHelper.ToRadians((float)definition.DeathRestAngleDegrees);
             _deathMotionInitialized = true;
         }
@@ -372,9 +378,7 @@ namespace Si.UtilityAI
             SiNpcDamageComponentDefinition deathDefinition,
             SiGroundedNpcControllerComponentDefinition controllerDefinition)
         {
-            var world = Entity.WorldMatrix;
-            var position = world.Translation;
-            var gravity = (Vector3D)MyGravityProviderSystem.CalculateTotalGravityInPoint(position);
+            var gravity = (Vector3D)MyGravityProviderSystem.CalculateTotalGravityInPoint(_deathPivotPosition);
             var up = gravity.LengthSquared() > MinimumDirectionLengthSquared
                 ? -Vector3D.Normalize(gravity)
                 : _deathBaseUp;
@@ -393,18 +397,18 @@ namespace Si.UtilityAI
 
             _deathVelocity = horizontalVelocity + verticalVelocity;
 
-            var desiredPosition = position + _deathVelocity * deltaSeconds;
+            var desiredPivotPosition = _deathPivotPosition + _deathVelocity * deltaSeconds;
             IHitInfo groundHit;
-            if (TryFindGround(position, desiredPosition, up, controllerDefinition, out groundHit))
+            if (TryFindGround(_deathPivotPosition, desiredPivotPosition, up, controllerDefinition, out groundHit))
             {
-                desiredPosition = groundHit.Position + up * controllerDefinition.GroundOffset;
+                desiredPivotPosition = groundHit.Position;
                 var downwardSpeed = Vector3D.Dot(_deathVelocity, -up);
                 if (downwardSpeed > 0)
                     _deathVelocity += up * downwardSpeed;
             }
 
+            _deathPivotPosition = desiredPivotPosition;
             _deathPitch = Math.Min(_deathRestAngle, _deathPitch + _deathPitchSpeed * deltaSeconds);
-            _deathRoll += _deathRollSpeed * deltaSeconds;
 
             var forward = _deathBaseForward;
             var modelUp = _deathBaseUp;
@@ -418,14 +422,39 @@ namespace Si.UtilityAI
             forward = NormalizedOrFallback(forward, _deathBaseForward);
             modelUp = NormalizePerpendicular(modelUp, forward);
 
-            if (Math.Abs(_deathRoll) > 1e-6)
+            var desiredPosition = _deathPivotPosition + modelUp * controllerDefinition.GroundOffset;
+            Entity.WorldMatrix = MatrixD.CreateWorld(desiredPosition, forward, modelUp);
+        }
+
+        private Vector3D FindCurrentBottomPosition(
+            in Vector3D position,
+            in Vector3D up,
+            SiGroundedNpcControllerComponentDefinition definition)
+        {
+            IHitInfo hit;
+            if (TryFindGround(position, position, up, definition, out hit))
+                return hit.Position;
+            if (IsGrounded && _groundPosition.HasValue)
+                return _groundPosition.Value;
+            return position - up * definition.GroundOffset;
+        }
+
+        private static Vector3D CalculateDeathFallDirection(
+            in Vector3D pivotPosition,
+            in Vector3D up,
+            in Vector3D forward,
+            Vector3D? hitPosition)
+        {
+            if (hitPosition.HasValue)
             {
-                var rollMatrix = MatrixD.CreateFromAxisAngle(forward, _deathRoll);
-                modelUp = Vector3D.TransformNormal(modelUp, rollMatrix);
-                modelUp = NormalizePerpendicular(modelUp, forward);
+                var awayFromHit = Vector3D.Reject(pivotPosition - hitPosition.Value, up);
+                if (awayFromHit.LengthSquared() > MinimumDirectionLengthSquared)
+                    return awayFromHit / Math.Sqrt(awayFromHit.LengthSquared());
             }
 
-            Entity.WorldMatrix = MatrixD.CreateWorld(desiredPosition, forward, modelUp);
+            return NormalizedOrFallback(
+                Vector3D.Reject(-forward, up),
+                Vector3D.CalculatePerpendicularVector(up));
         }
 
         private Vector3D CalculateFacing(

@@ -93,7 +93,6 @@ namespace Si.UtilityAI
         public double DeathHorizontalVelocityMultiplierPerSecond;
         public double DeathMaximumFallSpeed;
         public double DeathPitchSpeedDegreesPerSecond;
-        public double DeathRollSpeedDegreesPerSecond;
         public double DeathRestAngleDegrees;
     }
 
@@ -110,7 +109,6 @@ namespace Si.UtilityAI
         public double DeathHorizontalVelocityMultiplierPerSecond { get; private set; }
         public double DeathMaximumFallSpeed { get; private set; }
         public double DeathPitchSpeedDegreesPerSecond { get; private set; }
-        public double DeathRollSpeedDegreesPerSecond { get; private set; }
         public double DeathRestAngleDegrees { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
@@ -129,7 +127,6 @@ namespace Si.UtilityAI
                 ob.DeathHorizontalVelocityMultiplierPerSecond);
             DeathMaximumFallSpeed = Math.Max(0, ob.DeathMaximumFallSpeed);
             DeathPitchSpeedDegreesPerSecond = Math.Max(0, ob.DeathPitchSpeedDegreesPerSecond);
-            DeathRollSpeedDegreesPerSecond = Math.Max(0, ob.DeathRollSpeedDegreesPerSecond);
             DeathRestAngleDegrees = Math.Max(0, ob.DeathRestAngleDegrees);
         }
     }
@@ -141,6 +138,7 @@ namespace Si.UtilityAI
         public SiNpcDamageComponentDefinition Definition { get; private set; }
         public float Health { get; private set; }
         public long DeadElapsedMilliseconds { get; private set; }
+        public Vector3D? KillingHitPosition { get; private set; }
 
         public override bool IsSerialized => false;
         public bool IsDead => Definition != null && Health <= 0;
@@ -154,6 +152,7 @@ namespace Si.UtilityAI
             Definition = (SiNpcDamageComponentDefinition)definition;
             Health = Definition.MaximumHealth;
             DeadElapsedMilliseconds = 0;
+            KillingHitPosition = null;
         }
 
         public bool DoDamage(MyDamageInformation damageInformation)
@@ -174,7 +173,10 @@ namespace Si.UtilityAI
 
             Health = Math.Max(0, Health - damage);
             if (Health <= 0)
+            {
                 DeadElapsedMilliseconds = 0;
+                KillingHitPosition = TryGetHitPosition(damageInformation);
+            }
             return true;
         }
 
@@ -193,6 +195,12 @@ namespace Si.UtilityAI
             if (IsProjectileDamage(damageInformation.Type))
                 multiplier *= Definition.ProjectileDamageMultiplier;
             return amount * multiplier;
+        }
+
+        private static Vector3D? TryGetHitPosition(MyDamageInformation damageInformation)
+        {
+            var hitInfo = damageInformation.HitInfo;
+            return hitInfo.HasValue ? hitInfo.Value.Position : (Vector3D?)null;
         }
 
         private static bool IsProjectileDamage(MyStringHash damageType) =>

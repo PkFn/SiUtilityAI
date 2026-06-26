@@ -75,7 +75,6 @@
     <DeathHorizontalVelocityMultiplierPerSecond>0.65</DeathHorizontalVelocityMultiplierPerSecond>
     <DeathMaximumFallSpeed>8</DeathMaximumFallSpeed>
     <DeathPitchSpeedDegreesPerSecond>180</DeathPitchSpeedDegreesPerSecond>
-    <DeathRollSpeedDegreesPerSecond>0</DeathRollSpeedDegreesPerSecond>
     <DeathRestAngleDegrees>88</DeathRestAngleDegrees>
   </Definition>
 
