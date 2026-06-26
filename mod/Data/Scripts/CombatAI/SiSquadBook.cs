@@ -108,6 +108,34 @@ namespace Si.UtilityAI
         public bool TryGetAssignment(long npcId, out SiAssignedNpc assignment) =>
             _assignedNpcs.TryGetValue(npcId, out assignment);
 
+        public static SiArmyKey ArmyForPlayerIdentity(long identityId) =>
+            ArmyForIdentity(identityId);
+
+        public static bool TryCreateDiplomaticParty(SiArmyKey army, out MyDiplomaticParty party)
+        {
+            party = default(MyDiplomaticParty);
+            if (army.Kind == SiArmyKind.Player)
+            {
+                if (army.Id == 0)
+                    return false;
+
+                party = new MyDiplomaticParty(DiplomaticPartyType.Player, army.Id);
+                return true;
+            }
+
+            if (army.Kind == SiArmyKind.Faction)
+            {
+                var faction = FactionById(army.Id);
+                if (faction == null)
+                    return false;
+
+                party = new MyDiplomaticParty(faction);
+                return true;
+            }
+
+            return false;
+        }
+
         public List<SiNpc> GetLeaderNpcs(SiNpcManager npcManager, long leaderIdentityId)
         {
             var result = new List<SiNpc>();

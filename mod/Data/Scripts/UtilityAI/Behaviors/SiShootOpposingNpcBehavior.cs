@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Xml.Serialization;
+using Medieval.GameSystems.Factions;
 using Pax.Cannons;
+using Sandbox.Game.Players;
 using Sandbox.ModAPI;
 using VRage.Components;
 using VRage.Game;
@@ -176,7 +178,7 @@ namespace Si.UtilityAI
     }
 
     /// <summary>
-    /// Scores opposing NPCs and fires PAX defender rifle projectiles at the
+    /// Scores opposing NPCs and players and fires PAX defender rifle projectiles at the
     /// selected target.  Weapon tuning is supplied by the attached definition.
     /// </summary>
     [MyComponent(typeof(MyObjectBuilder_SiShootOpposingNpcBehavior))]
@@ -184,9 +186,10 @@ namespace Si.UtilityAI
     [StaticEventOwner]
     public class SiShootOpposingNpcBehaviorComponent : MyEntityComponent, ISiUtilityBehavior
     {
+        private static readonly MyStringHash HostileRelationship = MyStringHash.GetOrCompute("War");
         private readonly List<PendingShotSound> _pendingShotSounds = new List<PendingShotSound>();
         private SiShootOpposingNpcBehaviorDefinition _definition;
-        private SiNpc _target;
+        private ShootTarget _target;
         private long _fireCooldown;
         private long _lastEngageSpeechTime = -1;
         private long _lastSpotSpeechTime = -1;
@@ -240,7 +243,10 @@ namespace Si.UtilityAI
 
         void ISiUtilityBehavior.Tick(SiUtilityContext context, long elapsedMilliseconds)
         {
-            if (!CanShoot || !IsValidTarget(context.Agent, _target))
+            var session = SiNpcSessionComponent.Instance;
+            if (!CanShoot
+                || session?.GetEngagementStance(context.Agent) == SiSquadEngagementStance.HoldFire
+                || !IsValidTarget(context.Agent, _target))
                 return;
 
             var targetEntity = _target.Entity;
@@ -277,7 +283,7 @@ namespace Si.UtilityAI
             _pendingShotSounds.Clear();
         }
 
-        private void TryReportSpotting(SiUtilityContext context, SiNpc target, double distance)
+        private void TryReportSpotting(SiUtilityContext context, ShootTarget target, double distance)
         {
             if (target == null)
                 return;
@@ -294,7 +300,7 @@ namespace Si.UtilityAI
                 _lastSpottedTargetId = target.EntityId;
         }
 
-        private string CreateSpottingReport(SiUtilityContext context, SiNpc target, double distance)
+        private string CreateSpottingReport(SiUtilityContext context, ShootTarget target, double distance)
         {
             var targetName = string.IsNullOrWhiteSpace(_definition.SpotTargetName)
                 ? "target"
@@ -313,7 +319,7 @@ namespace Si.UtilityAI
             return Math.Max(10, rounded);
         }
 
-        private static string RelativeBearing(SiUtilityContext context, SiNpc target)
+        private static string RelativeBearing(SiUtilityContext context, ShootTarget target)
         {
             var self = context?.Entity;
             var targetEntity = target?.Entity;
@@ -591,7 +597,7 @@ namespace Si.UtilityAI
             && SiPaxProjectileSpawner.IsAvailable
             && ProjectileDefinitionExists(_definition.Projectile);
 
-        private SiNpc FindBestTarget(SiUtilityContext context, out double bestDistance)
+        private ShootTarget FindBestTarget(SiUtilityContext context, out double bestDistance)
         {
             bestDistance = 0;
             var session = SiNpcSessionComponent.Instance;
@@ -599,28 +605,59 @@ namespace Si.UtilityAI
             if (manager == null)
                 return null;
 
-            SiNpc best = null;
+            var stance = session.GetEngagementStance(context.Agent);
+            if (stance == SiSquadEngagementStance.HoldFire)
+                return null;
+
+            ShootTarget best = null;
             var bestDistanceSquared = (double)_definition.SearchRadius * _definition.SearchRadius;
             foreach (var candidate in manager.Npcs.Values)
             {
-                if (!IsValidTarget(context.Agent, candidate))
+                var target = new ShootTarget(candidate);
+                if (!IsValidTarget(context.Agent, target))
                     continue;
-                if (!IsOpposing(context.Agent, candidate, session.Squads))
+                if (!IsOpposing(context.Agent, candidate, session.Squads, stance))
                     continue;
                 if (!CanTargetArchetype(candidate.Archetype))
                     continue;
 
                 var distanceSquared = Vector3D.DistanceSquared(
                     context.Position,
-                    candidate.Entity.WorldMatrix.Translation);
+                    target.Entity.WorldMatrix.Translation);
                 if (distanceSquared > bestDistanceSquared)
                     continue;
                 if (_definition.RequireLineOfSight
-                    && !HasLineOfSight(context.Entity, candidate.Entity))
+                    && !HasLineOfSight(context.Entity, target.Entity))
                     continue;
 
-                best = candidate;
+                best = target;
                 bestDistanceSquared = distanceSquared;
+            }
+
+            if (MyPlayers.Static != null)
+            {
+                foreach (var entry in MyPlayers.Static.GetAllPlayers())
+                {
+                    var player = entry.Value;
+                    var controlled = player?.ControlledEntity;
+                    var target = new ShootTarget(player, controlled);
+                    if (!IsValidTarget(context.Agent, target))
+                        continue;
+                    if (!IsOpposingPlayer(context.Agent, player, session.Squads, stance))
+                        continue;
+
+                    var distanceSquared = Vector3D.DistanceSquared(
+                        context.Position,
+                        target.Entity.WorldMatrix.Translation);
+                    if (distanceSquared > bestDistanceSquared)
+                        continue;
+                    if (_definition.RequireLineOfSight
+                        && !HasLineOfSight(context.Entity, target.Entity))
+                        continue;
+
+                    best = target;
+                    bestDistanceSquared = distanceSquared;
+                }
             }
 
             bestDistance = best != null ? Math.Sqrt(bestDistanceSquared) : 0;
@@ -629,7 +666,7 @@ namespace Si.UtilityAI
 
         private bool TryCreateShot(
             SiUtilityContext context,
-            SiNpc target,
+            ShootTarget target,
             out MatrixD projectileMatrix)
         {
             projectileMatrix = MatrixD.Identity;
@@ -655,7 +692,7 @@ namespace Si.UtilityAI
             aimPoint += targetUp * (_definition.AimExtraHeight
                                     + closeRangeOffset
                                     + distance * distance / _definition.ElevationAiming);
-            aimPoint += TargetVelocity(target) * (distance / _definition.ExpectedProjectileVelocity);
+            aimPoint += target.Velocity * (distance / _definition.ExpectedProjectileVelocity);
 
             var shotDirection = NormalizedOrFallback(aimPoint - initialMuzzle, shooterWorld.Forward);
             var muzzlePosition = shooterWorld.Translation
@@ -664,6 +701,181 @@ namespace Si.UtilityAI
             var shotUp = RejectOrFallback(shooterUp, shotDirection, Vector3D.CalculatePerpendicularVector(shotDirection));
             projectileMatrix = MatrixD.CreateWorld(muzzlePosition, shotDirection, shotUp);
             return true;
+        }
+
+        private bool IsOpposing(SiNpc self, SiNpc candidate, SiSquadBook squads, SiSquadEngagementStance stance)
+        {
+            if (stance == SiSquadEngagementStance.HoldFire)
+                return false;
+
+            SiAssignedNpc selfAssignment = null;
+            SiAssignedNpc candidateAssignment = null;
+            var hasSelfAssignment = squads != null && squads.TryGetAssignment(self.EntityId, out selfAssignment);
+            var hasCandidateAssignment = squads != null && squads.TryGetAssignment(candidate.EntityId, out candidateAssignment);
+            if (hasSelfAssignment && hasCandidateAssignment)
+            {
+                if (selfAssignment.Leader.Army.Equals(candidateAssignment.Leader.Army))
+                    return false;
+                if (stance == SiSquadEngagementStance.EnemiesNeutrals)
+                    return true;
+
+                return HasHostileRelationship(
+                    self,
+                    selfAssignment,
+                    candidate,
+                    candidateAssignment);
+            }
+
+            if (stance == SiSquadEngagementStance.Enemies)
+                return HasHostileRelationship(
+                    self,
+                    hasSelfAssignment ? selfAssignment : null,
+                    candidate,
+                    hasCandidateAssignment ? candidateAssignment : null);
+
+            return !string.Equals(self.Archetype, candidate.Archetype, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool IsOpposingPlayer(
+            SiNpc self,
+            MyPlayer player,
+            SiSquadBook squads,
+            SiSquadEngagementStance stance)
+        {
+            if (stance == SiSquadEngagementStance.HoldFire
+                || self == null
+                || player?.Identity == null)
+                return false;
+
+            SiAssignedNpc selfAssignment = null;
+            var hasSelfAssignment = squads != null && squads.TryGetAssignment(self.EntityId, out selfAssignment);
+            if (!hasSelfAssignment && self.DiplomaticIdentityId == 0)
+                return false;
+
+            var playerArmy = SiSquadBook.ArmyForPlayerIdentity(player.Identity.Id);
+            if (hasSelfAssignment && selfAssignment.Leader.Army.Equals(playerArmy))
+                return false;
+
+            return stance == SiSquadEngagementStance.EnemiesNeutrals
+                   || HasHostileRelationship(
+                       self,
+                       hasSelfAssignment ? selfAssignment : null,
+                       player);
+        }
+
+        private static bool HasHostileRelationship(
+            SiNpc self,
+            SiAssignedNpc selfAssignment,
+            SiNpc candidate,
+            SiAssignedNpc candidateAssignment)
+        {
+            MyDiplomaticParty selfParty;
+            MyDiplomaticParty candidateParty;
+            return TryCreateNpcDiplomaticParty(self, selfAssignment, out selfParty)
+                   && TryCreateNpcDiplomaticParty(candidate, candidateAssignment, out candidateParty)
+                   && HasHostileRelationship(selfParty, candidateParty);
+        }
+
+        private static bool HasHostileRelationship(
+            SiNpc self,
+            SiAssignedNpc selfAssignment,
+            MyPlayer player)
+        {
+            MyDiplomaticParty selfParty;
+            MyDiplomaticParty playerParty;
+            return TryCreateNpcDiplomaticParty(self, selfAssignment, out selfParty)
+                   && TryCreatePlayerDiplomaticParty(player, out playerParty)
+                   && HasHostileRelationship(selfParty, playerParty);
+        }
+
+        private static bool TryCreateNpcDiplomaticParty(
+            SiNpc npc,
+            SiAssignedNpc assignment,
+            out MyDiplomaticParty party)
+        {
+            party = default(MyDiplomaticParty);
+            if (npc != null && npc.DiplomaticIdentityId != 0)
+            {
+                party = new MyDiplomaticParty(DiplomaticPartyType.Player, npc.DiplomaticIdentityId);
+                return true;
+            }
+
+            return assignment != null
+                   && SiSquadBook.TryCreateDiplomaticParty(assignment.Leader.Army, out party);
+        }
+
+        private static bool TryCreatePlayerDiplomaticParty(MyPlayer player, out MyDiplomaticParty party)
+        {
+            party = default(MyDiplomaticParty);
+            if (player?.Identity == null)
+                return false;
+
+            return SiSquadBook.TryCreateDiplomaticParty(
+                SiSquadBook.ArmyForPlayerIdentity(player.Identity.Id),
+                out party);
+        }
+
+        private static bool HasHostileRelationship(
+            MyDiplomaticParty selfParty,
+            MyDiplomaticParty candidateParty)
+        {
+            var diplomacy = MyDiplomacyManager.Instance;
+            if (diplomacy == null)
+                return false;
+
+            try
+            {
+                return diplomacy.GetRelationshipBetweenParties(selfParty, candidateParty).Status == HostileRelationship
+                       || diplomacy.GetRelationshipBetweenParties(candidateParty, selfParty).Status == HostileRelationship;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private bool CanTargetArchetype(string archetype)
+        {
+            if (_definition.TargetArchetypes.Length == 0)
+                return true;
+
+            for (var i = 0; i < _definition.TargetArchetypes.Length; i++)
+                if (string.Equals(_definition.TargetArchetypes[i], archetype, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            return false;
+        }
+
+        private static bool IsValidTarget(SiNpc self, ShootTarget target)
+        {
+            if (self == null || target?.Entity == null)
+                return false;
+
+            var entity = target.Entity;
+            return entity != self.Entity
+                   && entity.EntityId != self.EntityId
+                   && entity.InScene
+                   && !entity.Closed
+                   && !entity.MarkedForClose;
+        }
+
+        private static Vector3D TargetVelocity(ShootTarget target)
+        {
+            if (target == null)
+                return Vector3D.Zero;
+            if (target.Npc != null)
+                return TargetVelocity(target.Npc);
+            return target.Entity?.Physics != null
+                ? target.Entity.Physics.LinearVelocity
+                : Vector3D.Zero;
+        }
+
+        private static Vector3D TargetVelocity(SiNpc target)
+        {
+            if (target is SiGroundedNpc grounded)
+                return grounded.Velocity;
+            return target?.Entity?.Physics != null
+                ? target.Entity.Physics.LinearVelocity
+                : Vector3D.Zero;
         }
 
         private void FaceTarget(MyEntity shooter, MyEntity target)
@@ -701,43 +913,27 @@ namespace Si.UtilityAI
                    || hit.HitEntity == shooter;
         }
 
-        private bool IsOpposing(SiNpc self, SiNpc candidate, SiSquadBook squads)
+        private sealed class ShootTarget
         {
-            if (squads != null
-                && squads.TryGetAssignment(self.EntityId, out var selfAssignment)
-                && squads.TryGetAssignment(candidate.EntityId, out var candidateAssignment))
-                return !selfAssignment.Leader.Army.Equals(candidateAssignment.Leader.Army);
+            public ShootTarget(SiNpc npc)
+            {
+                Npc = npc;
+                Entity = npc?.Entity;
+                EntityId = npc?.EntityId ?? 0;
+            }
 
-            return !string.Equals(self.Archetype, candidate.Archetype, StringComparison.OrdinalIgnoreCase);
-        }
+            public ShootTarget(MyPlayer player, MyEntity entity)
+            {
+                Player = player;
+                Entity = entity;
+                EntityId = entity?.EntityId ?? 0;
+            }
 
-        private bool CanTargetArchetype(string archetype)
-        {
-            if (_definition.TargetArchetypes.Length == 0)
-                return true;
-
-            for (var i = 0; i < _definition.TargetArchetypes.Length; i++)
-                if (string.Equals(_definition.TargetArchetypes[i], archetype, StringComparison.OrdinalIgnoreCase))
-                    return true;
-            return false;
-        }
-
-        private static bool IsValidTarget(SiNpc self, SiNpc candidate)
-        {
-            if (self == null || candidate == null || ReferenceEquals(self, candidate))
-                return false;
-
-            var entity = candidate.Entity;
-            return entity != null && entity.InScene && !entity.Closed && !entity.MarkedForClose;
-        }
-
-        private static Vector3D TargetVelocity(SiNpc target)
-        {
-            if (target is SiGroundedNpc grounded)
-                return grounded.Velocity;
-            return target?.Entity?.Physics != null
-                ? target.Entity.Physics.LinearVelocity
-                : Vector3D.Zero;
+            public SiNpc Npc { get; }
+            public MyPlayer Player { get; }
+            public MyEntity Entity { get; }
+            public long EntityId { get; }
+            public Vector3D Velocity => TargetVelocity(this);
         }
 
         private static Vector3D NormalizedOrFallback(in Vector3D value, in Vector3D fallback)

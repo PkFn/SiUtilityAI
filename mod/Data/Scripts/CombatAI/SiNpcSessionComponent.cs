@@ -160,6 +160,22 @@ namespace Si.UtilityAI
             ExecuteUtilityCommand(LocalPlayer(), command);
         }
 
+        internal SiSquadEngagementStance GetEngagementStance(SiNpc npc)
+        {
+            if (npc == null || Squads == null)
+                return SiSquadEngagementStance.Enemies;
+
+            SiAssignedNpc assignment;
+            if (!Squads.TryGetAssignment(npc.EntityId, out assignment)
+                || assignment.Leader.Kind != SiSquadLeaderKind.Player)
+                return SiSquadEngagementStance.Enemies;
+
+            SiSquadCommandState state;
+            return _squadOrders.TryGetValue(assignment.Leader.Id, out state)
+                ? state.EngagementStance
+                : SiSquadEngagementStance.Enemies;
+        }
+
         public void Draw()
         {
             if (!_showTroopMarkers || Npcs == null || Squads == null)
@@ -240,6 +256,12 @@ namespace Si.UtilityAI
                     return "Form line";
                 case SiUtilityCommandMenuCommand.FormationVee:
                     return "Form vee";
+                case SiUtilityCommandMenuCommand.EngagementEnemiesNeutrals:
+                    return "Weapons free";
+                case SiUtilityCommandMenuCommand.EngagementEnemies:
+                    return "Engage enemies";
+                case SiUtilityCommandMenuCommand.EngagementHoldFire:
+                    return "Hold fire";
                 default:
                     return null;
             }
@@ -276,6 +298,15 @@ namespace Si.UtilityAI
                 case SiUtilityCommandMenuCommand.FormationVee:
                     SetFormation(sender, leaderIdentityId, SiSquadFormation.Vee);
                     return;
+                case SiUtilityCommandMenuCommand.EngagementEnemiesNeutrals:
+                    SetEngagementStance(leaderIdentityId, SiSquadEngagementStance.EnemiesNeutrals);
+                    return;
+                case SiUtilityCommandMenuCommand.EngagementEnemies:
+                    SetEngagementStance(leaderIdentityId, SiSquadEngagementStance.Enemies);
+                    return;
+                case SiUtilityCommandMenuCommand.EngagementHoldFire:
+                    SetEngagementStance(leaderIdentityId, SiSquadEngagementStance.HoldFire);
+                    return;
                 case SiUtilityCommandMenuCommand.ToggleUi:
                     return;
                 default:
@@ -297,7 +328,7 @@ namespace Si.UtilityAI
                 Respond(sender, line);
 
             var state = GetSquadOrder(leaderIdentityId);
-            Respond(sender, $"Order: {OrderName(state.Mode)}, formation {FormationName(state.Formation)}.");
+            Respond(sender, $"Order: {OrderName(state.Mode)}, formation {FormationName(state.Formation)}, engagement {EngagementName(state.EngagementStance)}.");
         }
 
         private void StopSquad(ulong sender, long leaderIdentityId)
@@ -324,6 +355,12 @@ namespace Si.UtilityAI
 
             string failure;
             var ordered = ApplyFollowOrder(leaderIdentityId, state, true, out failure);
+        }
+
+        private void SetEngagementStance(long leaderIdentityId, SiSquadEngagementStance engagementStance)
+        {
+            var state = GetSquadOrder(leaderIdentityId);
+            state.EngagementStance = engagementStance;
         }
 
         private bool HandleCommand(ulong sender, string message, MyChatCommandType handledAsType)
@@ -702,6 +739,20 @@ namespace Si.UtilityAI
             }
         }
 
+        private static string EngagementName(SiSquadEngagementStance stance)
+        {
+            switch (stance)
+            {
+                case SiSquadEngagementStance.EnemiesNeutrals:
+                    return "Enemies and neutrals";
+                case SiSquadEngagementStance.HoldFire:
+                    return "Hold fire";
+                case SiSquadEngagementStance.Enemies:
+                default:
+                    return "Enemies only";
+            }
+        }
+
         private static MyPlayer LocalPlayer() =>
             MyAPIGateway.Session?.Player as MyPlayer;
 
@@ -770,6 +821,7 @@ namespace Si.UtilityAI
                     LeaderIdentityId = entry.Key,
                     Mode = (byte)entry.Value.Mode,
                     Formation = (byte)entry.Value.Formation,
+                    EngagementStance = (byte)entry.Value.EngagementStance,
                 });
             return saved;
         }
@@ -864,13 +916,15 @@ namespace Si.UtilityAI
                 if (saved == null
                     || saved.LeaderIdentityId == 0
                     || !Enum.IsDefined(typeof(SiSquadOrderMode), (int)saved.Mode)
-                    || !Enum.IsDefined(typeof(SiSquadFormation), (int)saved.Formation))
+                    || !Enum.IsDefined(typeof(SiSquadFormation), (int)saved.Formation)
+                    || !Enum.IsDefined(typeof(SiSquadEngagementStance), (int)saved.EngagementStance))
                     continue;
 
                 _squadOrders[saved.LeaderIdentityId] = new SiSquadCommandState
                 {
                     Mode = (SiSquadOrderMode)saved.Mode,
                     Formation = (SiSquadFormation)saved.Formation,
+                    EngagementStance = (SiSquadEngagementStance)saved.EngagementStance,
                 };
             }
         }
@@ -1211,6 +1265,9 @@ namespace Si.UtilityAI
 
             [XmlAttribute]
             public byte Formation;
+
+            [XmlAttribute]
+            public byte EngagementStance;
         }
     }
 
@@ -1228,9 +1285,17 @@ namespace Si.UtilityAI
         Vee,
     }
 
+    internal enum SiSquadEngagementStance
+    {
+        Enemies,
+        EnemiesNeutrals,
+        HoldFire,
+    }
+
     internal sealed class SiSquadCommandState
     {
         public SiSquadOrderMode Mode { get; set; }
         public SiSquadFormation Formation { get; set; }
+        public SiSquadEngagementStance EngagementStance { get; set; }
     }
 }

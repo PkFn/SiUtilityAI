@@ -86,6 +86,21 @@ namespace Si.UtilityAI
             RequestCommand(SiUtilityCommandMenuCommand.FormationVee);
         }
 
+        internal void CommandEngagementEnemiesNeutrals()
+        {
+            RequestCommand(SiUtilityCommandMenuCommand.EngagementEnemiesNeutrals);
+        }
+
+        internal void CommandEngagementEnemies()
+        {
+            RequestCommand(SiUtilityCommandMenuCommand.EngagementEnemies);
+        }
+
+        internal void CommandEngagementHoldFire()
+        {
+            RequestCommand(SiUtilityCommandMenuCommand.EngagementHoldFire);
+        }
+
         internal void CommandSettingsToggleUi()
         {
             RequestCommand(SiUtilityCommandMenuCommand.ToggleUi);
@@ -106,6 +121,9 @@ namespace Si.UtilityAI
         FormationFile,
         FormationLine,
         FormationVee,
+        EngagementEnemiesNeutrals,
+        EngagementEnemies,
+        EngagementHoldFire,
         ToggleUi,
     }
 }

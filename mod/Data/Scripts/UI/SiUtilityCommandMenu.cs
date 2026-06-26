@@ -52,6 +52,21 @@ namespace Si.UtilityAI
             _session?.CommandFormationVee();
         }
 
+        public void CommandEngagementEnemiesNeutrals()
+        {
+            _session?.CommandEngagementEnemiesNeutrals();
+        }
+
+        public void CommandEngagementEnemies()
+        {
+            _session?.CommandEngagementEnemies();
+        }
+
+        public void CommandEngagementHoldFire()
+        {
+            _session?.CommandEngagementHoldFire();
+        }
+
         public void CommandSettingsToggleUi()
         {
             _session?.CommandSettingsToggleUi();
