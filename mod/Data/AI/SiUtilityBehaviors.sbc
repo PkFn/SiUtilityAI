@@ -63,7 +63,7 @@
     <RotateToTarget>true</RotateToTarget>
     <EngageSpeech>engaging</EngageSpeech>
     <EngageSpeechCooldownMilliseconds>7000</EngageSpeechCooldownMilliseconds>
-    <SpotTargetName>soldier</SpotTargetName>
+    <SpotTargetName>enemy infantry</SpotTargetName>
     <SpotSpeechCooldownMilliseconds>15000</SpotSpeechCooldownMilliseconds>
     <TargetArchetypes>
       <Archetype>trooper</Archetype>
@@ -113,7 +113,7 @@
     <RotateToTarget>true</RotateToTarget>
     <EngageSpeech>engaging</EngageSpeech>
     <EngageSpeechCooldownMilliseconds>7000</EngageSpeechCooldownMilliseconds>
-    <SpotTargetName>soldier</SpotTargetName>
+    <SpotTargetName>enemy infantry</SpotTargetName>
     <SpotSpeechCooldownMilliseconds>15000</SpotSpeechCooldownMilliseconds>
     <TargetArchetypes>
       <Archetype>trooper</Archetype>
