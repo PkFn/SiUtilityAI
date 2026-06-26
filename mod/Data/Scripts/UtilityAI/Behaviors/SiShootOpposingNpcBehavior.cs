@@ -823,10 +823,21 @@ namespace Si.UtilityAI
             if (diplomacy == null)
                 return false;
 
+            return IsHostileRelationship(diplomacy, selfParty, candidateParty)
+                   || IsHostileRelationship(diplomacy, candidateParty, selfParty);
+        }
+
+        private static bool IsHostileRelationship(
+            MyDiplomacyManager diplomacy,
+            MyDiplomaticParty selfParty,
+            MyDiplomaticParty candidateParty)
+        {
+            if (diplomacy == null)
+                return false;
+
             try
             {
-                return diplomacy.GetRelationshipBetweenParties(selfParty, candidateParty).Status == HostileRelationship
-                       || diplomacy.GetRelationshipBetweenParties(candidateParty, selfParty).Status == HostileRelationship;
+                return diplomacy.GetRelationshipBetweenParties(selfParty, candidateParty).Status == HostileRelationship;
             }
             catch
             {
