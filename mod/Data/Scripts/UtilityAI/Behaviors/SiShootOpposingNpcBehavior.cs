@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Xml.Serialization;
 using Pax.Cannons;
 using Sandbox.ModAPI;
@@ -9,8 +10,11 @@ using VRage.Game.Definitions;
 using VRage.Game.Entity;
 using VRage.Game.ObjectBuilders.ComponentSystem;
 using VRage.ModAPI;
+using VRage.Network;
 using VRage.ObjectBuilders;
+using VRage.Utils;
 using VRageMath;
+using VRageRender;
 
 namespace Si.UtilityAI
 {
@@ -35,6 +39,21 @@ namespace Si.UtilityAI
         public float ProjectileAccuracyMultiplier;
         public float ProjectileSyncDistance;
         public float CharacterDamageMultiplier;
+
+        public SerializableDefinitionId? ShootEffect;
+        public string ShootSoundName;
+        public string ShootSoundMid;
+        public string ShootSoundMidFront;
+        public string ShootSoundFar;
+        public string ShootSoundFarFront;
+        public float ShootSoundSpeedMetersPerSecond;
+        public float ShootSoundMaxDelayMilliseconds;
+        public float ShootSoundFalloffMilliseconds;
+        public float ShootSoundDirectMaximumDelayMilliseconds;
+        public float ShootSoundFrontAngleThreshold;
+        public float ShootSoundFrontAngleBlendRange;
+        public float ShootSoundDistanceBlendStartMilliseconds;
+        public float ShootSoundDistanceBlendRangeMilliseconds;
 
         public float AimTargetHeight;
         public float AimExtraHeight;
@@ -67,6 +86,21 @@ namespace Si.UtilityAI
         public float ProjectileSyncDistance { get; private set; }
         public float CharacterDamageMultiplier { get; private set; }
 
+        public SerializableDefinitionId? ShootEffect { get; private set; }
+        public string ShootSoundName { get; private set; }
+        public string ShootSoundMid { get; private set; }
+        public string ShootSoundMidFront { get; private set; }
+        public string ShootSoundFar { get; private set; }
+        public string ShootSoundFarFront { get; private set; }
+        public float ShootSoundSpeedMetersPerSecond { get; private set; }
+        public float ShootSoundMaxDelayMilliseconds { get; private set; }
+        public float ShootSoundFalloffMilliseconds { get; private set; }
+        public float ShootSoundDirectMaximumDelayMilliseconds { get; private set; }
+        public float ShootSoundFrontAngleThreshold { get; private set; }
+        public float ShootSoundFrontAngleBlendRange { get; private set; }
+        public float ShootSoundDistanceBlendStartMilliseconds { get; private set; }
+        public float ShootSoundDistanceBlendRangeMilliseconds { get; private set; }
+
         public float AimTargetHeight { get; private set; }
         public float AimExtraHeight { get; private set; }
         public float AimCloseRangeDistance { get; private set; }
@@ -97,6 +131,21 @@ namespace Si.UtilityAI
             ProjectileSyncDistance = Math.Max(0, ob.ProjectileSyncDistance);
             CharacterDamageMultiplier = Math.Max(0, ob.CharacterDamageMultiplier);
 
+            ShootEffect = ob.ShootEffect;
+            ShootSoundName = ob.ShootSoundName;
+            ShootSoundMid = ob.ShootSoundMid;
+            ShootSoundMidFront = ob.ShootSoundMidFront;
+            ShootSoundFar = ob.ShootSoundFar;
+            ShootSoundFarFront = ob.ShootSoundFarFront;
+            ShootSoundSpeedMetersPerSecond = Math.Max(0, ob.ShootSoundSpeedMetersPerSecond);
+            ShootSoundMaxDelayMilliseconds = Math.Max(0, ob.ShootSoundMaxDelayMilliseconds);
+            ShootSoundFalloffMilliseconds = Math.Max(0, ob.ShootSoundFalloffMilliseconds);
+            ShootSoundDirectMaximumDelayMilliseconds = Math.Max(0, ob.ShootSoundDirectMaximumDelayMilliseconds);
+            ShootSoundFrontAngleThreshold = ob.ShootSoundFrontAngleThreshold;
+            ShootSoundFrontAngleBlendRange = Math.Max(0, ob.ShootSoundFrontAngleBlendRange);
+            ShootSoundDistanceBlendStartMilliseconds = Math.Max(0, ob.ShootSoundDistanceBlendStartMilliseconds);
+            ShootSoundDistanceBlendRangeMilliseconds = Math.Max(0, ob.ShootSoundDistanceBlendRangeMilliseconds);
+
             AimTargetHeight = Math.Max(0, ob.AimTargetHeight);
             AimExtraHeight = ob.AimExtraHeight;
             AimCloseRangeDistance = Math.Max(0, ob.AimCloseRangeDistance);
@@ -120,8 +169,10 @@ namespace Si.UtilityAI
     /// </summary>
     [MyComponent(typeof(MyObjectBuilder_SiShootOpposingNpcBehavior))]
     [MyDefinitionRequired(typeof(SiShootOpposingNpcBehaviorDefinition))]
+    [StaticEventOwner]
     public class SiShootOpposingNpcBehaviorComponent : MyEntityComponent, ISiUtilityBehavior
     {
+        private readonly List<PendingShotSound> _pendingShotSounds = new List<PendingShotSound>();
         private SiShootOpposingNpcBehaviorDefinition _definition;
         private SiNpc _target;
         private long _fireCooldown;
@@ -187,13 +238,218 @@ namespace Si.UtilityAI
                     _definition.ProjectileSyncDistance,
                     _definition.CharacterDamageMultiplier,
                     context.EntityId))
+            {
                 _fireCooldown = _definition.FireCooldownMilliseconds;
+                PlayShotFeedback(context.EntityId, projectileMatrix);
+            }
         }
 
         void ISiUtilityBehavior.End(SiUtilityContext context)
         {
             _target = null;
             _fireCooldown = 0;
+            _pendingShotSounds.Clear();
+        }
+
+        private void PlayShotFeedback(long entityId, MatrixD projectileMatrix)
+        {
+            PlayShotFeedbackLocal(projectileMatrix);
+            if (MyMultiplayerModApi.Static != null && MyMultiplayerModApi.Static.IsServer)
+                MyMultiplayerModApi.Static.RaiseStaticEvent(
+                    x => PlayShotFeedbackClient,
+                    entityId,
+                    projectileMatrix);
+        }
+
+        [Event, Reliable, Broadcast]
+        private static void PlayShotFeedbackClient(long entityId, MatrixD projectileMatrix)
+        {
+            if (MyMultiplayerModApi.Static != null && MyMultiplayerModApi.Static.IsServer)
+                return;
+
+            var manager = SiNpcSessionComponent.Instance?.Npcs;
+            if (manager == null)
+                return;
+            if (!manager.Npcs.TryGetValue(entityId, out var npc))
+                return;
+
+            npc.Entity?.Components
+                .Get<SiShootOpposingNpcBehaviorComponent>()
+                ?.PlayShotFeedbackLocal(projectileMatrix);
+        }
+
+        private void PlayShotFeedbackLocal(MatrixD projectileMatrix)
+        {
+            if (_definition == null)
+                return;
+
+            PlayMuzzleEffect(projectileMatrix);
+            QueueShotSound(projectileMatrix);
+        }
+
+        private void PlayMuzzleEffect(MatrixD projectileMatrix)
+        {
+            if (!_definition.ShootEffect.HasValue)
+                return;
+
+            MyEffectDefinition effectDefinition;
+            try
+            {
+                effectDefinition = MyDefinitionManager.Get<MyEffectDefinition>(_definition.ShootEffect.Value);
+            }
+            catch
+            {
+                return;
+            }
+
+            if (effectDefinition == null || effectDefinition.ParticleId == MyStringHash.NullOrEmpty)
+                return;
+
+            MyParticleEffect effect;
+            if (!MyParticlesManager.TryCreateParticleEffect(effectDefinition.ParticleId, out effect, false)
+                || effect == null)
+                return;
+
+            effect.WorldMatrix = projectileMatrix;
+            effect.UserScale *= effectDefinition.ParticleScale;
+        }
+
+        private void QueueShotSound(MatrixD projectileMatrix)
+        {
+            if (!HasAnyShootSound
+                || _definition.ShootSoundSpeedMetersPerSecond <= 0
+                || _definition.ShootSoundFalloffMilliseconds <= 0)
+                return;
+
+            var camera = MyAPIGateway.Session?.Camera;
+            if (camera == null)
+                return;
+
+            var position = projectileMatrix.Translation;
+            var toCamera = camera.WorldMatrix.Translation - position;
+            var distanceSquared = toCamera.LengthSquared();
+            var distance = distanceSquared > 0.0001 ? Math.Sqrt(distanceSquared) : 0;
+            var delayMilliseconds = (long)(distance * 1000 / _definition.ShootSoundSpeedMetersPerSecond);
+            if (_definition.ShootSoundMaxDelayMilliseconds > 0
+                && delayMilliseconds >= _definition.ShootSoundMaxDelayMilliseconds)
+                return;
+
+            var frontAngle = 0f;
+            if (distance > 0.0001)
+            {
+                var shotDirection = NormalizedOrFallback(projectileMatrix.Forward, Vector3D.Forward);
+                frontAngle = (float)Vector3D.Dot(shotDirection, toCamera / distance);
+            }
+
+            _pendingShotSounds.Add(new PendingShotSound
+            {
+                Position = position,
+                DelayMilliseconds = delayMilliseconds,
+                DueTimeMilliseconds = CurrentTimeMilliseconds() + delayMilliseconds,
+                FrontAngle = frontAngle,
+            });
+
+            if (delayMilliseconds <= 0)
+                PlayDelayedShotSound(0);
+            else
+                AddScheduledCallback(PlayDelayedShotSound, delayMilliseconds);
+        }
+
+        [Update(false)]
+        private void PlayDelayedShotSound(long elapsedMilliseconds)
+        {
+            if (_pendingShotSounds.Count == 0)
+                return;
+
+            var index = PendingShotSoundIndex();
+            var pending = _pendingShotSounds[index];
+            _pendingShotSounds.RemoveAt(index);
+
+            var distancePower = 1f - pending.DelayMilliseconds / _definition.ShootSoundFalloffMilliseconds;
+            if (distancePower > 0)
+                distancePower = distancePower * distancePower * distancePower;
+            if (distancePower <= 0)
+                return;
+
+            if (pending.DelayMilliseconds > _definition.ShootSoundDirectMaximumDelayMilliseconds
+                && HasDistanceShootSounds)
+            {
+                var angleRange = 2 * _definition.ShootSoundFrontAngleBlendRange;
+                var angleWeight = MathHelper.Clamp(
+                    (pending.FrontAngle
+                     - _definition.ShootSoundFrontAngleThreshold
+                     + _definition.ShootSoundFrontAngleBlendRange)
+                    / angleRange,
+                    0,
+                    1);
+                var distanceWeight = MathHelper.Clamp(
+                    (pending.DelayMilliseconds - _definition.ShootSoundDistanceBlendStartMilliseconds)
+                    / _definition.ShootSoundDistanceBlendRangeMilliseconds,
+                    0,
+                    1);
+
+                var closeVolume = MathHelper.Clamp(1f - distanceWeight, 0, 1);
+                var farVolume = MathHelper.Clamp(distanceWeight, 0, 1);
+                var frontVolume = MathHelper.Clamp(angleWeight, 0, 1);
+                var backVolume = MathHelper.Clamp(1f - angleWeight, 0, 1);
+
+                PlayShotSound(_definition.ShootSoundMidFront, pending.Position, distancePower * closeVolume * frontVolume);
+                PlayShotSound(_definition.ShootSoundMid, pending.Position, distancePower * closeVolume * backVolume);
+                PlayShotSound(_definition.ShootSoundFarFront, pending.Position, distancePower * farVolume * frontVolume);
+                PlayShotSound(_definition.ShootSoundFar, pending.Position, distancePower * farVolume * backVolume);
+                return;
+            }
+
+            PlayShotSound(_definition.ShootSoundName, pending.Position, distancePower);
+        }
+
+        private int PendingShotSoundIndex()
+        {
+            var bestIndex = 0;
+            var bestDueTime = _pendingShotSounds[0].DueTimeMilliseconds;
+            for (var i = 1; i < _pendingShotSounds.Count; i++)
+            {
+                var dueTime = _pendingShotSounds[i].DueTimeMilliseconds;
+                if (dueTime >= bestDueTime)
+                    continue;
+
+                bestIndex = i;
+                bestDueTime = dueTime;
+            }
+
+            return bestIndex;
+        }
+
+        private bool HasAnyShootSound =>
+            !string.IsNullOrEmpty(_definition.ShootSoundName)
+            || HasDistanceShootSounds;
+
+        private bool HasDistanceShootSounds =>
+            !string.IsNullOrEmpty(_definition.ShootSoundMid)
+            && !string.IsNullOrEmpty(_definition.ShootSoundMidFront)
+            && !string.IsNullOrEmpty(_definition.ShootSoundFar)
+            && !string.IsNullOrEmpty(_definition.ShootSoundFarFront)
+            && _definition.ShootSoundFrontAngleBlendRange > 0
+            && _definition.ShootSoundDistanceBlendRangeMilliseconds > 0;
+
+        private static void PlayShotSound(string cue, Vector3D position, float volume)
+        {
+            if (string.IsNullOrEmpty(cue) || volume <= 0)
+                return;
+
+            var audio = Sandbox.Game.World.MyAudioComponent.Instance;
+            if (audio == null)
+                return;
+
+            audio.TryPlayOneOffSound(new VRage.Audio.MyCueId(cue), position, volume, null, null);
+        }
+
+        private static long CurrentTimeMilliseconds()
+        {
+            var session = MyAPIGateway.Session;
+            return session != null
+                ? (long)session.ElapsedPlayTime.TotalMilliseconds
+                : 0;
         }
 
         private bool CanShoot =>
@@ -377,6 +633,14 @@ namespace Si.UtilityAI
             return MyDefinitionManager.TryGet(
                 new MyDefinitionId(typeof(MyObjectBuilder_EntityBase), subtype),
                 out ignored);
+        }
+
+        private struct PendingShotSound
+        {
+            public Vector3D Position;
+            public long DelayMilliseconds;
+            public long DueTimeMilliseconds;
+            public float FrontAngle;
         }
     }
 
