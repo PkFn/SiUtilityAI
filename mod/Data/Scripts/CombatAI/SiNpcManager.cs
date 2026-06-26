@@ -17,7 +17,7 @@ namespace Si.UtilityAI
     {
         public const string SoldierArchetype = "trooper";
         public const string EnemyTrooperArchetype = "enemy-trooper";
-        public const string EnemyFactionTag = "SIEN";
+        public const string EnemyFactionTag = "BARB";
 
         private readonly Dictionary<string, Func<long, MatrixD, SiNpc>> _archetypes =
             new Dictionary<string, Func<long, MatrixD, SiNpc>>(StringComparer.OrdinalIgnoreCase);

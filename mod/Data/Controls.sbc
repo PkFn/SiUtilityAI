@@ -12,6 +12,6 @@
         <DisplayName>Open Si Utility AI Command Menu</DisplayName>
         <Description>Opens the Si Utility AI command menu.</Description>
         <Category>SiUtilityAICategory</Category>
-        <Primary Key="J" />
+        <Primary Key="L" />
     </Definition>
 </Definitions>
