@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Xml.Serialization;
 using Sandbox.ModAPI;
 using VRage.Components;
@@ -110,9 +111,21 @@ namespace Si.UtilityAI
     {
         private const double MinimumDirectionLengthSquared = 0.0001;
 
+        private readonly List<IHitInfo> _raycastHits = new List<IHitInfo>();
+
         private Vector3D _horizontalVelocity;
         private Vector3D _verticalVelocity;
         private Vector3D _waypoint;
+        private bool _deathMotionInitialized;
+        private Vector3D _deathVelocity;
+        private Vector3D _deathBaseForward;
+        private Vector3D _deathBaseUp;
+        private Vector3D _deathFallAxis;
+        private double _deathPitch;
+        private double _deathRoll;
+        private double _deathPitchSpeed;
+        private double _deathRollSpeed;
+        private double _deathRestAngle;
 
         protected SiGroundedNpc(long entityId, in MatrixD transform)
             : base(entityId, transform)
@@ -157,6 +170,38 @@ namespace Si.UtilityAI
 
         protected virtual void OnWaypointReached(in Vector3D waypoint)
         {
+        }
+
+        protected override void OnKilled(SiNpcDamageComponent damage)
+        {
+            base.OnKilled(damage);
+            ClearWaypoint();
+        }
+
+        protected override void OnDeathUpdate(long elapsedMilliseconds, SiNpcDamageComponent damage)
+        {
+            var definition = damage?.Definition;
+            if (definition == null)
+                return;
+
+            var deltaSeconds = Math.Min(elapsedMilliseconds / 1000.0, 0.25);
+            if (deltaSeconds <= 0)
+                return;
+
+            var controller = GetControllerDefinition();
+            if (!_deathMotionInitialized)
+                InitializeDeathMotion(definition);
+
+            UpdateDeathMotion(deltaSeconds, definition, controller);
+        }
+
+        protected override void OnClosing()
+        {
+            base.OnClosing();
+            _deathMotionInitialized = false;
+            _deathVelocity = Vector3D.Zero;
+            _deathPitch = 0;
+            _deathRoll = 0;
         }
 
         private void UpdateLocomotion(double deltaSeconds)
@@ -249,8 +294,8 @@ namespace Si.UtilityAI
             var direction = horizontalDisplacement / Math.Sqrt(distanceSquared);
             var start = position + up * definition.ObstacleProbeHeight;
             var end = start + horizontalDisplacement + direction * definition.CollisionRadius;
-            return MyAPIGateway.Physics.CastRay(start, end, out var hit)
-                && hit.HitEntity != Entity;
+            IHitInfo hit;
+            return TryCastRayIgnoringSelf(start, end, out hit);
         }
 
         private bool TryFindGround(
@@ -262,8 +307,125 @@ namespace Si.UtilityAI
         {
             var start = horizontalPosition + up * definition.StepHeight;
             var end = desiredPosition - up * definition.GroundProbeDistance;
-            return MyAPIGateway.Physics.CastRay(start, end, out hit)
-                && hit.HitEntity != Entity;
+            return TryCastRayIgnoringSelf(start, end, out hit);
+        }
+
+        private bool TryCastRayIgnoringSelf(
+            in Vector3D start,
+            in Vector3D end,
+            out IHitInfo hit)
+        {
+            hit = null;
+            _raycastHits.Clear();
+            MyAPIGateway.Physics.CastRay(start, end, _raycastHits);
+
+            for (var i = 0; i < _raycastHits.Count; i++)
+            {
+                var candidate = _raycastHits[i];
+                if (candidate?.HitEntity == Entity)
+                    continue;
+
+                hit = candidate;
+                _raycastHits.Clear();
+                return true;
+            }
+
+            _raycastHits.Clear();
+            return false;
+        }
+
+        private void InitializeDeathMotion(SiNpcDamageComponentDefinition definition)
+        {
+            var world = Entity.WorldMatrix;
+            var gravity = (Vector3D)MyGravityProviderSystem.CalculateTotalGravityInPoint(world.Translation);
+            var up = gravity.LengthSquared() > MinimumDirectionLengthSquared
+                ? -Vector3D.Normalize(gravity)
+                : NormalizedOrFallback(world.Up, Vector3D.Up);
+            var forward = NormalizedOrFallback(
+                Vector3D.Reject(world.Forward, up),
+                Vector3D.CalculatePerpendicularVector(up));
+            var fallAxis = NormalizedOrFallback(
+                Vector3D.Reject(world.Right, up),
+                Vector3D.CalculatePerpendicularVector(up));
+
+            if ((EntityId & 1L) == 0)
+                fallAxis = -fallAxis;
+
+            _deathBaseForward = forward;
+            _deathBaseUp = up;
+            _deathFallAxis = fallAxis;
+            _deathVelocity = Vector3D.Reject(Velocity, up)
+                             + fallAxis * definition.DeathInitialHorizontalSpeed
+                             - up * definition.DeathInitialDownwardSpeed;
+            _deathPitch = 0;
+            _deathRoll = 0;
+            _deathPitchSpeed = MathHelper.ToRadians((float)definition.DeathPitchSpeedDegreesPerSecond);
+            _deathRollSpeed = MathHelper.ToRadians((float)definition.DeathRollSpeedDegreesPerSecond);
+            if (((EntityId >> 1) & 1L) == 0)
+                _deathRollSpeed = -_deathRollSpeed;
+            _deathRestAngle = MathHelper.ToRadians((float)definition.DeathRestAngleDegrees);
+            _deathMotionInitialized = true;
+        }
+
+        private void UpdateDeathMotion(
+            double deltaSeconds,
+            SiNpcDamageComponentDefinition deathDefinition,
+            SiGroundedNpcControllerComponentDefinition controllerDefinition)
+        {
+            var world = Entity.WorldMatrix;
+            var position = world.Translation;
+            var gravity = (Vector3D)MyGravityProviderSystem.CalculateTotalGravityInPoint(position);
+            var up = gravity.LengthSquared() > MinimumDirectionLengthSquared
+                ? -Vector3D.Normalize(gravity)
+                : _deathBaseUp;
+
+            var horizontalVelocity = Vector3D.Reject(_deathVelocity, up);
+            var verticalVelocity = _deathVelocity - horizontalVelocity;
+            horizontalVelocity *= Math.Pow(
+                deathDefinition.DeathHorizontalVelocityMultiplierPerSecond,
+                deltaSeconds);
+            verticalVelocity += gravity * deathDefinition.DeathGravityMultiplier * deltaSeconds;
+
+            var fallSpeed = Vector3D.Dot(verticalVelocity, -up);
+            if (deathDefinition.DeathMaximumFallSpeed > 0
+                && fallSpeed > deathDefinition.DeathMaximumFallSpeed)
+                verticalVelocity += up * (fallSpeed - deathDefinition.DeathMaximumFallSpeed);
+
+            _deathVelocity = horizontalVelocity + verticalVelocity;
+
+            var desiredPosition = position + _deathVelocity * deltaSeconds;
+            IHitInfo groundHit;
+            if (TryFindGround(position, desiredPosition, up, controllerDefinition, out groundHit))
+            {
+                desiredPosition = groundHit.Position + up * controllerDefinition.GroundOffset;
+                var downwardSpeed = Vector3D.Dot(_deathVelocity, -up);
+                if (downwardSpeed > 0)
+                    _deathVelocity += up * downwardSpeed;
+            }
+
+            _deathPitch = Math.Min(_deathRestAngle, _deathPitch + _deathPitchSpeed * deltaSeconds);
+            _deathRoll += _deathRollSpeed * deltaSeconds;
+
+            var forward = _deathBaseForward;
+            var modelUp = _deathBaseUp;
+            if (Math.Abs(_deathPitch) > 1e-6)
+            {
+                var pitchMatrix = MatrixD.CreateFromAxisAngle(_deathFallAxis, _deathPitch);
+                forward = Vector3D.TransformNormal(forward, pitchMatrix);
+                modelUp = Vector3D.TransformNormal(modelUp, pitchMatrix);
+            }
+
+            forward = NormalizedOrFallback(forward, _deathBaseForward);
+            modelUp = NormalizePerpendicular(modelUp, forward);
+
+            if (Math.Abs(_deathRoll) > 1e-6)
+            {
+                var rollMatrix = MatrixD.CreateFromAxisAngle(forward, _deathRoll);
+                modelUp = Vector3D.TransformNormal(modelUp, rollMatrix);
+                modelUp = NormalizePerpendicular(modelUp, forward);
+            }
+
+            Entity.WorldMatrix = MatrixD.CreateWorld(desiredPosition, forward, modelUp);
         }
 
         private Vector3D CalculateFacing(
@@ -300,6 +462,15 @@ namespace Si.UtilityAI
             return lengthSquared > MinimumDirectionLengthSquared
                 ? value / Math.Sqrt(lengthSquared)
                 : fallback;
+        }
+
+        private static Vector3D NormalizePerpendicular(
+            in Vector3D value,
+            in Vector3D direction)
+        {
+            return NormalizedOrFallback(
+                Vector3D.Reject(value, direction),
+                Vector3D.CalculatePerpendicularVector(direction));
         }
 
         private SiGroundedNpcControllerComponentDefinition GetControllerDefinition()

@@ -3,6 +3,8 @@
   <Definition xsi:type="MyObjectBuilder_ContainerDefinition" Abstract="true">
     <Id Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <Component Type="SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
+    <Component Type="SiNpcDamageComponent" Subtype="SiRifleTrooperHealth" />
+    <Component Type="PhysicsBodyComponent" Subtype="SiRifleTrooperPhysics" />
     <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
   </Definition>
 
@@ -58,6 +60,31 @@
     <Id Type="MyObjectBuilder_SiNpcArchetypeComponent" Subtype="SiEnemyTrooper_German_Rifle" />
     <Archetype>enemy-trooper</Archetype>
     <SpawnDisposition>HostileToSpawner</SpawnDisposition>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcDamageComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcDamageComponent" Subtype="SiRifleTrooperHealth" />
+    <MaximumHealth>100</MaximumHealth>
+    <DamageMultiplier>1</DamageMultiplier>
+    <ProjectileDamageMultiplier>1</ProjectileDamageMultiplier>
+    <DeathRemovalMilliseconds>4500</DeathRemovalMilliseconds>
+    <DeathInitialHorizontalSpeed>1.4</DeathInitialHorizontalSpeed>
+    <DeathInitialDownwardSpeed>0.4</DeathInitialDownwardSpeed>
+    <DeathGravityMultiplier>0.35</DeathGravityMultiplier>
+    <DeathHorizontalVelocityMultiplierPerSecond>0.65</DeathHorizontalVelocityMultiplierPerSecond>
+    <DeathMaximumFallSpeed>8</DeathMaximumFallSpeed>
+    <DeathPitchSpeedDegreesPerSecond>180</DeathPitchSpeedDegreesPerSecond>
+    <DeathRollSpeedDegreesPerSecond>90</DeathRollSpeedDegreesPerSecond>
+    <DeathRestAngleDegrees>88</DeathRestAngleDegrees>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_PhysicsBodyComponentDefinition">
+    <Id Type="PhysicsBodyComponent" Subtype="SiRifleTrooperPhysics" />
+    <CreateFromCollisionObject>true</CreateFromCollisionObject>
+    <RigidBodyFlags>RBF_KINEMATIC</RigidBodyFlags>
+    <CollisionLayer>FloatingObjectCollisionLayer</CollisionLayer>
+    <ForceActivate>true</ForceActivate>
+    <SuppressWarning>true</SuppressWarning>
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_ModelComponentDefinition">

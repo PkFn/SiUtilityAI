@@ -872,7 +872,11 @@ namespace Si.UtilityAI
                 return saved;
 
             foreach (var npc in Npcs.Npcs.Values)
+            {
+                if (npc.IsDead)
+                    continue;
                 saved.Add(CreateSavedNpc(npc));
+            }
             return saved;
         }
 

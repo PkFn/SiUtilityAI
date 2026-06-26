@@ -1,11 +1,14 @@
 using System;
 using System.Xml.Serialization;
+using Sandbox.ModAPI;
 using VRage.Components;
+using VRage.Components.Interfaces;
 using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.Definitions;
 using VRage.Game.ObjectBuilders.ComponentSystem;
 using VRage.ObjectBuilders;
+using VRage.Utils;
 using VRageMath;
 
 namespace Si.UtilityAI
@@ -68,6 +71,138 @@ namespace Si.UtilityAI
             base.Init(definition);
             Definition = (SiNpcArchetypeComponentDefinition)definition;
         }
+    }
+
+    [MyObjectBuilderDefinition]
+    [XmlSerializerAssembly("MedievalEngineers.ObjectBuilders.XmlSerializers")]
+    public class MyObjectBuilder_SiNpcDamageComponent : MyObjectBuilder_EntityComponent
+    {
+    }
+
+    [MyObjectBuilderDefinition]
+    [XmlSerializerAssembly("MedievalEngineers.ObjectBuilders.XmlSerializers")]
+    public class MyObjectBuilder_SiNpcDamageComponentDefinition : MyObjectBuilder_EntityComponentDefinition
+    {
+        public float MaximumHealth;
+        public float DamageMultiplier;
+        public float ProjectileDamageMultiplier;
+        public long DeathRemovalMilliseconds;
+        public double DeathInitialHorizontalSpeed;
+        public double DeathInitialDownwardSpeed;
+        public double DeathGravityMultiplier;
+        public double DeathHorizontalVelocityMultiplierPerSecond;
+        public double DeathMaximumFallSpeed;
+        public double DeathPitchSpeedDegreesPerSecond;
+        public double DeathRollSpeedDegreesPerSecond;
+        public double DeathRestAngleDegrees;
+    }
+
+    [MyDefinitionType(typeof(MyObjectBuilder_SiNpcDamageComponentDefinition))]
+    public class SiNpcDamageComponentDefinition : MyEntityComponentDefinition
+    {
+        public float MaximumHealth { get; private set; }
+        public float DamageMultiplier { get; private set; }
+        public float ProjectileDamageMultiplier { get; private set; }
+        public long DeathRemovalMilliseconds { get; private set; }
+        public double DeathInitialHorizontalSpeed { get; private set; }
+        public double DeathInitialDownwardSpeed { get; private set; }
+        public double DeathGravityMultiplier { get; private set; }
+        public double DeathHorizontalVelocityMultiplierPerSecond { get; private set; }
+        public double DeathMaximumFallSpeed { get; private set; }
+        public double DeathPitchSpeedDegreesPerSecond { get; private set; }
+        public double DeathRollSpeedDegreesPerSecond { get; private set; }
+        public double DeathRestAngleDegrees { get; private set; }
+
+        protected override void Init(MyObjectBuilder_DefinitionBase builder)
+        {
+            base.Init(builder);
+            var ob = (MyObjectBuilder_SiNpcDamageComponentDefinition)builder;
+            MaximumHealth = Math.Max(0, ob.MaximumHealth);
+            DamageMultiplier = Math.Max(0, ob.DamageMultiplier);
+            ProjectileDamageMultiplier = Math.Max(0, ob.ProjectileDamageMultiplier);
+            DeathRemovalMilliseconds = Math.Max(0, ob.DeathRemovalMilliseconds);
+            DeathInitialHorizontalSpeed = Math.Max(0, ob.DeathInitialHorizontalSpeed);
+            DeathInitialDownwardSpeed = Math.Max(0, ob.DeathInitialDownwardSpeed);
+            DeathGravityMultiplier = Math.Max(0, ob.DeathGravityMultiplier);
+            DeathHorizontalVelocityMultiplierPerSecond = Math.Max(
+                0,
+                ob.DeathHorizontalVelocityMultiplierPerSecond);
+            DeathMaximumFallSpeed = Math.Max(0, ob.DeathMaximumFallSpeed);
+            DeathPitchSpeedDegreesPerSecond = Math.Max(0, ob.DeathPitchSpeedDegreesPerSecond);
+            DeathRollSpeedDegreesPerSecond = Math.Max(0, ob.DeathRollSpeedDegreesPerSecond);
+            DeathRestAngleDegrees = Math.Max(0, ob.DeathRestAngleDegrees);
+        }
+    }
+
+    [MyComponent(typeof(MyObjectBuilder_SiNpcDamageComponent))]
+    [MyDefinitionRequired(typeof(SiNpcDamageComponentDefinition))]
+    public class SiNpcDamageComponent : MyEntityComponent, IMyDamageReceiver
+    {
+        public SiNpcDamageComponentDefinition Definition { get; private set; }
+        public float Health { get; private set; }
+        public long DeadElapsedMilliseconds { get; private set; }
+
+        public override bool IsSerialized => false;
+        public bool IsDead => Definition != null && Health <= 0;
+        public bool IsRemovalDue => IsDead && DeadElapsedMilliseconds >= Definition.DeathRemovalMilliseconds;
+
+        public event DamageTakenDelegate DamageTaken;
+
+        public override void Init(MyEntityComponentDefinition definition)
+        {
+            base.Init(definition);
+            Definition = (SiNpcDamageComponentDefinition)definition;
+            Health = Definition.MaximumHealth;
+            DeadElapsedMilliseconds = 0;
+        }
+
+        public bool DoDamage(MyDamageInformation damageInformation)
+        {
+            if (Definition == null)
+                return false;
+
+            DamageTaken?.Invoke(damageInformation);
+            if (!IsAuthoritative)
+                return true;
+
+            if (IsDead)
+                return true;
+
+            var damage = EffectiveDamage(damageInformation);
+            if (damage <= 0)
+                return true;
+
+            Health = Math.Max(0, Health - damage);
+            if (Health <= 0)
+                DeadElapsedMilliseconds = 0;
+            return true;
+        }
+
+        public void AdvanceDeath(long elapsedMilliseconds)
+        {
+            if (!IsDead || elapsedMilliseconds <= 0)
+                return;
+
+            DeadElapsedMilliseconds += elapsedMilliseconds;
+        }
+
+        private float EffectiveDamage(MyDamageInformation damageInformation)
+        {
+            var amount = Math.Max(0, damageInformation.Amount);
+            var multiplier = Definition.DamageMultiplier;
+            if (IsProjectileDamage(damageInformation.Type))
+                multiplier *= Definition.ProjectileDamageMultiplier;
+            return amount * multiplier;
+        }
+
+        private static bool IsProjectileDamage(MyStringHash damageType) =>
+            damageType == MyDamageType.Bolt
+            || damageType == MyDamageType.Bullet
+            || damageType == MyDamageType.Destruction
+            || damageType == MyDamageType.Weapon;
+
+        private static bool IsAuthoritative =>
+            MyMultiplayerModApi.Static == null || MyMultiplayerModApi.Static.IsServer;
     }
 
     internal sealed class SiNpcArchetypeRecord

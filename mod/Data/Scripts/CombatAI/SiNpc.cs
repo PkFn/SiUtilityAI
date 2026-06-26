@@ -17,7 +17,9 @@ namespace Si.UtilityAI
     {
         private SiNpcManager _manager;
         private SiUtilityBrainComponent _utilityBrain;
+        private SiNpcDamageComponent _damage;
         private bool _deleteDiplomaticIdentityOnClose;
+        private bool _deathStarted;
 
         protected SiNpc(long entityId, in MatrixD transform)
         {
@@ -29,6 +31,7 @@ namespace Si.UtilityAI
         public long DiplomaticIdentityId { get; private set; }
         public MatrixD Transform { get; protected set; }
         public MyEntity Entity { get; private set; }
+        public bool IsDead => _damage?.IsDead ?? false;
 
         public abstract string Archetype { get; }
         protected abstract MyDefinitionId EntityDefinition { get; }
@@ -63,6 +66,7 @@ namespace Si.UtilityAI
 
                 Entity = entity;
                 _utilityBrain = Entity.Components.Get<SiUtilityBrainComponent>();
+                _damage = Entity.Components.Get<SiNpcDamageComponent>();
                 _utilityBrain?.Bind(this);
                 OnActivated();
                 return true;
@@ -73,6 +77,8 @@ namespace Si.UtilityAI
                     $"Failed to create {Archetype}: {exception.Message}", 5000);
                 _utilityBrain?.Unbind();
                 _utilityBrain = null;
+                _damage = null;
+                _deathStarted = false;
                 entity?.Close();
                 return false;
             }
@@ -83,8 +89,27 @@ namespace Si.UtilityAI
             if (Entity == null || Entity.Closed || Entity.MarkedForClose)
                 return false;
 
-            _utilityBrain?.UpdateDecision(elapsedMilliseconds);
-            OnUpdate(elapsedMilliseconds);
+            if (IsDead)
+            {
+                if (!_deathStarted)
+                {
+                    _deathStarted = true;
+                    _utilityBrain?.Unbind();
+                    _utilityBrain = null;
+                    OnKilled(_damage);
+                }
+
+                _damage?.AdvanceDeath(elapsedMilliseconds);
+                OnDeathUpdate(elapsedMilliseconds, _damage);
+                if (_damage?.IsRemovalDue ?? false)
+                    return false;
+            }
+            else
+            {
+                _utilityBrain?.UpdateDecision(elapsedMilliseconds);
+                OnUpdate(elapsedMilliseconds);
+            }
+
             if (Entity == null || Entity.Closed || Entity.MarkedForClose)
                 return false;
             Transform = Entity.WorldMatrix;
@@ -99,6 +124,8 @@ namespace Si.UtilityAI
             _utilityBrain?.Unbind();
             _utilityBrain = null;
             OnClosing();
+            _damage = null;
+            _deathStarted = false;
             if (deleteDiplomaticIdentity)
                 DeleteDiplomaticIdentity();
             Entity.Close();
@@ -114,6 +141,14 @@ namespace Si.UtilityAI
         }
 
         protected virtual void OnClosing()
+        {
+        }
+
+        protected virtual void OnKilled(SiNpcDamageComponent damage)
+        {
+        }
+
+        protected virtual void OnDeathUpdate(long elapsedMilliseconds, SiNpcDamageComponent damage)
         {
         }
 

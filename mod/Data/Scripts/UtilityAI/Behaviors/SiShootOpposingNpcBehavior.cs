@@ -1108,6 +1108,8 @@ namespace Si.UtilityAI
         {
             if (self == null || target?.Entity == null)
                 return false;
+            if (target.Npc?.IsDead ?? false)
+                return false;
 
             var entity = target.Entity;
             return entity != self.Entity
