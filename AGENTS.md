@@ -12,10 +12,11 @@
 ## Linked Dependencies
 
 - `ref_equi_core/` is a soft-linked Steam Workshop dependency. It extends the game API and is the preferred reference for mod folder structure and style because it was written by an actual game developer team member. Do not modify it.
+- `ref_equi_rail_core` is a soft-linked Steam Workshop dependency. It adds the rails - flexible blocks that create colliders on their own. It was written by the team member too.
 - `ref_pax_core/` is a soft-linked Steam Workshop dependency that adds many industrial blocks. Do not modify it.
 - `ref_si_core/` is a soft link to another Visual Studio project and is editable. It is the shared core for reusable code across the user's mods.
 - If a change reveals reusable code that belongs in shared infrastructure, it is acceptable to add or update code in `ref_si_core/`, following its existing structure and style.
-- `ref_pax_defenders/` is a soft-linked Steam Workshop dependency that adds static defenders. This mod developer gave a permission to re-use content from here.
+- `ref_pax_defenders/` is a soft-linked Steam Workshop dependency that adds static defenders. This mod developer gave a permission to re-use content from here. Do not modify it.
 
 ## Folder Layout Rules
 
