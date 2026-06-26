@@ -133,6 +133,16 @@ namespace Si.UtilityAI
                 return true;
             }
 
+            if (army.Kind == SiArmyKind.Enemy)
+            {
+                var faction = FactionByTag(SiNpcManager.EnemyFactionTag);
+                if (faction == null)
+                    return false;
+
+                party = new MyDiplomaticParty(faction);
+                return true;
+            }
+
             return false;
         }
 
@@ -599,6 +609,20 @@ namespace Si.UtilityAI
             }
 
             return null;
+        }
+
+        private static MyFaction FactionByTag(string tag)
+        {
+            try
+            {
+                return string.IsNullOrWhiteSpace(tag)
+                    ? null
+                    : MyFactionManager.Instance?.GetFactionByTag(tag);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static string FactionName(MyFaction faction)

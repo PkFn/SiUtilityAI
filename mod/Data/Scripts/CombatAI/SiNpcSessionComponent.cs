@@ -463,19 +463,78 @@ namespace Si.UtilityAI
                 return false;
             }
 
-            npc.SetDiplomaticIdentity(identity, true);
-            var ownership = npc.Entity?.Components.Get<MyEntityOwnershipComponent>();
-            if (ownership != null)
-                ownership.OwnerId = identity.Id;
+            SetNpcDiplomaticIdentity(npc, identity);
 
-            if (!TryMarkHostileToCaller(player, identity.Id, out failure))
+            MyFaction enemyFaction;
+            if (!TryAssignIdentityToEnemyFaction(identity.Id, out enemyFaction, out failure))
                 return false;
 
-            Squads?.AssignNpcAsAiLeader(npc, EnemyTrooperName(npc), EnemyArmyIdFor(player));
+            if (!TryMarkHostileToCaller(player, enemyFaction, out failure))
+                return false;
+
+            AssignNpcToEnemyFaction(npc, enemyFaction);
             return true;
         }
 
-        private static bool TryMarkHostileToCaller(MyPlayer player, long enemyIdentityId, out string failure)
+        private static bool TryAssignIdentityToEnemyFaction(
+            long identityId,
+            out MyFaction enemyFaction,
+            out string failure)
+        {
+            failure = null;
+            enemyFaction = EnemyFaction();
+            if (enemyFaction == null)
+            {
+                failure = "Si Utility AI enemy faction '"
+                          + SiNpcManager.EnemyFactionTag
+                          + "' is missing; check mod/Data/Factions.sbc.";
+                return false;
+            }
+
+            if (!enemyFaction.IsMember(identityId))
+            {
+                var result = enemyFaction.ApplyForFaction(identityId, true);
+                if (!enemyFaction.IsMember(identityId))
+                {
+                    failure = "Failed to assign the enemy NPC to faction '"
+                              + SiNpcManager.EnemyFactionTag
+                              + "': "
+                              + result;
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private void AssignNpcToEnemyFaction(SiNpc npc, MyFaction enemyFaction)
+        {
+            if (npc == null || enemyFaction == null)
+                return;
+
+            Squads?.AssignNpcToLeader(
+                npc,
+                SiSquadLeaderKind.Ai,
+                npc.EntityId,
+                SiArmyKind.Faction,
+                enemyFaction.FactionId,
+                EnemyTrooperName(npc),
+                true);
+        }
+
+        private static MyFaction EnemyFaction()
+        {
+            try
+            {
+                return MyFactionManager.Instance?.GetFactionByTag(SiNpcManager.EnemyFactionTag);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static bool TryMarkHostileToCaller(MyPlayer player, MyFaction enemyFaction, out string failure)
         {
             failure = null;
             var diplomacy = MyDiplomacyManager.Instance;
@@ -484,21 +543,23 @@ namespace Si.UtilityAI
                 failure = "Diplomacy manager is not available; enemy relation could not be set.";
                 return false;
             }
+            if (player?.Identity == null || enemyFaction == null)
+            {
+                failure = "Enemy faction relation could not be set.";
+                return false;
+            }
 
             try
             {
-                var enemyParty = new MyDiplomaticParty(DiplomaticPartyType.Player, enemyIdentityId);
-                diplomacy.SetRelationshipBetweenParties(
+                var enemyParty = new MyDiplomaticParty(enemyFaction);
+                SetHostileRelationship(
+                    diplomacy,
                     new MyDiplomaticParty(DiplomaticPartyType.Player, player.Identity.Id),
-                    enemyParty,
-                    HostileRelationship);
+                    enemyParty);
 
                 var faction = PlayerFaction(player.Identity.Id);
                 if (faction != null)
-                    diplomacy.SetRelationshipBetweenParties(
-                        new MyDiplomaticParty(faction),
-                        enemyParty,
-                        HostileRelationship);
+                    SetHostileRelationship(diplomacy, new MyDiplomaticParty(faction), enemyParty);
                 return true;
             }
             catch (Exception exception)
@@ -508,10 +569,13 @@ namespace Si.UtilityAI
             }
         }
 
-        private static long EnemyArmyIdFor(MyPlayer player)
+        private static void SetHostileRelationship(
+            MyDiplomacyManager diplomacy,
+            MyDiplomaticParty firstParty,
+            MyDiplomaticParty secondParty)
         {
-            var faction = player?.Identity != null ? PlayerFaction(player.Identity.Id) : null;
-            return faction?.FactionId ?? player?.Identity?.Id ?? 0;
+            diplomacy.SetRelationshipBetweenParties(firstParty, secondParty, HostileRelationship);
+            diplomacy.SetRelationshipBetweenParties(secondParty, firstParty, HostileRelationship);
         }
 
         private static MyFaction PlayerFaction(long identityId)
@@ -528,6 +592,9 @@ namespace Si.UtilityAI
 
         private static string EnemyTrooperName(SiNpc npc) =>
             "Enemy trooper " + npc.EntityId;
+
+        private static bool IsEnemyTrooperArchetype(string archetype) =>
+            string.Equals(archetype, SiNpcManager.EnemyTrooperArchetype, StringComparison.OrdinalIgnoreCase);
 
         private bool HandleSquadCommand(ulong sender, string message, MyChatCommandType handledAsType)
         {
@@ -856,7 +923,13 @@ namespace Si.UtilityAI
                 return;
 
             RestoreDiplomaticIdentity(saved, npc);
-            RestoreSquadAssignment(saved, npc);
+            if (IsEnemyTrooperArchetype(saved.Archetype))
+            {
+                if (!RestoreEnemyTrooperFaction(saved, npc))
+                    RestoreSquadAssignment(saved, npc);
+            }
+            else
+                RestoreSquadAssignment(saved, npc);
 
             if (saved.HasWaypoint)
                 Npcs.ApplyWaypoint(saved.EntityId, saved.Waypoint);
@@ -876,6 +949,42 @@ namespace Si.UtilityAI
                         ? saved.LeaderName
                         : EnemyTrooperName(npc));
             if (identity == null)
+                return;
+
+            SetNpcDiplomaticIdentity(npc, identity);
+        }
+
+        private bool RestoreEnemyTrooperFaction(
+            MyObjectBuilder_SiNpcSessionComponent.SavedNpc saved,
+            SiNpc npc)
+        {
+            if (npc == null)
+                return false;
+
+            if (npc.DiplomaticIdentityId == 0)
+            {
+                var identity = MyIdentities.Static?.CreateIdentity(
+                    !string.IsNullOrWhiteSpace(saved.LeaderName)
+                        ? saved.LeaderName
+                        : EnemyTrooperName(npc));
+                if (identity == null)
+                    return false;
+
+                SetNpcDiplomaticIdentity(npc, identity);
+            }
+
+            MyFaction enemyFaction;
+            string failure;
+            if (!TryAssignIdentityToEnemyFaction(npc.DiplomaticIdentityId, out enemyFaction, out failure))
+                return false;
+
+            AssignNpcToEnemyFaction(npc, enemyFaction);
+            return true;
+        }
+
+        private static void SetNpcDiplomaticIdentity(SiNpc npc, MyIdentity identity)
+        {
+            if (npc == null || identity == null)
                 return;
 
             npc.SetDiplomaticIdentity(identity, true);

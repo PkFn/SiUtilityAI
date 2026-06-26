@@ -794,14 +794,20 @@ namespace Si.UtilityAI
             out MyDiplomaticParty party)
         {
             party = default(MyDiplomaticParty);
+            if (assignment != null
+                && SiSquadBook.TryCreateDiplomaticParty(assignment.Leader.Army, out party))
+                return true;
+
             if (npc != null && npc.DiplomaticIdentityId != 0)
             {
-                party = new MyDiplomaticParty(DiplomaticPartyType.Player, npc.DiplomaticIdentityId);
+                var faction = PlayerFaction(npc.DiplomaticIdentityId);
+                party = faction != null
+                    ? new MyDiplomaticParty(faction)
+                    : new MyDiplomaticParty(DiplomaticPartyType.Player, npc.DiplomaticIdentityId);
                 return true;
             }
 
-            return assignment != null
-                   && SiSquadBook.TryCreateDiplomaticParty(assignment.Leader.Army, out party);
+            return false;
         }
 
         private static bool TryCreatePlayerDiplomaticParty(MyPlayer player, out MyDiplomaticParty party)
@@ -813,6 +819,18 @@ namespace Si.UtilityAI
             return SiSquadBook.TryCreateDiplomaticParty(
                 SiSquadBook.ArmyForPlayerIdentity(player.Identity.Id),
                 out party);
+        }
+
+        private static MyFaction PlayerFaction(long identityId)
+        {
+            try
+            {
+                return MyFactionManager.GetPlayerFaction(identityId);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static bool HasHostileRelationship(
