@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using Sandbox.ModAPI;
 using VRage.Game;
+using VRage.Game.Definitions;
 using VRage.Game.Entity;
 using VRage.ObjectBuilders;
 using VRage.Session;
@@ -19,15 +19,14 @@ namespace Si.UtilityAI
         public const string EnemyTrooperArchetype = "enemy-trooper";
         public const string EnemyFactionTag = "BARB";
 
-        private readonly Dictionary<string, Func<long, MatrixD, SiNpc>> _archetypes =
-            new Dictionary<string, Func<long, MatrixD, SiNpc>>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, SiNpcArchetypeRecord> _archetypes =
+            new Dictionary<string, SiNpcArchetypeRecord>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<long, SiNpc> _npcs = new Dictionary<long, SiNpc>();
         private readonly List<long> _closedNpcIds = new List<long>();
 
         public SiNpcManager()
         {
-            RegisterArchetype(SoldierArchetype, (id, transform) => new SiTrooperNpc(id, transform));
-            RegisterArchetype(EnemyTrooperArchetype, (id, transform) => new SiEnemyTrooperNpc(id, transform));
+            LoadArchetypes();
         }
 
         public IReadOnlyDictionary<long, SiNpc> Npcs => _npcs;
@@ -36,30 +35,64 @@ namespace Si.UtilityAI
         public event Action<long> WaypointCleared;
         public event Action<long, Vector3D, string> NpcSpoke;
 
-        /// <summary>
-        /// Adds an NPC kind to the manager.  Future behaviors only need a new
-        /// <see cref="SiNpc"/> implementation and one registration call.
-        /// </summary>
-        public void RegisterArchetype(string name, Func<long, MatrixD, SiNpc> factory)
+        private void LoadArchetypes()
         {
-            if (string.IsNullOrWhiteSpace(name))
-                throw new ArgumentException("An NPC archetype needs a name.", nameof(name));
-            if (factory == null)
-                throw new ArgumentNullException(nameof(factory));
-            if (_archetypes.ContainsKey(name))
-                throw new ArgumentException($"NPC archetype '{name}' is already registered.", nameof(name));
+            foreach (var container in MyDefinitionManager.GetOfType<MyContainerDefinition>())
+            {
+                if (container == null || container.Id.TypeId != typeof(MyObjectBuilder_EntityBase))
+                    continue;
 
-            _archetypes.Add(name, factory);
+                var archetypeDefinition = FindArchetypeDefinition(container);
+                if (archetypeDefinition == null)
+                    continue;
+
+                var archetype = string.IsNullOrWhiteSpace(archetypeDefinition.Archetype)
+                    ? container.Id.SubtypeName
+                    : archetypeDefinition.Archetype;
+                if (_archetypes.ContainsKey(archetype))
+                    continue;
+
+                _archetypes.Add(
+                    archetype,
+                    new SiNpcArchetypeRecord(archetype, container.Id, archetypeDefinition));
+            }
+        }
+
+        private static SiNpcArchetypeComponentDefinition FindArchetypeDefinition(MyContainerDefinition container)
+        {
+            if (container?.Components == null)
+                return null;
+
+            foreach (var component in container.Components)
+                if (component.Definition is SiNpcArchetypeComponentDefinition archetypeDefinition)
+                    return archetypeDefinition;
+            return null;
         }
 
         public bool IsKnownArchetype(string name) =>
             !string.IsNullOrWhiteSpace(name) && _archetypes.ContainsKey(name);
 
+        internal bool TryGetArchetype(string name, out SiNpcArchetypeRecord definition)
+        {
+            definition = null;
+            return !string.IsNullOrWhiteSpace(name) && _archetypes.TryGetValue(name, out definition);
+        }
+
+        internal bool IsHostileToSpawner(string archetype)
+        {
+            SiNpcArchetypeRecord definition;
+            return TryGetArchetype(archetype, out definition)
+                   && definition.SpawnDisposition == SiNpcSpawnDisposition.HostileToSpawner;
+        }
+
         public string KnownArchetypesText
         {
             get
             {
-                var names = new List<string>(_archetypes.Keys);
+                var names = new List<string>();
+                foreach (var entry in _archetypes)
+                    if (!entry.Value.HiddenFromCommands)
+                        names.Add(entry.Key);
                 names.Sort(StringComparer.OrdinalIgnoreCase);
                 return string.Join(", ", names);
             }
@@ -137,16 +170,11 @@ namespace Si.UtilityAI
         {
             if (_npcs.TryGetValue(entityId, out npc))
                 return string.Equals(npc.Archetype, archetype, StringComparison.OrdinalIgnoreCase);
-            if (!_archetypes.TryGetValue(archetype, out var factory))
+            SiNpcArchetypeRecord definition;
+            if (!_archetypes.TryGetValue(archetype, out definition))
                 return false;
 
-            npc = factory(entityId, transform);
-            if (npc == null)
-            {
-                npc = null;
-                return false;
-            }
-
+            npc = new SiDataDrivenNpc(definition, entityId, transform);
             npc.AttachManager(this);
             _npcs.Add(entityId, npc);
             if (!npc.TryActivate())

@@ -30,6 +30,8 @@ namespace Si.UtilityAI
     [XmlSerializerAssembly("MedievalEngineers.ObjectBuilders.XmlSerializers")]
     public class MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition : MyObjectBuilder_EntityComponentDefinition
     {
+        public SerializableDefinitionId? Balance;
+
         public float SearchRadius;
         public float BaseScore;
         public float DistanceScore;
@@ -75,6 +77,142 @@ namespace Si.UtilityAI
 
         [XmlArrayItem("Archetype")]
         public string[] TargetArchetypes;
+    }
+
+    [MyObjectBuilderDefinition]
+    [XmlSerializerAssembly("MedievalEngineers.ObjectBuilders.XmlSerializers")]
+    public class MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition : MyObjectBuilder_DefinitionBase
+    {
+        public float SearchRadius;
+        public float BaseScore;
+        public float DistanceScore;
+        public float DistanceExponent;
+
+        public int FireCooldownMilliseconds;
+        public string Projectile;
+        public float ProjectileVelocityMultiplier;
+        public float ProjectileAccuracyMultiplier;
+        public float ProjectileSyncDistance;
+        public float CharacterDamageMultiplier;
+
+        public SerializableDefinitionId? ShootEffect;
+        public float ShootSoundSpeedMetersPerSecond;
+        public float ShootSoundMaxDelayMilliseconds;
+        public float ShootSoundFalloffMilliseconds;
+        public float ShootSoundDirectMaximumDelayMilliseconds;
+        public float ShootSoundFrontAngleThreshold;
+        public float ShootSoundFrontAngleBlendRange;
+        public float ShootSoundDistanceBlendStartMilliseconds;
+        public float ShootSoundDistanceBlendRangeMilliseconds;
+
+        public float AimTargetHeight;
+        public float AimExtraHeight;
+        public float AimCloseRangeDistance;
+        public float AimCloseRangeHeightOffset;
+        public float ExpectedProjectileVelocity;
+        public float ElevationAiming;
+        public float MuzzleForwardOffset;
+        public float MuzzleUpOffset;
+
+        public bool RequireLineOfSight;
+        public bool RotateToTarget;
+        public string EngageSpeech;
+        public int EngageSpeechCooldownMilliseconds;
+        public string SpotTargetName;
+        public int SpotSpeechCooldownMilliseconds;
+
+        [XmlArrayItem("Archetype")]
+        public string[] TargetArchetypes;
+    }
+
+    [MyDefinitionType(typeof(MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition))]
+    public class SiShootOpposingNpcBehaviorBalanceDefinition : MyDefinitionBase
+    {
+        private static readonly string[] EmptyArchetypes = new string[0];
+
+        public float SearchRadius { get; private set; }
+        public float BaseScore { get; private set; }
+        public float DistanceScore { get; private set; }
+        public float DistanceExponent { get; private set; }
+
+        public int FireCooldownMilliseconds { get; private set; }
+        public string Projectile { get; private set; }
+        public float ProjectileVelocityMultiplier { get; private set; }
+        public float ProjectileAccuracyMultiplier { get; private set; }
+        public float ProjectileSyncDistance { get; private set; }
+        public float CharacterDamageMultiplier { get; private set; }
+
+        public SerializableDefinitionId? ShootEffect { get; private set; }
+        public float ShootSoundSpeedMetersPerSecond { get; private set; }
+        public float ShootSoundMaxDelayMilliseconds { get; private set; }
+        public float ShootSoundFalloffMilliseconds { get; private set; }
+        public float ShootSoundDirectMaximumDelayMilliseconds { get; private set; }
+        public float ShootSoundFrontAngleThreshold { get; private set; }
+        public float ShootSoundFrontAngleBlendRange { get; private set; }
+        public float ShootSoundDistanceBlendStartMilliseconds { get; private set; }
+        public float ShootSoundDistanceBlendRangeMilliseconds { get; private set; }
+
+        public float AimTargetHeight { get; private set; }
+        public float AimExtraHeight { get; private set; }
+        public float AimCloseRangeDistance { get; private set; }
+        public float AimCloseRangeHeightOffset { get; private set; }
+        public float ExpectedProjectileVelocity { get; private set; }
+        public float ElevationAiming { get; private set; }
+        public float MuzzleForwardOffset { get; private set; }
+        public float MuzzleUpOffset { get; private set; }
+
+        public bool RequireLineOfSight { get; private set; }
+        public bool RotateToTarget { get; private set; }
+        public string EngageSpeech { get; private set; }
+        public int EngageSpeechCooldownMilliseconds { get; private set; }
+        public string SpotTargetName { get; private set; }
+        public int SpotSpeechCooldownMilliseconds { get; private set; }
+        public string[] TargetArchetypes { get; private set; }
+
+        protected override void Init(MyObjectBuilder_DefinitionBase builder)
+        {
+            base.Init(builder);
+            var ob = (MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition)builder;
+
+            SearchRadius = Math.Max(0, ob.SearchRadius);
+            BaseScore = Math.Max(0, ob.BaseScore);
+            DistanceScore = Math.Max(0, ob.DistanceScore);
+            DistanceExponent = Math.Max(0.01f, ob.DistanceExponent);
+
+            FireCooldownMilliseconds = Math.Max(1, ob.FireCooldownMilliseconds);
+            Projectile = ob.Projectile;
+            ProjectileVelocityMultiplier = Math.Max(0, ob.ProjectileVelocityMultiplier);
+            ProjectileAccuracyMultiplier = Math.Max(0, ob.ProjectileAccuracyMultiplier);
+            ProjectileSyncDistance = Math.Max(0, ob.ProjectileSyncDistance);
+            CharacterDamageMultiplier = Math.Max(0, ob.CharacterDamageMultiplier);
+
+            ShootEffect = ob.ShootEffect;
+            ShootSoundSpeedMetersPerSecond = Math.Max(0, ob.ShootSoundSpeedMetersPerSecond);
+            ShootSoundMaxDelayMilliseconds = Math.Max(0, ob.ShootSoundMaxDelayMilliseconds);
+            ShootSoundFalloffMilliseconds = Math.Max(0, ob.ShootSoundFalloffMilliseconds);
+            ShootSoundDirectMaximumDelayMilliseconds = Math.Max(0, ob.ShootSoundDirectMaximumDelayMilliseconds);
+            ShootSoundFrontAngleThreshold = ob.ShootSoundFrontAngleThreshold;
+            ShootSoundFrontAngleBlendRange = Math.Max(0, ob.ShootSoundFrontAngleBlendRange);
+            ShootSoundDistanceBlendStartMilliseconds = Math.Max(0, ob.ShootSoundDistanceBlendStartMilliseconds);
+            ShootSoundDistanceBlendRangeMilliseconds = Math.Max(0, ob.ShootSoundDistanceBlendRangeMilliseconds);
+
+            AimTargetHeight = Math.Max(0, ob.AimTargetHeight);
+            AimExtraHeight = ob.AimExtraHeight;
+            AimCloseRangeDistance = Math.Max(0, ob.AimCloseRangeDistance);
+            AimCloseRangeHeightOffset = ob.AimCloseRangeHeightOffset;
+            ExpectedProjectileVelocity = Math.Max(0.01f, ob.ExpectedProjectileVelocity);
+            ElevationAiming = Math.Max(0.01f, ob.ElevationAiming);
+            MuzzleForwardOffset = ob.MuzzleForwardOffset;
+            MuzzleUpOffset = ob.MuzzleUpOffset;
+
+            RequireLineOfSight = ob.RequireLineOfSight;
+            RotateToTarget = ob.RotateToTarget;
+            EngageSpeech = ob.EngageSpeech;
+            EngageSpeechCooldownMilliseconds = Math.Max(0, ob.EngageSpeechCooldownMilliseconds);
+            SpotTargetName = ob.SpotTargetName;
+            SpotSpeechCooldownMilliseconds = Math.Max(0, ob.SpotSpeechCooldownMilliseconds);
+            TargetArchetypes = ob.TargetArchetypes ?? EmptyArchetypes;
+        }
     }
 
     [MyDefinitionType(typeof(MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition))]
@@ -129,6 +267,21 @@ namespace Si.UtilityAI
             base.Init(builder);
             var ob = (MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition)builder;
 
+            var balance = LoadBalance(ob.Balance);
+            if (balance != null)
+                InitFromBalance(balance);
+            else
+                InitFromBuilder(ob);
+
+            ShootSoundName = ob.ShootSoundName;
+            ShootSoundMid = ob.ShootSoundMid;
+            ShootSoundMidFront = ob.ShootSoundMidFront;
+            ShootSoundFar = ob.ShootSoundFar;
+            ShootSoundFarFront = ob.ShootSoundFarFront;
+        }
+
+        private void InitFromBuilder(MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition ob)
+        {
             SearchRadius = Math.Max(0, ob.SearchRadius);
             BaseScore = Math.Max(0, ob.BaseScore);
             DistanceScore = Math.Max(0, ob.DistanceScore);
@@ -142,11 +295,6 @@ namespace Si.UtilityAI
             CharacterDamageMultiplier = Math.Max(0, ob.CharacterDamageMultiplier);
 
             ShootEffect = ob.ShootEffect;
-            ShootSoundName = ob.ShootSoundName;
-            ShootSoundMid = ob.ShootSoundMid;
-            ShootSoundMidFront = ob.ShootSoundMidFront;
-            ShootSoundFar = ob.ShootSoundFar;
-            ShootSoundFarFront = ob.ShootSoundFarFront;
             ShootSoundSpeedMetersPerSecond = Math.Max(0, ob.ShootSoundSpeedMetersPerSecond);
             ShootSoundMaxDelayMilliseconds = Math.Max(0, ob.ShootSoundMaxDelayMilliseconds);
             ShootSoundFalloffMilliseconds = Math.Max(0, ob.ShootSoundFalloffMilliseconds);
@@ -172,6 +320,59 @@ namespace Si.UtilityAI
             SpotTargetName = ob.SpotTargetName;
             SpotSpeechCooldownMilliseconds = Math.Max(0, ob.SpotSpeechCooldownMilliseconds);
             TargetArchetypes = ob.TargetArchetypes ?? EmptyArchetypes;
+        }
+
+        private void InitFromBalance(SiShootOpposingNpcBehaviorBalanceDefinition balance)
+        {
+            SearchRadius = balance.SearchRadius;
+            BaseScore = balance.BaseScore;
+            DistanceScore = balance.DistanceScore;
+            DistanceExponent = balance.DistanceExponent;
+
+            FireCooldownMilliseconds = balance.FireCooldownMilliseconds;
+            Projectile = balance.Projectile;
+            ProjectileVelocityMultiplier = balance.ProjectileVelocityMultiplier;
+            ProjectileAccuracyMultiplier = balance.ProjectileAccuracyMultiplier;
+            ProjectileSyncDistance = balance.ProjectileSyncDistance;
+            CharacterDamageMultiplier = balance.CharacterDamageMultiplier;
+
+            ShootEffect = balance.ShootEffect;
+            ShootSoundSpeedMetersPerSecond = balance.ShootSoundSpeedMetersPerSecond;
+            ShootSoundMaxDelayMilliseconds = balance.ShootSoundMaxDelayMilliseconds;
+            ShootSoundFalloffMilliseconds = balance.ShootSoundFalloffMilliseconds;
+            ShootSoundDirectMaximumDelayMilliseconds = balance.ShootSoundDirectMaximumDelayMilliseconds;
+            ShootSoundFrontAngleThreshold = balance.ShootSoundFrontAngleThreshold;
+            ShootSoundFrontAngleBlendRange = balance.ShootSoundFrontAngleBlendRange;
+            ShootSoundDistanceBlendStartMilliseconds = balance.ShootSoundDistanceBlendStartMilliseconds;
+            ShootSoundDistanceBlendRangeMilliseconds = balance.ShootSoundDistanceBlendRangeMilliseconds;
+
+            AimTargetHeight = balance.AimTargetHeight;
+            AimExtraHeight = balance.AimExtraHeight;
+            AimCloseRangeDistance = balance.AimCloseRangeDistance;
+            AimCloseRangeHeightOffset = balance.AimCloseRangeHeightOffset;
+            ExpectedProjectileVelocity = balance.ExpectedProjectileVelocity;
+            ElevationAiming = balance.ElevationAiming;
+            MuzzleForwardOffset = balance.MuzzleForwardOffset;
+            MuzzleUpOffset = balance.MuzzleUpOffset;
+
+            RequireLineOfSight = balance.RequireLineOfSight;
+            RotateToTarget = balance.RotateToTarget;
+            EngageSpeech = balance.EngageSpeech;
+            EngageSpeechCooldownMilliseconds = balance.EngageSpeechCooldownMilliseconds;
+            SpotTargetName = balance.SpotTargetName;
+            SpotSpeechCooldownMilliseconds = balance.SpotSpeechCooldownMilliseconds;
+            TargetArchetypes = balance.TargetArchetypes ?? EmptyArchetypes;
+        }
+
+        private static SiShootOpposingNpcBehaviorBalanceDefinition LoadBalance(SerializableDefinitionId? balanceId)
+        {
+            if (!balanceId.HasValue)
+                return null;
+
+            SiShootOpposingNpcBehaviorBalanceDefinition balance;
+            return MyDefinitionManager.TryGet(balanceId.Value, out balance)
+                ? balance
+                : null;
         }
 
         private static readonly string[] EmptyArchetypes = new string[0];

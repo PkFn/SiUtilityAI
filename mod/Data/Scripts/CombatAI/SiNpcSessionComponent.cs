@@ -64,7 +64,7 @@ namespace Si.UtilityAI
             _chat?.RegisterChatCommand(
                 Command,
                 HandleCommand,
-                "Manage custom Si Utility AI NPCs. /si-npc spawn [trooper|enemy-trooper] | spawn-enemy | list | clear",
+                "Manage custom Si Utility AI NPCs. /si-npc spawn [archetype] | spawn-enemy | list | clear",
                 MyChatCommandType.Server);
             _chat?.RegisterChatCommand(
                 EnemyCommand,
@@ -440,7 +440,7 @@ namespace Si.UtilityAI
             out string failure)
         {
             failure = null;
-            if (string.Equals(archetype, SiNpcManager.EnemyTrooperArchetype, StringComparison.OrdinalIgnoreCase))
+            if (Npcs != null && Npcs.IsHostileToSpawner(archetype))
                 return ConfigureEnemyTrooper(npc, player, out failure);
 
             Squads?.AssignNpcToPlayer(npc, player);
@@ -592,9 +592,6 @@ namespace Si.UtilityAI
 
         private static string EnemyTrooperName(SiNpc npc) =>
             "Enemy trooper " + npc.EntityId;
-
-        private static bool IsEnemyTrooperArchetype(string archetype) =>
-            string.Equals(archetype, SiNpcManager.EnemyTrooperArchetype, StringComparison.OrdinalIgnoreCase);
 
         private bool HandleSquadCommand(ulong sender, string message, MyChatCommandType handledAsType)
         {
@@ -845,8 +842,8 @@ namespace Si.UtilityAI
             return MatrixD.CreateWorld(position, -playerForward, up);
         }
 
-        private static string HelpText() =>
-            $"{Command} spawn [{SiNpcManager.SoldierArchetype}|{SiNpcManager.EnemyTrooperArchetype}] | spawn-enemy | list | clear";
+        private string HelpText() =>
+            $"{Command} spawn [archetype] | spawn-enemy | list | clear. Available: {Npcs?.KnownArchetypesText ?? SiNpcManager.SoldierArchetype}";
 
         private static string SquadHelpText() =>
             $"{SquadCommand} list | members";
@@ -923,9 +920,9 @@ namespace Si.UtilityAI
                 return;
 
             RestoreDiplomaticIdentity(saved, npc);
-            if (IsEnemyTrooperArchetype(saved.Archetype))
+            if (Npcs != null && Npcs.IsHostileToSpawner(saved.Archetype))
             {
-                if (!RestoreEnemyTrooperFaction(saved, npc))
+                if (!RestoreHostileNpcFaction(saved, npc))
                     RestoreSquadAssignment(saved, npc);
             }
             else
@@ -954,7 +951,7 @@ namespace Si.UtilityAI
             SetNpcDiplomaticIdentity(npc, identity);
         }
 
-        private bool RestoreEnemyTrooperFaction(
+        private bool RestoreHostileNpcFaction(
             MyObjectBuilder_SiNpcSessionComponent.SavedNpc saved,
             SiNpc npc)
         {

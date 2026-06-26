@@ -1,29 +1,77 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-  <Definition xsi:type="MyObjectBuilder_ContainerDefinition">
-    <Id Type="EntityBase" Subtype="SiTrooper" />
-    <Component Type="ModelComponent" Subtype="SiTrooper" />
+  <Definition xsi:type="MyObjectBuilder_ContainerDefinition" Abstract="true">
+    <Id Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <Component Type="SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
     <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_ContainerDefinition" Copy="Append">
+    <Id Type="EntityBase" Subtype="SiTrooper" />
+    <CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
+    <Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_US_Rifle" />
+    <Component Type="ModelComponent" Subtype="SiTrooper_US_Rifle" />
     <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Garand" />
   </Definition>
 
-  <Definition xsi:type="MyObjectBuilder_ContainerDefinition">
-    <Id Type="EntityBase" Subtype="SiEnemyTrooper" />
-    <Component Type="ModelComponent" Subtype="SiEnemyTrooper" />
-    <Component Type="EntityOwnershipComponent" />
-    <Component Type="SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
-    <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
+  <Definition xsi:type="MyObjectBuilder_ContainerDefinition" Copy="Append">
+    <Id Type="EntityBase" Subtype="SiTrooper_German_Rifle" />
+    <CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
+    <Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_German_Rifle" />
+    <Component Type="ModelComponent" Subtype="SiTrooper_German_Rifle" />
     <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_K98" />
   </Definition>
 
+  <Definition xsi:type="MyObjectBuilder_ContainerDefinition" Copy="Append">
+    <Id Type="EntityBase" Subtype="SiTrooper_Soviet_Rifle" />
+    <CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
+    <Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_Soviet_Rifle" />
+    <Component Type="ModelComponent" Subtype="SiTrooper_Soviet_Rifle" />
+    <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mosin" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_ContainerDefinition" Copy="Append">
+    <Id Type="EntityBase" Subtype="SiEnemyTrooper" />
+    <CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
+    <Component Type="SiNpcArchetypeComponent" Subtype="SiEnemyTrooper_German_Rifle" />
+    <Component Type="ModelComponent" Subtype="SiTrooper_German_Rifle" />
+    <Component Type="EntityOwnershipComponent" />
+    <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_K98" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcArchetypeComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcArchetypeComponent" Subtype="SiTrooper_US_Rifle" />
+    <Archetype>trooper</Archetype>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcArchetypeComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcArchetypeComponent" Subtype="SiTrooper_German_Rifle" />
+    <Archetype>german-rifle-trooper</Archetype>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcArchetypeComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcArchetypeComponent" Subtype="SiTrooper_Soviet_Rifle" />
+    <Archetype>soviet-rifle-trooper</Archetype>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcArchetypeComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcArchetypeComponent" Subtype="SiEnemyTrooper_German_Rifle" />
+    <Archetype>enemy-trooper</Archetype>
+    <SpawnDisposition>HostileToSpawner</SpawnDisposition>
+  </Definition>
+
   <Definition xsi:type="MyObjectBuilder_ModelComponentDefinition">
-    <Id Type="ModelComponent" Subtype="SiTrooper" />
+    <Id Type="ModelComponent" Subtype="SiTrooper_US_Rifle" />
     <Model>Models\RifleDefenderAiming_US_Rifle.mwm</Model>
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_ModelComponentDefinition">
-    <Id Type="ModelComponent" Subtype="SiEnemyTrooper" />
+    <Id Type="ModelComponent" Subtype="SiTrooper_German_Rifle" />
     <Model>Models\RifleDefenderAiming_German_Rifle.mwm</Model>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_ModelComponentDefinition">
+    <Id Type="ModelComponent" Subtype="SiTrooper_Soviet_Rifle" />
+    <Model>Models\RifleDefenderAiming_Soviet_Rifle.mwm</Model>
   </Definition>
 </Definitions>
