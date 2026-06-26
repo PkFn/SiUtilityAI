@@ -4,6 +4,7 @@
 
 - This is a Visual Studio C# in-game mod project for Medieval Engineers / VRage.
 - The project references the game's DLLs directly from the local Medieval Engineers install. To discover the current DLL paths, inspect `SiUtilityAI.csproj` and read the `<Reference>` / `<HintPath>` entries.
+- `stubs/CompileOnly/` contains compile-only API surfaces for external workshop scripts that are expected to be loaded in game but are too broad to compile locally. These files are not part of the game-facing `mod/` payload; keep them limited to signatures and update them when the referenced dependency API changes.
 - The actual mod payload is under `mod/`. This folder contains `metadata.mod`, `Data/`, scripts, `.sbc` definitions, UI data, block definitions, and other files that are loaded by the game.
 - `mod/` is soft-linked into the game's local mod directory. Treat `mod/` as the game-facing folder tree, not just a source folder.
 - The game supports both `.cs` C# scripts and `.sbc` XML entity/definition files.
@@ -50,6 +51,7 @@
 ## Verification
 
 - Build `SiUtilityAI.sln` as the primary verification step after changes. From the repository root, run `dotnet build .\SiUtilityAI.sln --no-restore --nologo --verbosity:minimal "-consoleloggerparameters:ErrorsOnly;Summary"`; if restore inputs are missing or stale, run the same command once without `--no-restore`.
+- The project build runs `tools/Check-IngameScriptApi.ps1` before C# compilation. This guard scans editable game-loaded scripts under `mod/Data/Scripts` and `ref_si_core/Data/Scripts` for reflection APIs rejected by the Medieval Engineers script compiler, such as `System.Reflection`, `MethodInfo`, `MethodBase`, `BindingFlags`, `Type.GetType`, and `GetMethod`. Treat `SIUAI001` diagnostics as actionable in-game script errors even when Roslyn would otherwise compile the code.
 - The solution compiles scripts reached through the linked dependency folders as well as code under `mod/` and `ref_si_core/`, so the build may fail because of unrelated dependency diagnostics. Review the complete compiler output and attribute each error to its root cause.
 - Treat an error as actionable when it is caused by code under `mod/` or `ref_si_core/`, including errors reported in another folder when a change in one of those two trees caused them. Fix actionable errors before considering verification complete.
 - Ignore errors that are not caused by `mod/` or `ref_si_core/`; in particular, do not modify `ref_equi_core/`, `ref_pax_core/`, or `ref_pax_defenders/` to make the build pass. A nonzero build exit code is acceptable only when every remaining error has been reviewed and classified as unrelated.

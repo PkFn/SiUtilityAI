@@ -4,4 +4,7 @@
   <ModVersion>1.0</ModVersion>
   <MinGameVersion>0.7.4</MinGameVersion>
   <MaxGameVersion>0.8</MaxGameVersion>
+  <Dependency>1367411991</Dependency>
+  <Dependency>3162631649</Dependency>
+  <Dependency>2256089006</Dependency>
 </ModMetadata>

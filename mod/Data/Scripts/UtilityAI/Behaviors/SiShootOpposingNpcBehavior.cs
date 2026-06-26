@@ -1,6 +1,6 @@
 using System;
-using System.Reflection;
 using System.Xml.Serialization;
+using Pax.Cannons;
 using Sandbox.ModAPI;
 using VRage.Components;
 using VRage.Game;
@@ -382,20 +382,7 @@ namespace Si.UtilityAI
 
     internal static class SiPaxProjectileSpawner
     {
-        private const string SpawnerTypeName = "Pax.Cannons.PAX_Projectile_Spawner";
-        private const string CreateMethodName = "ServerCreateSyncedProjectile";
-
-        private static bool _resolved;
-        private static MethodInfo _createMethod;
-
-        public static bool IsAvailable
-        {
-            get
-            {
-                EnsureResolved();
-                return _createMethod != null;
-            }
-        }
+        public static bool IsAvailable => true;
 
         public static bool TryCreateSyncedProjectile(
             string projectile,
@@ -407,70 +394,23 @@ namespace Si.UtilityAI
             float characterDamageMultiplier,
             long ownerId)
         {
-            EnsureResolved();
-            if (_createMethod == null)
-                return false;
-
             try
             {
-                _createMethod.Invoke(
-                    null,
-                    new object[]
-                    {
-                        projectile,
-                        matrix,
-                        velocity,
-                        accuracy,
-                        gridVelocity,
-                        maxDistance,
-                        characterDamageMultiplier,
-                        ownerId,
-                    });
+                PAX_Projectile_Spawner.ServerCreateSyncedProjectile(
+                    projectile,
+                    matrix,
+                    velocity,
+                    accuracy,
+                    gridVelocity,
+                    maxDistance,
+                    characterDamageMultiplier,
+                    ownerId);
                 return true;
             }
             catch
             {
                 return false;
             }
-        }
-
-        private static void EnsureResolved()
-        {
-            if (_resolved)
-                return;
-
-            _resolved = true;
-            var type = Type.GetType(SpawnerTypeName);
-            if (type == null)
-            {
-                var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-                for (var i = 0; i < assemblies.Length; i++)
-                {
-                    type = assemblies[i].GetType(SpawnerTypeName, false);
-                    if (type != null)
-                        break;
-                }
-            }
-
-            if (type == null)
-                return;
-
-            _createMethod = type.GetMethod(
-                CreateMethodName,
-                BindingFlags.Public | BindingFlags.Static,
-                null,
-                new[]
-                {
-                    typeof(string),
-                    typeof(MatrixD),
-                    typeof(float),
-                    typeof(float),
-                    typeof(Vector3),
-                    typeof(float),
-                    typeof(float),
-                    typeof(long),
-                },
-                null);
         }
     }
 }

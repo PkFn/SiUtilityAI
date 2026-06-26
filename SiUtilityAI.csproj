@@ -15,6 +15,7 @@
     <Compile Include="mod\Data\Scripts\**\*.cs" />
     <Compile Include="ref_si_core\Data\Scripts\**\*.cs" />
     <Compile Include="ref_equi_core\Data\Scripts\**\*.cs" />
+    <Compile Include="stubs\CompileOnly\**\*.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -120,5 +121,9 @@
       <SpecificVersion>false</SpecificVersion>
     </Reference>
   </ItemGroup>
+
+  <Target Name="CheckIngameScriptApi" BeforeTargets="CoreCompile">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\tools\Check-IngameScriptApi.ps1&quot; -Roots &quot;$(MSBuildProjectDirectory)\mod\Data\Scripts;$(MSBuildProjectDirectory)\ref_si_core\Data\Scripts&quot;" />
+  </Target>
 
 </Project>
