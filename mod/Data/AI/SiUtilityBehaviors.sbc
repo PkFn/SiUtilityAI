@@ -60,6 +60,12 @@
     <EngageSpeechCooldownMilliseconds>7000</EngageSpeechCooldownMilliseconds>
     <SpotTargetName>enemy infantry</SpotTargetName>
     <SpotSpeechCooldownMilliseconds>15000</SpotSpeechCooldownMilliseconds>
+    <TargetArchetypes>
+      <Archetype>trooper</Archetype>
+      <Archetype>german-rifle-trooper</Archetype>
+      <Archetype>soviet-rifle-trooper</Archetype>
+      <Archetype>enemy-trooper</Archetype>
+    </TargetArchetypes>
   </Definition>
 
   <!-- Uses PAX defender projectile definitions through the PAX projectile spawner. -->

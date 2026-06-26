@@ -261,23 +261,37 @@ namespace Si.UtilityAI
         public string SpotTargetName { get; private set; }
         public int SpotSpeechCooldownMilliseconds { get; private set; }
         public string[] TargetArchetypes { get; private set; }
+        private SerializableDefinitionId? _balanceId;
+        private bool _balanceResolved;
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
         {
             base.Init(builder);
             var ob = (MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition)builder;
 
-            var balance = LoadBalance(ob.Balance);
-            if (balance != null)
-                InitFromBalance(balance);
-            else
-                InitFromBuilder(ob);
+            _balanceId = ob.Balance;
+            _balanceResolved = false;
+            InitFromBuilder(ob);
+            ResolveBalance();
 
             ShootSoundName = ob.ShootSoundName;
             ShootSoundMid = ob.ShootSoundMid;
             ShootSoundMidFront = ob.ShootSoundMidFront;
             ShootSoundFar = ob.ShootSoundFar;
             ShootSoundFarFront = ob.ShootSoundFarFront;
+        }
+
+        internal void ResolveBalance()
+        {
+            if (_balanceResolved || !_balanceId.HasValue)
+                return;
+
+            var balance = LoadBalance(_balanceId);
+            if (balance == null)
+                return;
+
+            InitFromBalance(balance);
+            _balanceResolved = true;
         }
 
         private void InitFromBuilder(MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition ob)
@@ -370,9 +384,17 @@ namespace Si.UtilityAI
                 return null;
 
             SiShootOpposingNpcBehaviorBalanceDefinition balance;
-            return MyDefinitionManager.TryGet(balanceId.Value, out balance)
-                ? balance
-                : null;
+            if (MyDefinitionManager.TryGet(balanceId.Value, out balance))
+                return balance;
+
+            var subtype = balanceId.Value.SubtypeId;
+            if (string.IsNullOrWhiteSpace(subtype))
+                return null;
+
+            foreach (var candidate in MyDefinitionManager.GetOfType<SiShootOpposingNpcBehaviorBalanceDefinition>())
+                if (string.Equals(candidate.Id.SubtypeName, subtype, StringComparison.OrdinalIgnoreCase))
+                    return candidate;
+            return null;
         }
 
         private static readonly string[] EmptyArchetypes = new string[0];
@@ -404,6 +426,7 @@ namespace Si.UtilityAI
         {
             base.Init(definition);
             _definition = (SiShootOpposingNpcBehaviorDefinition)definition;
+            _definition.ResolveBalance();
         }
 
         float ISiUtilityBehavior.Evaluate(SiUtilityContext context)
@@ -789,14 +812,20 @@ namespace Si.UtilityAI
                 : 0;
         }
 
-        private bool CanShoot =>
-            !string.IsNullOrWhiteSpace(_definition.Projectile)
-            && _definition.SearchRadius > 0
-            && _definition.ProjectileVelocityMultiplier > 0
-            && _definition.ProjectileAccuracyMultiplier > 0
-            && _definition.ProjectileSyncDistance > 0
-            && SiPaxProjectileSpawner.IsAvailable
-            && ProjectileDefinitionExists(_definition.Projectile);
+        private bool CanShoot
+        {
+            get
+            {
+                _definition.ResolveBalance();
+                return !string.IsNullOrWhiteSpace(_definition.Projectile)
+                       && _definition.SearchRadius > 0
+                       && _definition.ProjectileVelocityMultiplier > 0
+                       && _definition.ProjectileAccuracyMultiplier > 0
+                       && _definition.ProjectileSyncDistance > 0
+                       && SiPaxProjectileSpawner.IsAvailable
+                       && ProjectileDefinitionExists(_definition.Projectile);
+            }
+        }
 
         private ShootTarget FindBestTarget(SiUtilityContext context, out double bestDistance)
         {
