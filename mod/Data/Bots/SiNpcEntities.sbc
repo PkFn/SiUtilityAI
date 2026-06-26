@@ -4,6 +4,7 @@
     <Id Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <Component Type="SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
     <Component Type="SiNpcDamageComponent" Subtype="SiRifleTrooperHealth" />
+    <Component Type="SiNpcPaxProjectileHitboxComponent" Subtype="SiRifleTrooperProjectileHitbox" />
     <Component Type="PhysicsBodyComponent" Subtype="SiRifleTrooperPhysics" />
     <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
   </Definition>
@@ -76,6 +77,15 @@
     <DeathPitchSpeedDegreesPerSecond>180</DeathPitchSpeedDegreesPerSecond>
     <DeathRollSpeedDegreesPerSecond>90</DeathRollSpeedDegreesPerSecond>
     <DeathRestAngleDegrees>88</DeathRestAngleDegrees>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcPaxProjectileHitboxComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcPaxProjectileHitboxComponent" Subtype="SiRifleTrooperProjectileHitbox" />
+    <Width>0.9</Width>
+    <Depth>0.55</Depth>
+    <Height>1.8</Height>
+    <CenterHeight>0.95</CenterHeight>
+    <DamageMultiplier>1</DamageMultiplier>
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_PhysicsBodyComponentDefinition">
