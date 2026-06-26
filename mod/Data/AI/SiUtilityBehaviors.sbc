@@ -18,4 +18,36 @@
     <DistanceScore>0.8</DistanceScore>
     <DistanceExponent>1.5</DistanceExponent>
   </Definition>
+
+  <!-- Uses PAX defender projectile definitions through the PAX projectile spawner. -->
+  <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
+    <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper" />
+    <SearchRadius>60</SearchRadius>
+    <BaseScore>0.85</BaseScore>
+    <DistanceScore>0.15</DistanceScore>
+    <DistanceExponent>1</DistanceExponent>
+
+    <FireCooldownMilliseconds>3100</FireCooldownMilliseconds>
+    <Projectile>Cartridge30Cal</Projectile>
+    <ProjectileVelocityMultiplier>1</ProjectileVelocityMultiplier>
+    <ProjectileAccuracyMultiplier>4</ProjectileAccuracyMultiplier>
+    <ProjectileSyncDistance>1200</ProjectileSyncDistance>
+    <CharacterDamageMultiplier>1</CharacterDamageMultiplier>
+
+    <AimTargetHeight>0.9</AimTargetHeight>
+    <AimExtraHeight>0.7</AimExtraHeight>
+    <AimCloseRangeDistance>25</AimCloseRangeDistance>
+    <AimCloseRangeHeightOffset>-0.1</AimCloseRangeHeightOffset>
+    <ExpectedProjectileVelocity>800</ExpectedProjectileVelocity>
+    <ElevationAiming>96000</ElevationAiming>
+    <MuzzleForwardOffset>0.75</MuzzleForwardOffset>
+    <MuzzleUpOffset>0.65</MuzzleUpOffset>
+
+    <RequireLineOfSight>true</RequireLineOfSight>
+    <RotateToTarget>true</RotateToTarget>
+    <TargetArchetypes>
+      <Archetype>trooper</Archetype>
+      <Archetype>enemy-trooper</Archetype>
+    </TargetArchetypes>
+  </Definition>
 </Definitions>

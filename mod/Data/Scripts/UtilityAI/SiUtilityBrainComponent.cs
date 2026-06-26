@@ -74,7 +74,13 @@ namespace Si.UtilityAI
         }
 
         public MyEntity Entity => _agent.Entity;
+        public SiNpc Agent => _agent;
+        public long EntityId => _agent.EntityId;
+        public string Archetype => _agent.Archetype;
         public Vector3D Position => _agent.Entity.WorldMatrix.Translation;
+        public Vector3D Velocity => _agent is SiGroundedNpc grounded
+            ? grounded.Velocity
+            : Vector3D.Zero;
 
         public bool HasWaypoint => _agent is ISiWaypointMover mover && mover.HasWaypoint;
         public Vector3D Waypoint => _agent is ISiWaypointMover mover

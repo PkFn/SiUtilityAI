@@ -5,6 +5,7 @@
     <Component Type="ModelComponent" Subtype="SiTrooper" />
     <Component Type="SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
     <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
+    <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_ContainerDefinition">
@@ -13,6 +14,7 @@
     <Component Type="EntityOwnershipComponent" />
     <Component Type="SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
     <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
+    <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_ModelComponentDefinition">

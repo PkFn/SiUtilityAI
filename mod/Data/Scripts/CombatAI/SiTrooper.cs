@@ -24,7 +24,7 @@ namespace Si.UtilityAI
 
     /// <summary>
     /// A hostile test soldier using the PAX defenders German rifle model.
-    /// Combat behavior is intentionally absent until squad decision code lands.
+    /// Its combat behavior is selected by UtilityAI components on the entity.
     /// </summary>
     public sealed class SiEnemyTrooperNpc : SiGroundedNpc
     {
