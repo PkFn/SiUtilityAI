@@ -96,6 +96,8 @@ namespace Si.UtilityAI
             _agent.TrySetWaypoint(waypoint);
 
         public bool TryClearWaypoint() => _agent.TryClearWaypoint();
+
+        public bool TrySpeak(string message) => _agent.TrySpeak(message);
     }
 
     /// <summary>

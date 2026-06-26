@@ -61,6 +61,10 @@
 
     <RequireLineOfSight>true</RequireLineOfSight>
     <RotateToTarget>true</RotateToTarget>
+    <EngageSpeech>engaging</EngageSpeech>
+    <EngageSpeechCooldownMilliseconds>7000</EngageSpeechCooldownMilliseconds>
+    <SpotTargetName>soldier</SpotTargetName>
+    <SpotSpeechCooldownMilliseconds>15000</SpotSpeechCooldownMilliseconds>
     <TargetArchetypes>
       <Archetype>trooper</Archetype>
       <Archetype>enemy-trooper</Archetype>
@@ -107,6 +111,10 @@
 
     <RequireLineOfSight>true</RequireLineOfSight>
     <RotateToTarget>true</RotateToTarget>
+    <EngageSpeech>engaging</EngageSpeech>
+    <EngageSpeechCooldownMilliseconds>7000</EngageSpeechCooldownMilliseconds>
+    <SpotTargetName>soldier</SpotTargetName>
+    <SpotSpeechCooldownMilliseconds>15000</SpotSpeechCooldownMilliseconds>
     <TargetArchetypes>
       <Archetype>trooper</Archetype>
       <Archetype>enemy-trooper</Archetype>

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Xml.Serialization;
 using Medieval.GameSystems.Factions;
+using Sandbox.Definitions.Chat;
 using Sandbox.Game.GameSystems.Chat;
 using Sandbox.Game.Players;
 using Sandbox.ModAPI;
@@ -31,9 +32,12 @@ namespace Si.UtilityAI
         private const string EnemyCommand = "/si-enemy";
         private const string SquadCommand = "/si-squad";
         private const double SpawnDistance = 2.5;
+        private const string SpeakChannelName = "Speak";
         private static readonly MyStringHash HostileRelationship = MyStringHash.GetOrCompute("War");
+        private static readonly MyStringHash SpeakChannel = MyStringHash.GetOrCompute(SpeakChannelName);
 
         private static SiNpcSessionComponent _instance;
+        private static double _speakRange = -1;
         private readonly Dictionary<long, SiSquadCommandState> _squadOrders =
             new Dictionary<long, SiSquadCommandState>();
         private List<MyObjectBuilder_SiNpcSessionComponent.SavedNpc> _savedNpcs;
@@ -55,6 +59,7 @@ namespace Si.UtilityAI
             Squads = new SiSquadBook();
             Npcs.WaypointSet += OnWaypointSet;
             Npcs.WaypointCleared += OnWaypointCleared;
+            Npcs.NpcSpoke += OnNpcSpoke;
 
             _chat?.RegisterChatCommand(
                 Command,
@@ -88,6 +93,7 @@ namespace Si.UtilityAI
             {
                 Npcs.WaypointSet -= OnWaypointSet;
                 Npcs.WaypointCleared -= OnWaypointCleared;
+                Npcs.NpcSpoke -= OnNpcSpoke;
             }
             Npcs?.CloseAll(false);
             Npcs = null;
@@ -208,6 +214,37 @@ namespace Si.UtilityAI
                 1500);
         }
 
+        private void SpeakPlayerCommand(MyPlayer player, SiUtilityCommandMenuCommand command)
+        {
+            var message = UtilityCommandSpeech(command);
+            if (string.IsNullOrWhiteSpace(message) || player == null)
+                return;
+
+            var chat = _chat ?? MyChatSystem.Static;
+            chat?.BroadcastMessage(SpeakChannel, player.Id.SteamId, message);
+        }
+
+        private static string UtilityCommandSpeech(SiUtilityCommandMenuCommand command)
+        {
+            switch (command)
+            {
+                case SiUtilityCommandMenuCommand.Stop:
+                    return "Halt";
+                case SiUtilityCommandMenuCommand.Follow:
+                    return "Follow me";
+                case SiUtilityCommandMenuCommand.FormationColumn:
+                    return "Form column";
+                case SiUtilityCommandMenuCommand.FormationFile:
+                    return "Form file";
+                case SiUtilityCommandMenuCommand.FormationLine:
+                    return "Form line";
+                case SiUtilityCommandMenuCommand.FormationVee:
+                    return "Form vee";
+                default:
+                    return null;
+            }
+        }
+
         private void ExecuteUtilityCommand(MyPlayer player, SiUtilityCommandMenuCommand command)
         {
             if (player?.Identity == null)
@@ -215,6 +252,7 @@ namespace Si.UtilityAI
 
             var sender = player.Id.SteamId;
             var leaderIdentityId = player.Identity.Id;
+            SpeakPlayerCommand(player, command);
             switch (command)
             {
                 case SiUtilityCommandMenuCommand.Info:
@@ -887,6 +925,87 @@ namespace Si.UtilityAI
             };
         }
 
+        private static void OnNpcSpoke(long entityId, Vector3D position, string message)
+        {
+            var instance = _instance;
+            if (instance == null || string.IsNullOrWhiteSpace(message))
+                return;
+
+            var speaker = instance.NpcCallsign(entityId);
+            SpeakNpcLocal(position, speaker, message);
+            if (MyMultiplayerModApi.Static != null && MyMultiplayerModApi.Static.IsServer)
+                MyMultiplayerModApi.Static.RaiseStaticEvent(
+                    x => SpeakNpcClient,
+                    position,
+                    speaker,
+                    message);
+        }
+
+        private string NpcCallsign(long entityId)
+        {
+            SiNpc npc;
+            if (Npcs != null && Npcs.Npcs.TryGetValue(entityId, out npc))
+                return Squads?.GetNpcCallsign(Npcs, npc) ?? "Soldier";
+            return "Soldier";
+        }
+
+        private static void SpeakNpcLocal(Vector3D position, string speaker, string message)
+        {
+            if (string.IsNullOrWhiteSpace(message) || !IsLocalPlayerInSpeakRange(position))
+                return;
+
+            var chat = _instance?._chat ?? MyChatSystem.Static;
+            chat?.HandleLocalMessage(SpeakChannel, FormatSpeech(speaker, message));
+        }
+
+        private static bool IsLocalPlayerInSpeakRange(Vector3D position)
+        {
+            var player = LocalPlayer();
+            var playerPosition = player?.ControlledEntity?.Get<MyPositionComponentBase>();
+            if (playerPosition == null)
+                return false;
+
+            var rangeSquared = SpeakRange * SpeakRange;
+            return Vector3D.DistanceSquared(position, playerPosition.WorldMatrix.Translation) <= rangeSquared;
+        }
+
+        private static double SpeakRange
+        {
+            get
+            {
+                if (_speakRange < 0)
+                    _speakRange = LoadSpeakRange();
+                return _speakRange;
+            }
+        }
+
+        private static double LoadSpeakRange()
+        {
+            foreach (var channel in MyDefinitionManager.GetOfType<MyChatChannelDefinition>())
+            {
+                if (!string.Equals(channel.Id.SubtypeName, SpeakChannelName, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (channel.Senders == null)
+                    return 0;
+
+                foreach (var senderId in channel.Senders)
+                {
+                    MyChatSenderDefinition sender;
+                    if (MyDefinitionManager.TryGet(senderId, out sender) && sender.Range.HasValue)
+                        return sender.Range.Value;
+                }
+            }
+
+            return 0;
+        }
+
+        private static string FormatSpeech(string speaker, string message)
+        {
+            return (string.IsNullOrWhiteSpace(speaker) ? "Soldier" : speaker)
+                   + ": "
+                   + message.Trim();
+        }
+
         private static void BroadcastSpawn(SiNpc npc)
         {
             if (MyMultiplayerModApi.Static == null)
@@ -918,6 +1037,15 @@ namespace Si.UtilityAI
                 MyMultiplayerModApi.Static.RaiseStaticEvent(
                     x => ClearNpcWaypointClient,
                     entityId);
+        }
+
+        [Event, Reliable, Broadcast]
+        private static void SpeakNpcClient(Vector3D position, string speaker, string message)
+        {
+            if (MyMultiplayerModApi.Static != null && MyMultiplayerModApi.Static.IsServer)
+                return;
+
+            SpeakNpcLocal(position, speaker, message);
         }
 
         [Event, Reliable, Broadcast]

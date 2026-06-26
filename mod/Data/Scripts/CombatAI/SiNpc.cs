@@ -128,6 +128,9 @@ namespace Si.UtilityAI
         internal bool TryClearWaypoint() =>
             _manager?.TryClearWaypoint(EntityId) ?? false;
 
+        internal bool TrySpeak(string message) =>
+            _manager?.TrySpeak(EntityId, message) ?? false;
+
         internal void SetDiplomaticIdentity(MyIdentity identity, bool deleteOnClose)
         {
             DiplomaticIdentityId = identity?.Id ?? 0;

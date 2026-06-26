@@ -66,6 +66,10 @@ namespace Si.UtilityAI
 
         public bool RequireLineOfSight;
         public bool RotateToTarget;
+        public string EngageSpeech;
+        public int EngageSpeechCooldownMilliseconds;
+        public string SpotTargetName;
+        public int SpotSpeechCooldownMilliseconds;
 
         [XmlArrayItem("Archetype")]
         public string[] TargetArchetypes;
@@ -112,6 +116,10 @@ namespace Si.UtilityAI
 
         public bool RequireLineOfSight { get; private set; }
         public bool RotateToTarget { get; private set; }
+        public string EngageSpeech { get; private set; }
+        public int EngageSpeechCooldownMilliseconds { get; private set; }
+        public string SpotTargetName { get; private set; }
+        public int SpotSpeechCooldownMilliseconds { get; private set; }
         public string[] TargetArchetypes { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
@@ -157,6 +165,10 @@ namespace Si.UtilityAI
 
             RequireLineOfSight = ob.RequireLineOfSight;
             RotateToTarget = ob.RotateToTarget;
+            EngageSpeech = ob.EngageSpeech;
+            EngageSpeechCooldownMilliseconds = Math.Max(0, ob.EngageSpeechCooldownMilliseconds);
+            SpotTargetName = ob.SpotTargetName;
+            SpotSpeechCooldownMilliseconds = Math.Max(0, ob.SpotSpeechCooldownMilliseconds);
             TargetArchetypes = ob.TargetArchetypes ?? EmptyArchetypes;
         }
 
@@ -176,6 +188,9 @@ namespace Si.UtilityAI
         private SiShootOpposingNpcBehaviorDefinition _definition;
         private SiNpc _target;
         private long _fireCooldown;
+        private long _lastEngageSpeechTime = -1;
+        private long _lastSpotSpeechTime = -1;
+        private long _lastSpottedTargetId;
 
         public string BehaviorName => DefinitionId.ToString();
 
@@ -198,7 +213,12 @@ namespace Si.UtilityAI
             var target = FindBestTarget(context, out var distance);
             _target = target;
             if (target == null)
+            {
+                _lastSpottedTargetId = 0;
                 return 0;
+            }
+
+            TryReportSpotting(context, target, distance);
 
             var normalizedDistance = _definition.SearchRadius > 0
                 ? MathHelper.Clamp(1f - (float)(distance / _definition.SearchRadius), 0, 1)
@@ -211,6 +231,11 @@ namespace Si.UtilityAI
         void ISiUtilityBehavior.Begin(SiUtilityContext context)
         {
             _fireCooldown = 0;
+            TrySpeakWithCooldown(
+                context,
+                _definition.EngageSpeech,
+                ref _lastEngageSpeechTime,
+                _definition.EngageSpeechCooldownMilliseconds);
         }
 
         void ISiUtilityBehavior.Tick(SiUtilityContext context, long elapsedMilliseconds)
@@ -248,7 +273,112 @@ namespace Si.UtilityAI
         {
             _target = null;
             _fireCooldown = 0;
+            _lastSpottedTargetId = 0;
             _pendingShotSounds.Clear();
+        }
+
+        private void TryReportSpotting(SiUtilityContext context, SiNpc target, double distance)
+        {
+            if (target == null)
+                return;
+
+            if (_lastSpottedTargetId == target.EntityId
+                && !IsSpeechDue(_lastSpotSpeechTime, _definition.SpotSpeechCooldownMilliseconds))
+                return;
+
+            if (TrySpeakWithCooldown(
+                    context,
+                    CreateSpottingReport(context, target, distance),
+                    ref _lastSpotSpeechTime,
+                    _definition.SpotSpeechCooldownMilliseconds))
+                _lastSpottedTargetId = target.EntityId;
+        }
+
+        private string CreateSpottingReport(SiUtilityContext context, SiNpc target, double distance)
+        {
+            var targetName = string.IsNullOrWhiteSpace(_definition.SpotTargetName)
+                ? "target"
+                : _definition.SpotTargetName.Trim();
+            return targetName
+                   + ", "
+                   + RoundedDistanceMeters(distance)
+                   + " meters, "
+                   + RelativeBearing(context, target)
+                   + ".";
+        }
+
+        private static int RoundedDistanceMeters(double distance)
+        {
+            var rounded = (int)(Math.Round(Math.Max(0, distance) / 10.0) * 10);
+            return Math.Max(10, rounded);
+        }
+
+        private static string RelativeBearing(SiUtilityContext context, SiNpc target)
+        {
+            var self = context?.Entity;
+            var targetEntity = target?.Entity;
+            if (self == null || targetEntity == null)
+                return "front";
+
+            var world = self.WorldMatrix;
+            var up = NormalizedOrFallback(world.Up, Vector3D.Up);
+            var toTarget = Vector3D.Reject(targetEntity.WorldMatrix.Translation - world.Translation, up);
+            var distanceSquared = toTarget.LengthSquared();
+            if (distanceSquared <= 0.0001)
+                return "front";
+
+            var direction = toTarget / Math.Sqrt(distanceSquared);
+            var forward = NormalizedOrFallback(
+                Vector3D.Reject(world.Forward, up),
+                Vector3D.CalculatePerpendicularVector(up));
+            var right = NormalizedOrFallback(Vector3D.Cross(forward, up), world.Right);
+            var angle = Math.Atan2(
+                Vector3D.Dot(direction, right),
+                Vector3D.Dot(direction, forward)) * 180.0 / Math.PI;
+            if (angle < 0)
+                angle += 360;
+
+            if (angle < 22.5 || angle >= 337.5)
+                return "front";
+            if (angle < 67.5)
+                return "front-right";
+            if (angle < 112.5)
+                return "right";
+            if (angle < 157.5)
+                return "rear-right";
+            if (angle < 202.5)
+                return "rear";
+            if (angle < 247.5)
+                return "rear-left";
+            if (angle < 292.5)
+                return "left";
+            return "front-left";
+        }
+
+        private static bool TrySpeakWithCooldown(
+            SiUtilityContext context,
+            string message,
+            ref long lastSpeechTime,
+            int cooldownMilliseconds)
+        {
+            if (context == null
+                || string.IsNullOrWhiteSpace(message)
+                || !IsSpeechDue(lastSpeechTime, cooldownMilliseconds))
+                return false;
+
+            if (!context.TrySpeak(message.Trim()))
+                return false;
+
+            lastSpeechTime = CurrentTimeMilliseconds();
+            return true;
+        }
+
+        private static bool IsSpeechDue(long lastSpeechTime, int cooldownMilliseconds)
+        {
+            if (lastSpeechTime < 0 || cooldownMilliseconds <= 0)
+                return true;
+
+            return CurrentTimeMilliseconds() - lastSpeechTime >= cooldownMilliseconds;
         }
 
         private void PlayShotFeedback(long entityId, MatrixD projectileMatrix)

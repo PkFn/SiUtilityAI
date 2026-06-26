@@ -33,6 +33,7 @@ namespace Si.UtilityAI
 
         public event Action<long, Vector3D> WaypointSet;
         public event Action<long> WaypointCleared;
+        public event Action<long, Vector3D, string> NpcSpoke;
 
         /// <summary>
         /// Adds an NPC kind to the manager.  Future behaviors only need a new
@@ -95,6 +96,21 @@ namespace Si.UtilityAI
                 return false;
 
             WaypointCleared?.Invoke(entityId);
+            return true;
+        }
+
+        public bool TrySpeak(long entityId, string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+                return false;
+            if (!_npcs.TryGetValue(entityId, out var npc))
+                return false;
+
+            var entity = npc.Entity;
+            if (entity == null || entity.Closed || entity.MarkedForClose)
+                return false;
+
+            NpcSpoke?.Invoke(entityId, entity.WorldMatrix.Translation, message.Trim());
             return true;
         }
 

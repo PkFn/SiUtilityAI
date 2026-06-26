@@ -270,6 +270,7 @@ namespace Si.UtilityAI
 
             var squads = new List<SiSquadView>(byLeader.Values);
             AssignLetters(squads);
+            AssignMemberCallsigns(squads);
             return squads;
         }
 
@@ -308,6 +309,17 @@ namespace Si.UtilityAI
 
                 squad.SetLetter(index, Definition.GetLetter(index));
                 index++;
+            }
+        }
+
+        private static void AssignMemberCallsigns(List<SiSquadView> squads)
+        {
+            foreach (var squad in squads)
+            {
+                squad.Members.Sort(CompareMembers);
+                var squadCallsign = SquadCallsign(squad);
+                for (var i = 0; i < squad.Members.Count; i++)
+                    squad.Members[i].SetCallsign(squadCallsign + " " + (i + 1));
             }
         }
 
@@ -443,7 +455,7 @@ namespace Si.UtilityAI
                 builder.Append('\n');
             }
 
-            builder.Append(member.Name);
+            builder.Append(MemberDisplayName(member));
             return builder.ToString();
         }
 
@@ -457,12 +469,46 @@ namespace Si.UtilityAI
                 builder.Append(' ');
             }
 
-            builder.Append(member.Name);
+            builder.Append(MemberDisplayName(member));
             if (member.Kind == SiSquadMemberKind.Npc)
                 builder.Append(" [AI]");
             else if (!member.Online)
                 builder.Append(" [offline]");
             return builder.ToString();
+        }
+
+        public string GetNpcCallsign(SiNpcManager npcManager, SiNpc npc)
+        {
+            if (npc == null)
+                return "Soldier";
+
+            PurgeClosedNpcs(npcManager);
+            var squads = BuildSquads(npcManager);
+            foreach (var squad in squads)
+            {
+                squad.Members.Sort(CompareMembers);
+                foreach (var member in squad.Members)
+                    if (member.Kind == SiSquadMemberKind.Npc && member.Id == npc.EntityId)
+                        return !string.IsNullOrWhiteSpace(member.Callsign)
+                            ? member.Callsign
+                            : "Soldier";
+            }
+
+            return "Soldier";
+        }
+
+        private static string MemberDisplayName(SiSquadMemberView member)
+        {
+            if (member.Kind == SiSquadMemberKind.Npc && !string.IsNullOrWhiteSpace(member.Callsign))
+                return member.Callsign;
+            return member.Name;
+        }
+
+        private static string SquadCallsign(SiSquadView squad)
+        {
+            if (squad?.Letter != null)
+                return squad.Letter.CallSign;
+            return "Squad " + ((squad?.LetterIndex ?? 0) + 1);
         }
 
         private static SiSquadLeaderKey CreatePlayerLeader(long identityId)
@@ -709,5 +755,11 @@ namespace Si.UtilityAI
         public string Name { get; }
         public SiRankDefinition Rank { get; }
         public bool Online { get; }
+        public string Callsign { get; private set; }
+
+        public void SetCallsign(string callsign)
+        {
+            Callsign = callsign;
+        }
     }
 }
