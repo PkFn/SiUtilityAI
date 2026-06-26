@@ -26,29 +26,29 @@
         <Buttons>
             <Button StyleName="ContextButtonSliced">
                 <Text>Info</Text>
-                <Tooltip>Show information for commanded utility AI units.</Tooltip>
+                <Tooltip>Show information for commanded units.</Tooltip>
                 <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandRootInfo" />
             </Button>
             <Button StyleName="ContextButtonSliced">
                 <Text>Stop</Text>
-                <Tooltip>Stop commanded utility AI units.</Tooltip>
+                <Tooltip>Stop commanded units.</Tooltip>
                 <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandRootStop" />
             </Button>
             <Button StyleName="ContextButtonSliced">
                 <Text>Follow</Text>
-                <Tooltip>Order utility AI units to follow.</Tooltip>
+                <Tooltip>Order units to follow.</Tooltip>
                 <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandRootFollow" />
             </Button>
             <Button StyleName="ContextButtonSliced">
                 <Text>Form</Text>
-                <Tooltip>Choose a utility AI formation.</Tooltip>
+                <Tooltip>Choose a formation.</Tooltip>
                 <Action xsi:type="MyObjectBuilder_CMA_AddController">
                     <Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuFormation" />
                 </Action>
             </Button>
             <Button StyleName="ContextButtonSliced">
                 <Text>Settings</Text>
-                <Tooltip>Open utility AI command settings.</Tooltip>
+                <Tooltip>Open command settings.</Tooltip>
                 <Action xsi:type="MyObjectBuilder_CMA_AddController">
                     <Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuSettings" />
                 </Action>
@@ -74,22 +74,22 @@
         <Buttons>
             <Button StyleName="ContextButtonSliced">
                 <Text>Column</Text>
-                <Tooltip>Queue utility AI units one after another with a wider gap.</Tooltip>
+                <Tooltip>Queue units one after another with a wider gap.</Tooltip>
                 <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandFormationColumn" />
             </Button>
             <Button StyleName="ContextButtonSliced">
                 <Text>File</Text>
-                <Tooltip>Queue utility AI units one after another with a tighter gap.</Tooltip>
+                <Tooltip>Queue units one after another with a tighter gap.</Tooltip>
                 <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandFormationFile" />
             </Button>
             <Button StyleName="ContextButtonSliced">
                 <Text>Line</Text>
-                <Tooltip>Arrange utility AI units in a line.</Tooltip>
+                <Tooltip>Arrange units in a line.</Tooltip>
                 <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandFormationLine" />
             </Button>
             <Button StyleName="ContextButtonSliced">
                 <Text>Vee</Text>
-                <Tooltip>Arrange utility AI units in a vee formation.</Tooltip>
+                <Tooltip>Arrange units in a vee formation.</Tooltip>
                 <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandFormationVee" />
             </Button>
         </Buttons>
@@ -97,7 +97,7 @@
 
     <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
         <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuSettings" />
-        <Title>Si Utility AI Settings</Title>
+        <Title>Settings</Title>
         <Width>800</Width>
         <AutoCommit>true</AutoCommit>
         <Embedded>
@@ -113,7 +113,7 @@
         <Buttons>
             <Button StyleName="ContextButtonSliced">
                 <Text>Toggle UI</Text>
-                <Tooltip>Show or hide utility AI command markers.</Tooltip>
+                <Tooltip>Show or hide unit markers.</Tooltip>
                 <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandSettingsToggleUi" />
             </Button>
         </Buttons>
