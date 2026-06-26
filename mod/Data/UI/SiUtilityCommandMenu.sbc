@@ -10,7 +10,7 @@
 
     <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
         <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuRoot" />
-        <Title>Trooper Command Menu</Title>
+        <Title>Troop Command Menu</Title>
         <Width>800</Width>
         <AutoCommit>true</AutoCommit>
         <Embedded>
@@ -29,16 +29,13 @@
                 <Tooltip>Show information for commanded units.</Tooltip>
                 <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandRootInfo" />
             </Button>
-            <Button StyleName="ContextButtonSliced">
-                <Text>Stop</Text>
-                <Tooltip>Stop commanded units.</Tooltip>
-                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandRootStop" />
-            </Button>
-            <Button StyleName="ContextButtonSliced">
-                <Text>Follow</Text>
-                <Tooltip>Order units to follow.</Tooltip>
-                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandRootFollow" />
-            </Button>
+			<Button StyleName="ContextButtonSliced">
+				<Text>Motion</Text>
+				<Tooltip>Regulate how units should move.</Tooltip>
+				<Action xsi:type="MyObjectBuilder_CMA_AddController">
+					<Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuMotion" />
+				</Action>
+			</Button>
             <Button StyleName="ContextButtonSliced">
                 <Text>Form</Text>
                 <Tooltip>Choose a formation.</Tooltip>
@@ -46,6 +43,13 @@
                     <Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuFormation" />
                 </Action>
             </Button>
+			<Button StyleName="ContextButtonSliced">
+				<Text>Combat</Text>
+				<Tooltip>Unit combat engagement.</Tooltip>
+				<Action xsi:type="MyObjectBuilder_CMA_AddController">
+					<Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuEngagement" />
+				</Action>
+			</Button>
             <Button StyleName="ContextButtonSliced">
                 <Text>Settings</Text>
                 <Tooltip>Open command settings.</Tooltip>
@@ -56,9 +60,41 @@
         </Buttons>
     </Definition>
 
+	<Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+		<Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuMotion" />
+		<Title>Motion</Title>
+		<Width>800</Width>
+		<AutoCommit>true</AutoCommit>
+		<Embedded>
+			<Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityCommandMenuMotionButtons" />
+		</Embedded>
+	</Definition>
+
+	<Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
+		<Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityCommandMenuMotionButtons" />
+		<Columns>2</Columns>
+		<Rows>1</Rows>
+		<ButtonStyleId>ButtonListWide</ButtonStyleId>
+		<Buttons>
+			<Button StyleName="ContextButtonSliced">
+				<Text>Stop</Text>
+				<Tooltip>Stop commanded units.</Tooltip>
+				<Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandRootStop" />
+			</Button>
+			<Button StyleName="ContextButtonSliced">
+				<Text>Follow</Text>
+				<Tooltip>Order units to follow.</Tooltip>
+				<Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandRootFollow" />
+			</Button>
+		</Buttons>
+	</Definition>
+	
+	
+	
+
     <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
         <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuFormation" />
-        <Title>Si Utility AI Formation</Title>
+        <Title>Formation</Title>
         <Width>800</Width>
         <AutoCommit>true</AutoCommit>
         <Embedded>
@@ -94,6 +130,43 @@
             </Button>
         </Buttons>
     </Definition>
+
+
+	<Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+		<Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuEngagement" />
+		<Title>Combat engagement</Title>
+		<Width>800</Width>
+		<AutoCommit>true</AutoCommit>
+		<Embedded>
+			<Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityCommandMenuEngagementButtons" />
+		</Embedded>
+	</Definition>
+
+	<Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
+		<Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityCommandMenuEngagementButtons" />
+		<Columns>3</Columns>
+		<Rows>1</Rows>
+		<ButtonStyleId>ButtonListWide</ButtonStyleId>
+		<Buttons>
+			<Button StyleName="ContextButtonSliced">
+				<Text>Engage EN</Text>
+				<Tooltip>Engage both enemies and neutrals.</Tooltip>
+				<Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandEngagementEnemiesNeutrals" />
+			</Button>
+			<Button StyleName="ContextButtonSliced">
+				<Text>Engage E</Text>
+				<Tooltip>Engage enemies only.</Tooltip>
+				<Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandEngagementEnemies" />
+			</Button>
+			<Button StyleName="ContextButtonSliced">
+				<Text>Hold Fire</Text>
+				<Tooltip>Do not engage.</Tooltip>
+				<Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandEngagementHoldFire" />
+			</Button>
+		</Buttons>
+	</Definition>
+	
+	
 
     <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
         <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuSettings" />
