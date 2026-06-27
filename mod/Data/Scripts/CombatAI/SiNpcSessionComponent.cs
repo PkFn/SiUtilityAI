@@ -11,6 +11,7 @@ using VRage.Components;
 using VRage.Game;
 using VRage.Entities.Gravity;
 using VRage.Game.Components;
+using VRage.Game.Entity;
 using VRage.Scene;
 using VRage.Game.Entity.EntityComponents;
 using VRage.Network;
@@ -32,6 +33,7 @@ namespace Si.UtilityAI
         private const string EnemyCommand = "/si-enemy";
         private const string SquadCommand = "/si-squad";
         private const double SpawnDistance = 2.5;
+        private static readonly Vector2 SpottingTextAnchor = new Vector2(-0.98f, -0.92f);
         private const string SpeakChannelName = "Speak";
         private static readonly MyStringHash HostileRelationship = MyStringHash.GetOrCompute("War");
         private static readonly MyStringHash SpeakChannel = MyStringHash.GetOrCompute(SpeakChannelName);
@@ -203,11 +205,13 @@ namespace Si.UtilityAI
 
         public void Draw()
         {
-            if (!_showTroopMarkers || Npcs == null || Squads == null)
-                return;
-
             var player = LocalPlayer();
             if (player?.Identity == null)
+                return;
+
+            DrawPlayerSpottingOverlay(player);
+
+            if (!_showTroopMarkers || Npcs == null || Squads == null)
                 return;
 
             var definition = Squads.Definition;
@@ -243,6 +247,41 @@ namespace Si.UtilityAI
                     definition.MarkerTextScale,
                     align: MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER);
             }
+        }
+
+        private void DrawPlayerSpottingOverlay(MyPlayer player)
+        {
+            var controlledEntity = player?.ControlledEntity as MyEntity;
+            if (controlledEntity == null || Npcs == null)
+                return;
+
+            var highestChance = 0f;
+            foreach (var npc in Npcs.Npcs.Values)
+            {
+                var entity = npc?.Entity;
+                if (entity == null || entity.Closed || entity.MarkedForClose)
+                    continue;
+
+                var behavior = entity.Components.Get<SiShootOpposingNpcBehaviorComponent>();
+                if (behavior == null)
+                    continue;
+
+                SiSpottingObservation observation;
+                if (!behavior.TryObservePlayer(npc, player, controlledEntity, this, out observation))
+                    continue;
+
+                if (observation.Chance > highestChance)
+                    highestChance = observation.Chance;
+            }
+
+            var clampedChance = MathHelper.Clamp(highestChance, 0, 1);
+            var percent = (int)Math.Round(clampedChance * 100f);
+            var color = Color.Lerp(Color.LightGreen, Color.OrangeRed, clampedChance);
+            MyRenderProxy.DebugDrawText2D(
+                SpottingTextAnchor,
+                $"Enemy spotting chance: {percent}%",
+                color,
+                0.8f);
         }
 
         private void NotifyShow(string text)

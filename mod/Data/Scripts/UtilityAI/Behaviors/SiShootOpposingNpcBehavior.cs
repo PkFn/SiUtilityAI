@@ -636,6 +636,48 @@ namespace Si.UtilityAI
         private float GetWeaponAimHeight() =>
             GetWeapon()?.Definition?.AimTargetHeight ?? 0.9f;
 
+        internal bool TryObservePlayer(
+            SiNpc observer,
+            MyPlayer player,
+            MyEntity targetEntity,
+            SiNpcSessionComponent session,
+            out SiSpottingObservation observation)
+        {
+            observation = SiSpottingObservation.None;
+            if (observer == null
+                || player?.Identity == null
+                || targetEntity == null
+                || session?.Spotting == null)
+                return false;
+
+            var weapon = GetWeapon();
+            if (weapon == null || !weapon.IsOperational)
+                return false;
+
+            var target = new ShootTarget(player, targetEntity);
+            if (!IsValidTarget(observer, target))
+                return false;
+
+            var stance = session.GetEngagementStance(observer);
+            if (!IsOpposingPlayer(observer, player, session.Squads, stance))
+                return false;
+
+            var distanceSquared = Vector3D.DistanceSquared(
+                observer.Entity.WorldMatrix.Translation,
+                targetEntity.WorldMatrix.Translation);
+            var searchRadiusSquared = (double)_definition.SearchRadius * _definition.SearchRadius;
+            if (distanceSquared > searchRadiusSquared)
+                return false;
+
+            observation = session.Spotting.ObserveTarget(
+                observer,
+                targetEntity,
+                _definition,
+                GetWeaponAimHeight(),
+                Math.Sqrt(distanceSquared));
+            return true;
+        }
+
         private bool IsOpposing(SiNpc self, SiNpc candidate, SiSquadBook squads, SiSquadEngagementStance stance)
         {
             if (stance == SiSquadEngagementStance.HoldFire)
