@@ -72,9 +72,9 @@ namespace Si.UtilityAI
             _session?.CommandSettingsToggleUi();
         }
 
-        public void CommandSettingsToggleSpottingChatter()
+        public void CommandSettingsToggleSquadChatter()
         {
-            _session?.CommandSettingsToggleSpottingChatter();
+            _session?.CommandSettingsToggleSquadChatter();
         }
     }
 

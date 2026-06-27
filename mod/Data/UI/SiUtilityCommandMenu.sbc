@@ -191,8 +191,8 @@
             </Button>
 			<Button StyleName="ContextButtonSliced">
 				<Text>Toggle SC</Text>
-				<Tooltip>Show or hide spotting chatter.</Tooltip>
-				<Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandSettingsToggleSpottingChatter" />
+				<Tooltip>Show or hide NPC squad chatter.</Tooltip>
+				<Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandSettingsToggleSquadChatter" />
 			</Button>
         </Buttons>
     </Definition>
