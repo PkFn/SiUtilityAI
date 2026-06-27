@@ -4,8 +4,11 @@ using Sandbox.Game.EntityComponents.Character;
 using Sandbox.Game.Players;
 using Sandbox.Game.SessionComponents;
 using Sandbox.ModAPI;
+using VRage.Game;
+using VRage.Game.Definitions;
 using VRage.Game.Entity;
 using VRageMath;
+using VRage.ObjectBuilders;
 using VRage.Session;
 
 namespace Si.UtilityAI
@@ -28,6 +31,9 @@ namespace Si.UtilityAI
 
     internal sealed class SiSpottingSystem
     {
+        private static readonly MyDefinitionId DefaultDefinitionId =
+            new MyDefinitionId(typeof(MyObjectBuilder_SiSpottingSystemDefinition), "SiDefaultSpottingSystem");
+
         private readonly Dictionary<SpottingKey, SpottingState> _observations =
             new Dictionary<SpottingKey, SpottingState>();
         private readonly Dictionary<long, long> _recentShotTimes =
@@ -43,7 +49,10 @@ namespace Si.UtilityAI
         public SiSpottingSystem(SiNpcSessionComponent session)
         {
             _session = session;
+            Definition = LoadDefinition();
         }
+
+        public SiSpottingSystemDefinition Definition { get; }
 
         public void Clear()
         {
@@ -202,7 +211,7 @@ namespace Si.UtilityAI
                     state.AimHeight))
             {
                 state.SpottingSum = 0;
-                state.SpottingThreshold = ComputeSpottingThreshold(state.Definition, distance);
+                state.SpottingThreshold = ComputeSpottingThreshold(Definition, distance);
                 state.IsSpotted = false;
                 state.NextEvaluationTime = now + EvaluationInterval(state);
                 return;
@@ -213,22 +222,21 @@ namespace Si.UtilityAI
             spottingSum = MathHelper.Clamp(spottingSum, 0, 1);
 
             state.SpottingSum = spottingSum;
-            state.SpottingThreshold = ComputeSpottingThreshold(state.Definition, distance);
+            state.SpottingThreshold = ComputeSpottingThreshold(Definition, distance);
             state.IsSpotted = spottingSum >= state.SpottingThreshold;
             state.NextEvaluationTime = now + EvaluationInterval(state);
         }
 
         private static float ComputeSpottingThreshold(
-            SiShootOpposingNpcBehaviorDefinition definition,
+            SiSpottingSystemDefinition definition,
             double distance)
         {
             if (definition == null)
                 return 1f;
 
-            var normalizedDistance = (float)Math.Max(0, distance) / 100f;
-            var threshold = definition.SpottingChanceThreshold
-                            * normalizedDistance
-                            * normalizedDistance;
+            var normalizedDistance = (float)Math.Max(0, distance) / 500f;
+            var threshold = definition.Constant
+                            * (float)Math.Pow(normalizedDistance, 0.5f);
             return MathHelper.Clamp(threshold, 0, 1);
         }
 
@@ -420,6 +428,17 @@ namespace Si.UtilityAI
             return session != null
                 ? (long)session.ElapsedPlayTime.TotalMilliseconds
                 : 0;
+        }
+
+        private static SiSpottingSystemDefinition LoadDefinition()
+        {
+            SiSpottingSystemDefinition definition;
+            if (MyDefinitionManager.TryGet(DefaultDefinitionId, out definition))
+                return definition;
+
+            foreach (var candidate in MyDefinitionManager.GetOfType<SiSpottingSystemDefinition>())
+                return candidate;
+            return null;
         }
 
         private struct SpottingKey : IEquatable<SpottingKey>
