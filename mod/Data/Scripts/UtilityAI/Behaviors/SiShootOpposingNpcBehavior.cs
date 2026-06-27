@@ -39,24 +39,6 @@ namespace Si.UtilityAI
         public int EngageSpeechCooldownMilliseconds;
         public string SpotTargetName;
         public int SpotSpeechCooldownMilliseconds;
-        public int SpottingReevaluationIntervalMilliseconds;
-        public int SpottingTrackingTimeoutMilliseconds;
-        public float HearingGuaranteedRadius;
-        public float StillnessVelocityThreshold;
-        public float StillnessChanceMultiplier;
-        public int RecentShotMilliseconds;
-        public float NotFiringChanceMultiplier;
-        public float ShotAwarenessPerShot;
-        public float ShotAwarenessDecayPerSecond;
-        public float ShotAwarenessMaxDistance;
-        public float ShotAwarenessDistanceExponent;
-        public float NearbyBushScanRadius;
-        public float NearbyBushMinimumChanceMultiplier;
-        public float NearbyBushDistanceExponent;
-        public float DarknessMinimumChanceMultiplier;
-        public float DarknessNightSolarElevation;
-        public float DarknessDaySolarElevation;
-        public float InteriorChanceMultiplier;
 
         [XmlArrayItem("Archetype")]
         public string[] TargetArchetypes;
@@ -77,24 +59,6 @@ namespace Si.UtilityAI
         public int EngageSpeechCooldownMilliseconds;
         public string SpotTargetName;
         public int SpotSpeechCooldownMilliseconds;
-        public int SpottingReevaluationIntervalMilliseconds;
-        public int SpottingTrackingTimeoutMilliseconds;
-        public float HearingGuaranteedRadius;
-        public float StillnessVelocityThreshold;
-        public float StillnessChanceMultiplier;
-        public int RecentShotMilliseconds;
-        public float NotFiringChanceMultiplier;
-        public float ShotAwarenessPerShot;
-        public float ShotAwarenessDecayPerSecond;
-        public float ShotAwarenessMaxDistance;
-        public float ShotAwarenessDistanceExponent;
-        public float NearbyBushScanRadius;
-        public float NearbyBushMinimumChanceMultiplier;
-        public float NearbyBushDistanceExponent;
-        public float DarknessMinimumChanceMultiplier;
-        public float DarknessNightSolarElevation;
-        public float DarknessDaySolarElevation;
-        public float InteriorChanceMultiplier;
 
         [XmlArrayItem("Archetype")]
         public string[] TargetArchetypes;
@@ -115,24 +79,6 @@ namespace Si.UtilityAI
         public int EngageSpeechCooldownMilliseconds { get; private set; }
         public string SpotTargetName { get; private set; }
         public int SpotSpeechCooldownMilliseconds { get; private set; }
-        public int SpottingReevaluationIntervalMilliseconds { get; private set; }
-        public int SpottingTrackingTimeoutMilliseconds { get; private set; }
-        public float HearingGuaranteedRadius { get; private set; }
-        public float StillnessVelocityThreshold { get; private set; }
-        public float StillnessChanceMultiplier { get; private set; }
-        public int RecentShotMilliseconds { get; private set; }
-        public float NotFiringChanceMultiplier { get; private set; }
-        public float ShotAwarenessPerShot { get; private set; }
-        public float ShotAwarenessDecayPerSecond { get; private set; }
-        public float ShotAwarenessMaxDistance { get; private set; }
-        public float ShotAwarenessDistanceExponent { get; private set; }
-        public float NearbyBushScanRadius { get; private set; }
-        public float NearbyBushMinimumChanceMultiplier { get; private set; }
-        public float NearbyBushDistanceExponent { get; private set; }
-        public float DarknessMinimumChanceMultiplier { get; private set; }
-        public float DarknessNightSolarElevation { get; private set; }
-        public float DarknessDaySolarElevation { get; private set; }
-        public float InteriorChanceMultiplier { get; private set; }
         public string[] TargetArchetypes { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
@@ -150,24 +96,6 @@ namespace Si.UtilityAI
             EngageSpeechCooldownMilliseconds = Math.Max(0, ob.EngageSpeechCooldownMilliseconds);
             SpotTargetName = ob.SpotTargetName;
             SpotSpeechCooldownMilliseconds = Math.Max(0, ob.SpotSpeechCooldownMilliseconds);
-            SpottingReevaluationIntervalMilliseconds = Math.Max(50, ob.SpottingReevaluationIntervalMilliseconds);
-            SpottingTrackingTimeoutMilliseconds = Math.Max(SpottingReevaluationIntervalMilliseconds, ob.SpottingTrackingTimeoutMilliseconds);
-            HearingGuaranteedRadius = Math.Max(0, ob.HearingGuaranteedRadius);
-            StillnessVelocityThreshold = Math.Max(0, ob.StillnessVelocityThreshold);
-            StillnessChanceMultiplier = MathHelper.Clamp(ob.StillnessChanceMultiplier, 0, 1);
-            RecentShotMilliseconds = Math.Max(0, ob.RecentShotMilliseconds);
-            NotFiringChanceMultiplier = MathHelper.Clamp(ob.NotFiringChanceMultiplier, 0, 1);
-            ShotAwarenessPerShot = MathHelper.Clamp(ob.ShotAwarenessPerShot, 0, 1);
-            ShotAwarenessDecayPerSecond = Math.Max(0, ob.ShotAwarenessDecayPerSecond);
-            ShotAwarenessMaxDistance = Math.Max(0, ob.ShotAwarenessMaxDistance);
-            ShotAwarenessDistanceExponent = Math.Max(0.01f, ob.ShotAwarenessDistanceExponent);
-            NearbyBushScanRadius = Math.Max(0, ob.NearbyBushScanRadius);
-            NearbyBushMinimumChanceMultiplier = MathHelper.Clamp(ob.NearbyBushMinimumChanceMultiplier, 0, 1);
-            NearbyBushDistanceExponent = Math.Max(0.01f, ob.NearbyBushDistanceExponent);
-            DarknessMinimumChanceMultiplier = MathHelper.Clamp(ob.DarknessMinimumChanceMultiplier, 0, 1);
-            DarknessNightSolarElevation = ob.DarknessNightSolarElevation;
-            DarknessDaySolarElevation = ob.DarknessDaySolarElevation;
-            InteriorChanceMultiplier = MathHelper.Clamp(ob.InteriorChanceMultiplier, 0, 1);
             TargetArchetypes = ob.TargetArchetypes ?? EmptyArchetypes;
         }
     }
@@ -189,24 +117,6 @@ namespace Si.UtilityAI
         public int EngageSpeechCooldownMilliseconds { get; private set; }
         public string SpotTargetName { get; private set; }
         public int SpotSpeechCooldownMilliseconds { get; private set; }
-        public int SpottingReevaluationIntervalMilliseconds { get; private set; }
-        public int SpottingTrackingTimeoutMilliseconds { get; private set; }
-        public float HearingGuaranteedRadius { get; private set; }
-        public float StillnessVelocityThreshold { get; private set; }
-        public float StillnessChanceMultiplier { get; private set; }
-        public int RecentShotMilliseconds { get; private set; }
-        public float NotFiringChanceMultiplier { get; private set; }
-        public float ShotAwarenessPerShot { get; private set; }
-        public float ShotAwarenessDecayPerSecond { get; private set; }
-        public float ShotAwarenessMaxDistance { get; private set; }
-        public float ShotAwarenessDistanceExponent { get; private set; }
-        public float NearbyBushScanRadius { get; private set; }
-        public float NearbyBushMinimumChanceMultiplier { get; private set; }
-        public float NearbyBushDistanceExponent { get; private set; }
-        public float DarknessMinimumChanceMultiplier { get; private set; }
-        public float DarknessNightSolarElevation { get; private set; }
-        public float DarknessDaySolarElevation { get; private set; }
-        public float InteriorChanceMultiplier { get; private set; }
         public string[] TargetArchetypes { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
@@ -245,24 +155,6 @@ namespace Si.UtilityAI
             EngageSpeechCooldownMilliseconds = Math.Max(0, ob.EngageSpeechCooldownMilliseconds);
             SpotTargetName = ob.SpotTargetName;
             SpotSpeechCooldownMilliseconds = Math.Max(0, ob.SpotSpeechCooldownMilliseconds);
-            SpottingReevaluationIntervalMilliseconds = Math.Max(50, ob.SpottingReevaluationIntervalMilliseconds);
-            SpottingTrackingTimeoutMilliseconds = Math.Max(SpottingReevaluationIntervalMilliseconds, ob.SpottingTrackingTimeoutMilliseconds);
-            HearingGuaranteedRadius = Math.Max(0, ob.HearingGuaranteedRadius);
-            StillnessVelocityThreshold = Math.Max(0, ob.StillnessVelocityThreshold);
-            StillnessChanceMultiplier = MathHelper.Clamp(ob.StillnessChanceMultiplier, 0, 1);
-            RecentShotMilliseconds = Math.Max(0, ob.RecentShotMilliseconds);
-            NotFiringChanceMultiplier = MathHelper.Clamp(ob.NotFiringChanceMultiplier, 0, 1);
-            ShotAwarenessPerShot = MathHelper.Clamp(ob.ShotAwarenessPerShot, 0, 1);
-            ShotAwarenessDecayPerSecond = Math.Max(0, ob.ShotAwarenessDecayPerSecond);
-            ShotAwarenessMaxDistance = Math.Max(0, ob.ShotAwarenessMaxDistance);
-            ShotAwarenessDistanceExponent = Math.Max(0.01f, ob.ShotAwarenessDistanceExponent);
-            NearbyBushScanRadius = Math.Max(0, ob.NearbyBushScanRadius);
-            NearbyBushMinimumChanceMultiplier = MathHelper.Clamp(ob.NearbyBushMinimumChanceMultiplier, 0, 1);
-            NearbyBushDistanceExponent = Math.Max(0.01f, ob.NearbyBushDistanceExponent);
-            DarknessMinimumChanceMultiplier = MathHelper.Clamp(ob.DarknessMinimumChanceMultiplier, 0, 1);
-            DarknessNightSolarElevation = ob.DarknessNightSolarElevation;
-            DarknessDaySolarElevation = ob.DarknessDaySolarElevation;
-            InteriorChanceMultiplier = MathHelper.Clamp(ob.InteriorChanceMultiplier, 0, 1);
             TargetArchetypes = ob.TargetArchetypes ?? EmptyArchetypes;
         }
 
@@ -278,24 +170,6 @@ namespace Si.UtilityAI
             EngageSpeechCooldownMilliseconds = balance.EngageSpeechCooldownMilliseconds;
             SpotTargetName = balance.SpotTargetName;
             SpotSpeechCooldownMilliseconds = balance.SpotSpeechCooldownMilliseconds;
-            SpottingReevaluationIntervalMilliseconds = balance.SpottingReevaluationIntervalMilliseconds;
-            SpottingTrackingTimeoutMilliseconds = balance.SpottingTrackingTimeoutMilliseconds;
-            HearingGuaranteedRadius = balance.HearingGuaranteedRadius;
-            StillnessVelocityThreshold = balance.StillnessVelocityThreshold;
-            StillnessChanceMultiplier = balance.StillnessChanceMultiplier;
-            RecentShotMilliseconds = balance.RecentShotMilliseconds;
-            NotFiringChanceMultiplier = balance.NotFiringChanceMultiplier;
-            ShotAwarenessPerShot = balance.ShotAwarenessPerShot;
-            ShotAwarenessDecayPerSecond = balance.ShotAwarenessDecayPerSecond;
-            ShotAwarenessMaxDistance = balance.ShotAwarenessMaxDistance;
-            ShotAwarenessDistanceExponent = balance.ShotAwarenessDistanceExponent;
-            NearbyBushScanRadius = balance.NearbyBushScanRadius;
-            NearbyBushMinimumChanceMultiplier = balance.NearbyBushMinimumChanceMultiplier;
-            NearbyBushDistanceExponent = balance.NearbyBushDistanceExponent;
-            DarknessMinimumChanceMultiplier = balance.DarknessMinimumChanceMultiplier;
-            DarknessNightSolarElevation = balance.DarknessNightSolarElevation;
-            DarknessDaySolarElevation = balance.DarknessDaySolarElevation;
-            InteriorChanceMultiplier = balance.InteriorChanceMultiplier;
             TargetArchetypes = balance.TargetArchetypes ?? EmptyArchetypes;
         }
 

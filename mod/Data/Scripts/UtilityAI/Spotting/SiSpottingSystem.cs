@@ -82,7 +82,7 @@ namespace Si.UtilityAI
                     continue;
                 }
 
-                if (now - state.LastRequestedTime > state.Definition.SpottingTrackingTimeoutMilliseconds)
+                if (now - state.LastRequestedTime > TrackingTimeoutMilliseconds())
                 {
                     _removals.Add(pair.Key);
                     continue;
@@ -115,6 +115,7 @@ namespace Si.UtilityAI
             {
                 state = new SpottingState
                 {
+                    System = this,
                     ObserverId = observer.EntityId,
                     TargetId = target.EntityId,
                     LastAwarenessUpdateTime = CurrentTimeMilliseconds(),
@@ -161,14 +162,15 @@ namespace Si.UtilityAI
                 var distance = Vector3D.Distance(
                     observer.Entity.WorldMatrix.Translation,
                     shooterPosition);
-                if (state.Definition.ShotAwarenessMaxDistance <= 0
-                    || distance > state.Definition.ShotAwarenessMaxDistance)
+                if (Definition == null
+                    || Definition.ShotAwarenessMaxDistance <= 0
+                    || distance > Definition.ShotAwarenessMaxDistance)
                     continue;
 
-                var normalized = 1f - (float)(distance / state.Definition.ShotAwarenessMaxDistance);
+                var normalized = 1f - (float)(distance / Definition.ShotAwarenessMaxDistance);
                 normalized = MathHelper.Clamp(normalized, 0, 1);
-                var gain = state.Definition.ShotAwarenessPerShot
-                           * (float)Math.Pow(normalized, state.Definition.ShotAwarenessDistanceExponent);
+                var gain = Definition.ShotAwarenessPerShot
+                           * (float)Math.Pow(normalized, Definition.ShotAwarenessDistanceExponent);
                 state.ShotAwareness = MathHelper.Clamp(state.ShotAwareness + gain, 0, 1);
             }
         }
@@ -194,8 +196,9 @@ namespace Si.UtilityAI
             var observerPosition = observer.Entity.WorldMatrix.Translation;
             var targetPosition = target.WorldMatrix.Translation;
             var distance = knownDistance ?? Vector3D.Distance(observerPosition, targetPosition);
-            if (state.Definition.HearingGuaranteedRadius > 0
-                && distance <= state.Definition.HearingGuaranteedRadius)
+            if (Definition != null
+                && Definition.HearingGuaranteedRadius > 0
+                && distance <= Definition.HearingGuaranteedRadius)
             {
                 state.SpottingSum = 1;
                 state.SpottingThreshold = 0;
@@ -217,7 +220,7 @@ namespace Si.UtilityAI
                 return;
             }
 
-            var spottingSum = ComputeVisualChance(target, state.Definition, now);
+            var spottingSum = ComputeVisualChance(target, now);
             spottingSum = 1f - (1f - spottingSum) * (1f - state.ShotAwareness);
             spottingSum = MathHelper.Clamp(spottingSum, 0, 1);
 
@@ -242,10 +245,12 @@ namespace Si.UtilityAI
 
         private float ComputeVisualChance(
             MyEntity target,
-            SiShootOpposingNpcBehaviorDefinition definition,
             long now)
         {
             var chance = 1f;
+            var definition = Definition;
+            if (definition == null)
+                return chance;
 
             if (TargetSpeed(target) <= definition.StillnessVelocityThreshold)
                 chance *= definition.StillnessChanceMultiplier;
@@ -258,7 +263,7 @@ namespace Si.UtilityAI
             return MathHelper.Clamp(chance, 0, 1);
         }
 
-        private float BushMultiplier(in Vector3D position, SiShootOpposingNpcBehaviorDefinition definition)
+        private float BushMultiplier(in Vector3D position, SiSpottingSystemDefinition definition)
         {
             if (definition.NearbyBushScanRadius <= 0)
                 return 1f;
@@ -275,7 +280,7 @@ namespace Si.UtilityAI
             return MathHelper.Lerp(definition.NearbyBushMinimumChanceMultiplier, 1f, easedDistance);
         }
 
-        private float DarknessMultiplier(in Vector3D position, SiShootOpposingNpcBehaviorDefinition definition)
+        private float DarknessMultiplier(in Vector3D position, SiSpottingSystemDefinition definition)
         {
             TryResolveWeather();
             if (_weather == null)
@@ -348,7 +353,7 @@ namespace Si.UtilityAI
                 var state = pair.Value;
                 if (state == null || state.TargetId != entityId || state.Definition == null)
                     continue;
-                return Math.Max(50, state.Definition.SpottingReevaluationIntervalMilliseconds);
+                return EvaluationInterval(state);
             }
 
             return 200;
@@ -398,7 +403,7 @@ namespace Si.UtilityAI
 
         private void DecayAwareness(SpottingState state, long now)
         {
-            if (state == null || state.Definition == null)
+            if (state == null || Definition == null)
                 return;
 
             if (state.LastAwarenessUpdateTime <= 0)
@@ -413,13 +418,18 @@ namespace Si.UtilityAI
 
             state.ShotAwareness = Math.Max(
                 0,
-                state.ShotAwareness - state.Definition.ShotAwarenessDecayPerSecond * elapsedSeconds);
+                state.ShotAwareness - Definition.ShotAwarenessDecayPerSecond * elapsedSeconds);
             state.LastAwarenessUpdateTime = now;
         }
 
         private static int EvaluationInterval(SpottingState state)
         {
-            return Math.Max(50, state?.Definition?.SpottingReevaluationIntervalMilliseconds ?? 250);
+            return Math.Max(50, state?.System?.Definition?.SpottingReevaluationIntervalMilliseconds ?? 250);
+        }
+
+        private int TrackingTimeoutMilliseconds()
+        {
+            return Math.Max(50, Definition?.SpottingTrackingTimeoutMilliseconds ?? 2000);
         }
 
         private static long CurrentTimeMilliseconds()
@@ -464,6 +474,7 @@ namespace Si.UtilityAI
 
         private sealed class SpottingState
         {
+            public SiSpottingSystem System;
             public long ObserverId;
             public long TargetId;
             public SiShootOpposingNpcBehaviorDefinition Definition;
