@@ -45,6 +45,10 @@ namespace Si.UtilityAI
         public float CharacterDamageMultiplier;
 
         public SerializableDefinitionId? ShootEffect;
+        public int MagazineCount;
+        public int MagazineReloadMilliseconds;
+        public string ReloadSoundName;
+        public string MagazineReloadSoundName;
         public string ShootSoundName;
         public string ShootSoundMid;
         public string ShootSoundMidFront;
@@ -231,6 +235,10 @@ namespace Si.UtilityAI
         public float CharacterDamageMultiplier { get; private set; }
 
         public SerializableDefinitionId? ShootEffect { get; private set; }
+        public int MagazineCount { get; private set; }
+        public int MagazineReloadMilliseconds { get; private set; }
+        public string ReloadSoundName { get; private set; }
+        public string MagazineReloadSoundName { get; private set; }
         public string ShootSoundName { get; private set; }
         public string ShootSoundMid { get; private set; }
         public string ShootSoundMidFront { get; private set; }
@@ -274,6 +282,10 @@ namespace Si.UtilityAI
             InitFromBuilder(ob);
             ResolveBalance();
 
+            MagazineCount = Math.Max(1, ob.MagazineCount);
+            MagazineReloadMilliseconds = Math.Max(0, ob.MagazineReloadMilliseconds);
+            ReloadSoundName = ob.ReloadSoundName;
+            MagazineReloadSoundName = ob.MagazineReloadSoundName;
             ShootSoundName = ob.ShootSoundName;
             ShootSoundMid = ob.ShootSoundMid;
             ShootSoundMidFront = ob.ShootSoundMidFront;
@@ -411,9 +423,11 @@ namespace Si.UtilityAI
     {
         private static readonly MyStringHash HostileRelationship = MyStringHash.GetOrCompute("War");
         private readonly List<PendingShotSound> _pendingShotSounds = new List<PendingShotSound>();
+        private readonly List<PendingWeaponSound> _pendingWeaponSounds = new List<PendingWeaponSound>();
         private SiShootOpposingNpcBehaviorDefinition _definition;
         private ShootTarget _target;
         private long _fireCooldown;
+        private int _shotsRemainingInMagazine;
         private long _lastEngageSpeechTime = -1;
         private long _lastSpotSpeechTime = -1;
         private long _lastSpottedTargetId;
@@ -458,6 +472,7 @@ namespace Si.UtilityAI
         void ISiUtilityBehavior.Begin(SiUtilityContext context)
         {
             _fireCooldown = 0;
+            ResetMagazine();
             TrySpeakWithCooldown(
                 context,
                 _definition.EngageSpeech,
@@ -494,8 +509,13 @@ namespace Si.UtilityAI
                     _definition.CharacterDamageMultiplier,
                     context.EntityId))
             {
-                _fireCooldown = _definition.FireCooldownMilliseconds;
-                PlayShotFeedback(context.EntityId, projectileMatrix);
+                var shotFeedback = ConsumeShot();
+                _fireCooldown = shotFeedback.CooldownMilliseconds;
+                PlayShotFeedback(
+                    context.EntityId,
+                    projectileMatrix,
+                    shotFeedback.PlayReloadSound,
+                    shotFeedback.PlayMagazineReloadSound);
             }
         }
 
@@ -503,8 +523,10 @@ namespace Si.UtilityAI
         {
             _target = null;
             _fireCooldown = 0;
+            ResetMagazine();
             _lastSpottedTargetId = 0;
             _pendingShotSounds.Clear();
+            _pendingWeaponSounds.Clear();
         }
 
         private void TryReportSpotting(SiUtilityContext context, ShootTarget target, double distance)
@@ -611,18 +633,53 @@ namespace Si.UtilityAI
             return CurrentTimeMilliseconds() - lastSpeechTime >= cooldownMilliseconds;
         }
 
-        private void PlayShotFeedback(long entityId, MatrixD projectileMatrix)
+        private ShotFeedback ConsumeShot()
         {
-            PlayShotFeedbackLocal(projectileMatrix);
+            if (_shotsRemainingInMagazine <= 0)
+                ResetMagazine();
+
+            _shotsRemainingInMagazine = Math.Max(0, _shotsRemainingInMagazine - 1);
+            var magazineEmpty = _shotsRemainingInMagazine <= 0;
+            if (magazineEmpty)
+                ResetMagazine();
+
+            return new ShotFeedback
+            {
+                CooldownMilliseconds = magazineEmpty
+                    ? _definition.MagazineReloadMilliseconds
+                    : _definition.FireCooldownMilliseconds,
+                PlayReloadSound = !magazineEmpty && !string.IsNullOrWhiteSpace(_definition.ReloadSoundName),
+                PlayMagazineReloadSound = magazineEmpty && !string.IsNullOrWhiteSpace(_definition.MagazineReloadSoundName),
+            };
+        }
+
+        private void ResetMagazine()
+        {
+            _shotsRemainingInMagazine = Math.Max(1, _definition?.MagazineCount ?? 1);
+        }
+
+        private void PlayShotFeedback(
+            long entityId,
+            MatrixD projectileMatrix,
+            bool playReloadSound,
+            bool playMagazineReloadSound)
+        {
+            PlayShotFeedbackLocal(projectileMatrix, playReloadSound, playMagazineReloadSound);
             if (MyMultiplayerModApi.Static != null && MyMultiplayerModApi.Static.IsServer)
                 MyMultiplayerModApi.Static.RaiseStaticEvent(
                     x => PlayShotFeedbackClient,
                     entityId,
-                    projectileMatrix);
+                    projectileMatrix,
+                    playReloadSound,
+                    playMagazineReloadSound);
         }
 
         [Event, Reliable, Broadcast]
-        private static void PlayShotFeedbackClient(long entityId, MatrixD projectileMatrix)
+        private static void PlayShotFeedbackClient(
+            long entityId,
+            MatrixD projectileMatrix,
+            bool playReloadSound,
+            bool playMagazineReloadSound)
         {
             if (MyMultiplayerModApi.Static != null && MyMultiplayerModApi.Static.IsServer)
                 return;
@@ -635,16 +692,31 @@ namespace Si.UtilityAI
 
             npc.Entity?.Components
                 .Get<SiShootOpposingNpcBehaviorComponent>()
-                ?.PlayShotFeedbackLocal(projectileMatrix);
+                ?.PlayShotFeedbackLocal(projectileMatrix, playReloadSound, playMagazineReloadSound);
         }
 
-        private void PlayShotFeedbackLocal(MatrixD projectileMatrix)
+        private void PlayShotFeedbackLocal(
+            MatrixD projectileMatrix,
+            bool playReloadSound,
+            bool playMagazineReloadSound)
         {
             if (_definition == null)
                 return;
 
             PlayMuzzleEffect(projectileMatrix);
             QueueShotSound(projectileMatrix);
+
+            var position = projectileMatrix.Translation;
+            if (playReloadSound)
+                QueueWeaponSound(
+                    _definition.ReloadSoundName,
+                    position,
+                    Math.Min(500, _definition.FireCooldownMilliseconds / 3));
+            if (playMagazineReloadSound)
+                QueueWeaponSound(
+                    _definition.MagazineReloadSoundName,
+                    position,
+                    Math.Min(900, _definition.MagazineReloadMilliseconds / 4));
         }
 
         private void PlayMuzzleEffect(MatrixD projectileMatrix)
@@ -715,6 +787,37 @@ namespace Si.UtilityAI
                 AddScheduledCallback(PlayDelayedShotSound, delayMilliseconds);
         }
 
+        private void QueueWeaponSound(string cue, Vector3D position, long actionDelayMilliseconds)
+        {
+            if (string.IsNullOrWhiteSpace(cue))
+                return;
+
+            var delayMilliseconds = Math.Max(0, actionDelayMilliseconds + SoundTravelDelayMilliseconds(position));
+            _pendingWeaponSounds.Add(new PendingWeaponSound
+            {
+                Cue = cue,
+                Position = position,
+                DueTimeMilliseconds = CurrentTimeMilliseconds() + delayMilliseconds,
+            });
+
+            if (delayMilliseconds <= 0)
+                PlayDelayedWeaponSound(0);
+            else
+                AddScheduledCallback(PlayDelayedWeaponSound, delayMilliseconds);
+        }
+
+        [Update(false)]
+        private void PlayDelayedWeaponSound(long elapsedMilliseconds)
+        {
+            if (_pendingWeaponSounds.Count == 0)
+                return;
+
+            var index = PendingWeaponSoundIndex();
+            var pending = _pendingWeaponSounds[index];
+            _pendingWeaponSounds.RemoveAt(index);
+            PlayWorldSound(pending.Cue, pending.Position, 1f);
+        }
+
         [Update(false)]
         private void PlayDelayedShotSound(long elapsedMilliseconds)
         {
@@ -753,14 +856,14 @@ namespace Si.UtilityAI
                 var frontVolume = MathHelper.Clamp(angleWeight, 0, 1);
                 var backVolume = MathHelper.Clamp(1f - angleWeight, 0, 1);
 
-                PlayShotSound(_definition.ShootSoundMidFront, pending.Position, distancePower * closeVolume * frontVolume);
-                PlayShotSound(_definition.ShootSoundMid, pending.Position, distancePower * closeVolume * backVolume);
-                PlayShotSound(_definition.ShootSoundFarFront, pending.Position, distancePower * farVolume * frontVolume);
-                PlayShotSound(_definition.ShootSoundFar, pending.Position, distancePower * farVolume * backVolume);
+                PlayWorldSound(_definition.ShootSoundMidFront, pending.Position, distancePower * closeVolume * frontVolume);
+                PlayWorldSound(_definition.ShootSoundMid, pending.Position, distancePower * closeVolume * backVolume);
+                PlayWorldSound(_definition.ShootSoundFarFront, pending.Position, distancePower * farVolume * frontVolume);
+                PlayWorldSound(_definition.ShootSoundFar, pending.Position, distancePower * farVolume * backVolume);
                 return;
             }
 
-            PlayShotSound(_definition.ShootSoundName, pending.Position, distancePower);
+            PlayWorldSound(_definition.ShootSoundName, pending.Position, distancePower);
         }
 
         private int PendingShotSoundIndex()
@@ -770,6 +873,23 @@ namespace Si.UtilityAI
             for (var i = 1; i < _pendingShotSounds.Count; i++)
             {
                 var dueTime = _pendingShotSounds[i].DueTimeMilliseconds;
+                if (dueTime >= bestDueTime)
+                    continue;
+
+                bestIndex = i;
+                bestDueTime = dueTime;
+            }
+
+            return bestIndex;
+        }
+
+        private int PendingWeaponSoundIndex()
+        {
+            var bestIndex = 0;
+            var bestDueTime = _pendingWeaponSounds[0].DueTimeMilliseconds;
+            for (var i = 1; i < _pendingWeaponSounds.Count; i++)
+            {
+                var dueTime = _pendingWeaponSounds[i].DueTimeMilliseconds;
                 if (dueTime >= bestDueTime)
                     continue;
 
@@ -792,7 +912,7 @@ namespace Si.UtilityAI
             && _definition.ShootSoundFrontAngleBlendRange > 0
             && _definition.ShootSoundDistanceBlendRangeMilliseconds > 0;
 
-        private static void PlayShotSound(string cue, Vector3D position, float volume)
+        private static void PlayWorldSound(string cue, Vector3D position, float volume)
         {
             if (string.IsNullOrEmpty(cue) || volume <= 0)
                 return;
@@ -802,6 +922,20 @@ namespace Si.UtilityAI
                 return;
 
             audio.TryPlayOneOffSound(new VRage.Audio.MyCueId(cue), position, volume, null, null);
+        }
+
+        private long SoundTravelDelayMilliseconds(Vector3D position)
+        {
+            if (_definition == null || _definition.ShootSoundSpeedMetersPerSecond <= 0)
+                return 0;
+
+            var camera = MyAPIGateway.Session?.Camera;
+            if (camera == null)
+                return 0;
+
+            var distanceSquared = Vector3D.DistanceSquared(position, camera.WorldMatrix.Translation);
+            var distance = distanceSquared > 0.0001 ? Math.Sqrt(distanceSquared) : 0;
+            return (long)(distance * 1000 / _definition.ShootSoundSpeedMetersPerSecond);
         }
 
         private static long CurrentTimeMilliseconds()
@@ -1228,6 +1362,20 @@ namespace Si.UtilityAI
             public long DelayMilliseconds;
             public long DueTimeMilliseconds;
             public float FrontAngle;
+        }
+
+        private struct PendingWeaponSound
+        {
+            public string Cue;
+            public Vector3D Position;
+            public long DueTimeMilliseconds;
+        }
+
+        private struct ShotFeedback
+        {
+            public long CooldownMilliseconds;
+            public bool PlayReloadSound;
+            public bool PlayMagazineReloadSound;
         }
     }
 

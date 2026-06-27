@@ -72,6 +72,9 @@
   <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
     <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Garand" />
     <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />
+    <MagazineCount>8</MagazineCount>
+    <MagazineReloadMilliseconds>7500</MagazineReloadMilliseconds>
+    <MagazineReloadSoundName>M1_Garand_Reload</MagazineReloadSoundName>
     <ShootSoundName>M1_Garand_Shot_Holder</ShootSoundName>
     <ShootSoundMid>M1_Garand_Shot_Mid</ShootSoundMid>
     <ShootSoundMidFront>M1_Garand_Shot_Mid_Front</ShootSoundMidFront>
@@ -82,6 +85,10 @@
   <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
     <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_K98" />
     <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />
+    <MagazineCount>5</MagazineCount>
+    <MagazineReloadMilliseconds>7500</MagazineReloadMilliseconds>
+    <ReloadSoundName>Kar98k_Cycle</ReloadSoundName>
+    <MagazineReloadSoundName>Kar98k_Reload</MagazineReloadSoundName>
     <ShootSoundName>K98_Shot_Holder</ShootSoundName>
     <ShootSoundMid>K98_Shot_Mid</ShootSoundMid>
     <ShootSoundMidFront>K98_Shot_Mid_Front</ShootSoundMidFront>
@@ -92,6 +99,10 @@
   <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
     <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mosin" />
     <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />
+    <MagazineCount>5</MagazineCount>
+    <MagazineReloadMilliseconds>7500</MagazineReloadMilliseconds>
+    <ReloadSoundName>Mosin_Cycle</ReloadSoundName>
+    <MagazineReloadSoundName>Mosin_Reload</MagazineReloadSoundName>
     <ShootSoundName>Mosin_Shot_Holder</ShootSoundName>
     <ShootSoundMid>Mosin_Shot_Mid</ShootSoundMid>
     <ShootSoundMidFront>Mosin_Shot_Mid_Front</ShootSoundMidFront>
