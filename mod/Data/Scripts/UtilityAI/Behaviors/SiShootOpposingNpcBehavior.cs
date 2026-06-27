@@ -1,8 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Xml.Serialization;
 using Medieval.GameSystems.Factions;
-using Pax.Cannons;
 using Sandbox.Game.Players;
 using Sandbox.ModAPI;
 using VRage.Components;
@@ -12,11 +10,9 @@ using VRage.Game.Definitions;
 using VRage.Game.Entity;
 using VRage.Game.ObjectBuilders.ComponentSystem;
 using VRage.ModAPI;
-using VRage.Network;
 using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
-using VRageRender;
 
 namespace Si.UtilityAI
 {
@@ -36,42 +32,6 @@ namespace Si.UtilityAI
         public float BaseScore;
         public float DistanceScore;
         public float DistanceExponent;
-
-        public int FireCooldownMilliseconds;
-        public string Projectile;
-        public float ProjectileVelocityMultiplier;
-        public float ProjectileAccuracyMultiplier;
-        public float ProjectileSyncDistance;
-        public float CharacterDamageMultiplier;
-        public float ShootingSpreadDegrees;
-
-        public SerializableDefinitionId? ShootEffect;
-        public int MagazineCount;
-        public int MagazineReloadMilliseconds;
-        public string ReloadSoundName;
-        public string MagazineReloadSoundName;
-        public string ShootSoundName;
-        public string ShootSoundMid;
-        public string ShootSoundMidFront;
-        public string ShootSoundFar;
-        public string ShootSoundFarFront;
-        public float ShootSoundSpeedMetersPerSecond;
-        public float ShootSoundMaxDelayMilliseconds;
-        public float ShootSoundFalloffMilliseconds;
-        public float ShootSoundDirectMaximumDelayMilliseconds;
-        public float ShootSoundFrontAngleThreshold;
-        public float ShootSoundFrontAngleBlendRange;
-        public float ShootSoundDistanceBlendStartMilliseconds;
-        public float ShootSoundDistanceBlendRangeMilliseconds;
-
-        public float AimTargetHeight;
-        public float AimExtraHeight;
-        public float AimCloseRangeDistance;
-        public float AimCloseRangeHeightOffset;
-        public float ExpectedProjectileVelocity;
-        public float ElevationAiming;
-        public float MuzzleForwardOffset;
-        public float MuzzleUpOffset;
 
         public bool RequireLineOfSight;
         public bool RotateToTarget;
@@ -93,33 +53,6 @@ namespace Si.UtilityAI
         public float DistanceScore;
         public float DistanceExponent;
 
-        public int FireCooldownMilliseconds;
-        public string Projectile;
-        public float ProjectileVelocityMultiplier;
-        public float ProjectileAccuracyMultiplier;
-        public float ProjectileSyncDistance;
-        public float CharacterDamageMultiplier;
-        public float ShootingSpreadDegrees;
-
-        public SerializableDefinitionId? ShootEffect;
-        public float ShootSoundSpeedMetersPerSecond;
-        public float ShootSoundMaxDelayMilliseconds;
-        public float ShootSoundFalloffMilliseconds;
-        public float ShootSoundDirectMaximumDelayMilliseconds;
-        public float ShootSoundFrontAngleThreshold;
-        public float ShootSoundFrontAngleBlendRange;
-        public float ShootSoundDistanceBlendStartMilliseconds;
-        public float ShootSoundDistanceBlendRangeMilliseconds;
-
-        public float AimTargetHeight;
-        public float AimExtraHeight;
-        public float AimCloseRangeDistance;
-        public float AimCloseRangeHeightOffset;
-        public float ExpectedProjectileVelocity;
-        public float ElevationAiming;
-        public float MuzzleForwardOffset;
-        public float MuzzleUpOffset;
-
         public bool RequireLineOfSight;
         public bool RotateToTarget;
         public string EngageSpeech;
@@ -140,34 +73,6 @@ namespace Si.UtilityAI
         public float BaseScore { get; private set; }
         public float DistanceScore { get; private set; }
         public float DistanceExponent { get; private set; }
-
-        public int FireCooldownMilliseconds { get; private set; }
-        public string Projectile { get; private set; }
-        public float ProjectileVelocityMultiplier { get; private set; }
-        public float ProjectileAccuracyMultiplier { get; private set; }
-        public float ProjectileSyncDistance { get; private set; }
-        public float CharacterDamageMultiplier { get; private set; }
-        public float ShootingSpreadDegrees { get; private set; }
-
-        public SerializableDefinitionId? ShootEffect { get; private set; }
-        public float ShootSoundSpeedMetersPerSecond { get; private set; }
-        public float ShootSoundMaxDelayMilliseconds { get; private set; }
-        public float ShootSoundFalloffMilliseconds { get; private set; }
-        public float ShootSoundDirectMaximumDelayMilliseconds { get; private set; }
-        public float ShootSoundFrontAngleThreshold { get; private set; }
-        public float ShootSoundFrontAngleBlendRange { get; private set; }
-        public float ShootSoundDistanceBlendStartMilliseconds { get; private set; }
-        public float ShootSoundDistanceBlendRangeMilliseconds { get; private set; }
-
-        public float AimTargetHeight { get; private set; }
-        public float AimExtraHeight { get; private set; }
-        public float AimCloseRangeDistance { get; private set; }
-        public float AimCloseRangeHeightOffset { get; private set; }
-        public float ExpectedProjectileVelocity { get; private set; }
-        public float ElevationAiming { get; private set; }
-        public float MuzzleForwardOffset { get; private set; }
-        public float MuzzleUpOffset { get; private set; }
-
         public bool RequireLineOfSight { get; private set; }
         public bool RotateToTarget { get; private set; }
         public string EngageSpeech { get; private set; }
@@ -185,34 +90,6 @@ namespace Si.UtilityAI
             BaseScore = Math.Max(0, ob.BaseScore);
             DistanceScore = Math.Max(0, ob.DistanceScore);
             DistanceExponent = Math.Max(0.01f, ob.DistanceExponent);
-
-            FireCooldownMilliseconds = Math.Max(1, ob.FireCooldownMilliseconds);
-            Projectile = ob.Projectile;
-            ProjectileVelocityMultiplier = Math.Max(0, ob.ProjectileVelocityMultiplier);
-            ProjectileAccuracyMultiplier = Math.Max(0, ob.ProjectileAccuracyMultiplier);
-            ProjectileSyncDistance = Math.Max(0, ob.ProjectileSyncDistance);
-            CharacterDamageMultiplier = Math.Max(0, ob.CharacterDamageMultiplier);
-            ShootingSpreadDegrees = Math.Max(0, ob.ShootingSpreadDegrees);
-
-            ShootEffect = ob.ShootEffect;
-            ShootSoundSpeedMetersPerSecond = Math.Max(0, ob.ShootSoundSpeedMetersPerSecond);
-            ShootSoundMaxDelayMilliseconds = Math.Max(0, ob.ShootSoundMaxDelayMilliseconds);
-            ShootSoundFalloffMilliseconds = Math.Max(0, ob.ShootSoundFalloffMilliseconds);
-            ShootSoundDirectMaximumDelayMilliseconds = Math.Max(0, ob.ShootSoundDirectMaximumDelayMilliseconds);
-            ShootSoundFrontAngleThreshold = ob.ShootSoundFrontAngleThreshold;
-            ShootSoundFrontAngleBlendRange = Math.Max(0, ob.ShootSoundFrontAngleBlendRange);
-            ShootSoundDistanceBlendStartMilliseconds = Math.Max(0, ob.ShootSoundDistanceBlendStartMilliseconds);
-            ShootSoundDistanceBlendRangeMilliseconds = Math.Max(0, ob.ShootSoundDistanceBlendRangeMilliseconds);
-
-            AimTargetHeight = Math.Max(0, ob.AimTargetHeight);
-            AimExtraHeight = ob.AimExtraHeight;
-            AimCloseRangeDistance = Math.Max(0, ob.AimCloseRangeDistance);
-            AimCloseRangeHeightOffset = ob.AimCloseRangeHeightOffset;
-            ExpectedProjectileVelocity = Math.Max(0.01f, ob.ExpectedProjectileVelocity);
-            ElevationAiming = Math.Max(0.01f, ob.ElevationAiming);
-            MuzzleForwardOffset = ob.MuzzleForwardOffset;
-            MuzzleUpOffset = ob.MuzzleUpOffset;
-
             RequireLineOfSight = ob.RequireLineOfSight;
             RotateToTarget = ob.RotateToTarget;
             EngageSpeech = ob.EngageSpeech;
@@ -226,47 +103,14 @@ namespace Si.UtilityAI
     [MyDefinitionType(typeof(MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition))]
     public class SiShootOpposingNpcBehaviorDefinition : MyEntityComponentDefinition
     {
+        private static readonly string[] EmptyArchetypes = new string[0];
+        private SerializableDefinitionId? _balanceId;
+        private bool _balanceResolved;
+
         public float SearchRadius { get; private set; }
         public float BaseScore { get; private set; }
         public float DistanceScore { get; private set; }
         public float DistanceExponent { get; private set; }
-
-        public int FireCooldownMilliseconds { get; private set; }
-        public string Projectile { get; private set; }
-        public float ProjectileVelocityMultiplier { get; private set; }
-        public float ProjectileAccuracyMultiplier { get; private set; }
-        public float ProjectileSyncDistance { get; private set; }
-        public float CharacterDamageMultiplier { get; private set; }
-        public float ShootingSpreadDegrees { get; private set; }
-
-        public SerializableDefinitionId? ShootEffect { get; private set; }
-        public int MagazineCount { get; private set; }
-        public int MagazineReloadMilliseconds { get; private set; }
-        public string ReloadSoundName { get; private set; }
-        public string MagazineReloadSoundName { get; private set; }
-        public string ShootSoundName { get; private set; }
-        public string ShootSoundMid { get; private set; }
-        public string ShootSoundMidFront { get; private set; }
-        public string ShootSoundFar { get; private set; }
-        public string ShootSoundFarFront { get; private set; }
-        public float ShootSoundSpeedMetersPerSecond { get; private set; }
-        public float ShootSoundMaxDelayMilliseconds { get; private set; }
-        public float ShootSoundFalloffMilliseconds { get; private set; }
-        public float ShootSoundDirectMaximumDelayMilliseconds { get; private set; }
-        public float ShootSoundFrontAngleThreshold { get; private set; }
-        public float ShootSoundFrontAngleBlendRange { get; private set; }
-        public float ShootSoundDistanceBlendStartMilliseconds { get; private set; }
-        public float ShootSoundDistanceBlendRangeMilliseconds { get; private set; }
-
-        public float AimTargetHeight { get; private set; }
-        public float AimExtraHeight { get; private set; }
-        public float AimCloseRangeDistance { get; private set; }
-        public float AimCloseRangeHeightOffset { get; private set; }
-        public float ExpectedProjectileVelocity { get; private set; }
-        public float ElevationAiming { get; private set; }
-        public float MuzzleForwardOffset { get; private set; }
-        public float MuzzleUpOffset { get; private set; }
-
         public bool RequireLineOfSight { get; private set; }
         public bool RotateToTarget { get; private set; }
         public string EngageSpeech { get; private set; }
@@ -274,8 +118,6 @@ namespace Si.UtilityAI
         public string SpotTargetName { get; private set; }
         public int SpotSpeechCooldownMilliseconds { get; private set; }
         public string[] TargetArchetypes { get; private set; }
-        private SerializableDefinitionId? _balanceId;
-        private bool _balanceResolved;
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
         {
@@ -286,16 +128,6 @@ namespace Si.UtilityAI
             _balanceResolved = false;
             InitFromBuilder(ob);
             ResolveBalance();
-
-            MagazineCount = Math.Max(1, ob.MagazineCount);
-            MagazineReloadMilliseconds = Math.Max(0, ob.MagazineReloadMilliseconds);
-            ReloadSoundName = ob.ReloadSoundName;
-            MagazineReloadSoundName = ob.MagazineReloadSoundName;
-            ShootSoundName = ob.ShootSoundName;
-            ShootSoundMid = ob.ShootSoundMid;
-            ShootSoundMidFront = ob.ShootSoundMidFront;
-            ShootSoundFar = ob.ShootSoundFar;
-            ShootSoundFarFront = ob.ShootSoundFarFront;
         }
 
         internal void ResolveBalance()
@@ -317,34 +149,6 @@ namespace Si.UtilityAI
             BaseScore = Math.Max(0, ob.BaseScore);
             DistanceScore = Math.Max(0, ob.DistanceScore);
             DistanceExponent = Math.Max(0.01f, ob.DistanceExponent);
-
-            FireCooldownMilliseconds = Math.Max(1, ob.FireCooldownMilliseconds);
-            Projectile = ob.Projectile;
-            ProjectileVelocityMultiplier = Math.Max(0, ob.ProjectileVelocityMultiplier);
-            ProjectileAccuracyMultiplier = Math.Max(0, ob.ProjectileAccuracyMultiplier);
-            ProjectileSyncDistance = Math.Max(0, ob.ProjectileSyncDistance);
-            CharacterDamageMultiplier = Math.Max(0, ob.CharacterDamageMultiplier);
-            ShootingSpreadDegrees = Math.Max(0, ob.ShootingSpreadDegrees);
-
-            ShootEffect = ob.ShootEffect;
-            ShootSoundSpeedMetersPerSecond = Math.Max(0, ob.ShootSoundSpeedMetersPerSecond);
-            ShootSoundMaxDelayMilliseconds = Math.Max(0, ob.ShootSoundMaxDelayMilliseconds);
-            ShootSoundFalloffMilliseconds = Math.Max(0, ob.ShootSoundFalloffMilliseconds);
-            ShootSoundDirectMaximumDelayMilliseconds = Math.Max(0, ob.ShootSoundDirectMaximumDelayMilliseconds);
-            ShootSoundFrontAngleThreshold = ob.ShootSoundFrontAngleThreshold;
-            ShootSoundFrontAngleBlendRange = Math.Max(0, ob.ShootSoundFrontAngleBlendRange);
-            ShootSoundDistanceBlendStartMilliseconds = Math.Max(0, ob.ShootSoundDistanceBlendStartMilliseconds);
-            ShootSoundDistanceBlendRangeMilliseconds = Math.Max(0, ob.ShootSoundDistanceBlendRangeMilliseconds);
-
-            AimTargetHeight = Math.Max(0, ob.AimTargetHeight);
-            AimExtraHeight = ob.AimExtraHeight;
-            AimCloseRangeDistance = Math.Max(0, ob.AimCloseRangeDistance);
-            AimCloseRangeHeightOffset = ob.AimCloseRangeHeightOffset;
-            ExpectedProjectileVelocity = Math.Max(0.01f, ob.ExpectedProjectileVelocity);
-            ElevationAiming = Math.Max(0.01f, ob.ElevationAiming);
-            MuzzleForwardOffset = ob.MuzzleForwardOffset;
-            MuzzleUpOffset = ob.MuzzleUpOffset;
-
             RequireLineOfSight = ob.RequireLineOfSight;
             RotateToTarget = ob.RotateToTarget;
             EngageSpeech = ob.EngageSpeech;
@@ -360,34 +164,6 @@ namespace Si.UtilityAI
             BaseScore = balance.BaseScore;
             DistanceScore = balance.DistanceScore;
             DistanceExponent = balance.DistanceExponent;
-
-            FireCooldownMilliseconds = balance.FireCooldownMilliseconds;
-            Projectile = balance.Projectile;
-            ProjectileVelocityMultiplier = balance.ProjectileVelocityMultiplier;
-            ProjectileAccuracyMultiplier = balance.ProjectileAccuracyMultiplier;
-            ProjectileSyncDistance = balance.ProjectileSyncDistance;
-            CharacterDamageMultiplier = balance.CharacterDamageMultiplier;
-            ShootingSpreadDegrees = balance.ShootingSpreadDegrees;
-
-            ShootEffect = balance.ShootEffect;
-            ShootSoundSpeedMetersPerSecond = balance.ShootSoundSpeedMetersPerSecond;
-            ShootSoundMaxDelayMilliseconds = balance.ShootSoundMaxDelayMilliseconds;
-            ShootSoundFalloffMilliseconds = balance.ShootSoundFalloffMilliseconds;
-            ShootSoundDirectMaximumDelayMilliseconds = balance.ShootSoundDirectMaximumDelayMilliseconds;
-            ShootSoundFrontAngleThreshold = balance.ShootSoundFrontAngleThreshold;
-            ShootSoundFrontAngleBlendRange = balance.ShootSoundFrontAngleBlendRange;
-            ShootSoundDistanceBlendStartMilliseconds = balance.ShootSoundDistanceBlendStartMilliseconds;
-            ShootSoundDistanceBlendRangeMilliseconds = balance.ShootSoundDistanceBlendRangeMilliseconds;
-
-            AimTargetHeight = balance.AimTargetHeight;
-            AimExtraHeight = balance.AimExtraHeight;
-            AimCloseRangeDistance = balance.AimCloseRangeDistance;
-            AimCloseRangeHeightOffset = balance.AimCloseRangeHeightOffset;
-            ExpectedProjectileVelocity = balance.ExpectedProjectileVelocity;
-            ElevationAiming = balance.ElevationAiming;
-            MuzzleForwardOffset = balance.MuzzleForwardOffset;
-            MuzzleUpOffset = balance.MuzzleUpOffset;
-
             RequireLineOfSight = balance.RequireLineOfSight;
             RotateToTarget = balance.RotateToTarget;
             EngageSpeech = balance.EngageSpeech;
@@ -415,28 +191,20 @@ namespace Si.UtilityAI
                     return candidate;
             return null;
         }
-
-        private static readonly string[] EmptyArchetypes = new string[0];
     }
 
     /// <summary>
-    /// Scores opposing NPCs and players and fires PAX defender rifle projectiles at the
-    /// selected target.  Weapon tuning is supplied by the attached definition.
+    /// Scores opposing NPCs and players, reports spotted targets, and grants fire
+    /// permission to the attached ranged-weapon component.
     /// </summary>
     [MyComponent(typeof(MyObjectBuilder_SiShootOpposingNpcBehavior))]
     [MyDefinitionRequired(typeof(SiShootOpposingNpcBehaviorDefinition))]
-    [StaticEventOwner]
     public class SiShootOpposingNpcBehaviorComponent : MyEntityComponent, ISiUtilityBehavior
     {
         private static readonly MyStringHash HostileRelationship = MyStringHash.GetOrCompute("War");
-        private static readonly Random ShotSpreadRandom = new Random();
-        private static readonly object ShotSpreadRandomLock = new object();
-        private readonly List<PendingShotSound> _pendingShotSounds = new List<PendingShotSound>();
-        private readonly List<PendingWeaponSound> _pendingWeaponSounds = new List<PendingWeaponSound>();
+
         private SiShootOpposingNpcBehaviorDefinition _definition;
         private ShootTarget _target;
-        private long _fireCooldown;
-        private int _shotsRemainingInMagazine;
         private long _lastEngageSpeechTime = -1;
         private long _lastSpotSpeechTime = -1;
         private long _lastSpottedTargetId;
@@ -454,7 +222,8 @@ namespace Si.UtilityAI
 
         float ISiUtilityBehavior.Evaluate(SiUtilityContext context)
         {
-            if (!CanShoot)
+            var weapon = GetWeapon();
+            if (weapon == null || !weapon.IsOperational)
             {
                 _target = null;
                 return 0;
@@ -480,8 +249,7 @@ namespace Si.UtilityAI
 
         void ISiUtilityBehavior.Begin(SiUtilityContext context)
         {
-            _fireCooldown = 0;
-            ResetMagazine();
+            GetWeapon()?.ResetState();
             TrySpeakWithCooldown(
                 context,
                 _definition.EngageSpeech,
@@ -492,7 +260,9 @@ namespace Si.UtilityAI
         void ISiUtilityBehavior.Tick(SiUtilityContext context, long elapsedMilliseconds)
         {
             var session = SiNpcSessionComponent.Instance;
-            if (!CanShoot
+            var weapon = GetWeapon();
+            if (weapon == null
+                || !weapon.IsOperational
                 || session?.GetEngagementStance(context.Agent) == SiSquadEngagementStance.HoldFire
                 || !IsValidTarget(context.Agent, _target))
                 return;
@@ -501,42 +271,23 @@ namespace Si.UtilityAI
             if (_definition.RotateToTarget)
                 FaceTarget(context.Entity, targetEntity);
 
-            _fireCooldown -= elapsedMilliseconds;
-            if (_fireCooldown > 0)
+            weapon.Advance(elapsedMilliseconds);
+
+            if (_definition.RequireLineOfSight && !HasLineOfSight(context.Entity, targetEntity, weapon.Definition.AimTargetHeight))
                 return;
 
-            if (!TryCreateShot(context, _target, out var projectileMatrix))
-                return;
-
-            if (SiPaxProjectileSpawner.TryCreateSyncedProjectile(
-                    _definition.Projectile,
-                    projectileMatrix,
-                    _definition.ProjectileVelocityMultiplier,
-                    _definition.ProjectileAccuracyMultiplier,
-                    Vector3.Zero,
-                    _definition.ProjectileSyncDistance,
-                    _definition.CharacterDamageMultiplier,
-                    context.EntityId))
-            {
-                var shotFeedback = ConsumeShot();
-                _fireCooldown = shotFeedback.CooldownMilliseconds;
-                PlayShotFeedback(
-                    context.EntityId,
-                    projectileMatrix,
-                    shotFeedback.PlayReloadSound,
-                    shotFeedback.PlayMagazineReloadSound);
-            }
+            weapon.TryFire(context, targetEntity, _target.Velocity);
         }
 
         void ISiUtilityBehavior.End(SiUtilityContext context)
         {
             _target = null;
-            _fireCooldown = 0;
-            ResetMagazine();
             _lastSpottedTargetId = 0;
-            _pendingShotSounds.Clear();
-            _pendingWeaponSounds.Clear();
+            GetWeapon()?.ResetState();
         }
+
+        private SiNpcRangedWeaponComponent GetWeapon() =>
+            Entity?.Components?.Get<SiNpcRangedWeaponComponent>();
 
         private void TryReportSpotting(SiUtilityContext context, ShootTarget target, double distance)
         {
@@ -645,332 +396,12 @@ namespace Si.UtilityAI
             return CurrentTimeMilliseconds() - lastSpeechTime >= cooldownMilliseconds;
         }
 
-        private ShotFeedback ConsumeShot()
-        {
-            if (_shotsRemainingInMagazine <= 0)
-                ResetMagazine();
-
-            _shotsRemainingInMagazine = Math.Max(0, _shotsRemainingInMagazine - 1);
-            var magazineEmpty = _shotsRemainingInMagazine <= 0;
-            if (magazineEmpty)
-                ResetMagazine();
-
-            return new ShotFeedback
-            {
-                CooldownMilliseconds = magazineEmpty
-                    ? _definition.MagazineReloadMilliseconds
-                    : _definition.FireCooldownMilliseconds,
-                PlayReloadSound = !magazineEmpty && !string.IsNullOrWhiteSpace(_definition.ReloadSoundName),
-                PlayMagazineReloadSound = magazineEmpty && !string.IsNullOrWhiteSpace(_definition.MagazineReloadSoundName),
-            };
-        }
-
-        private void ResetMagazine()
-        {
-            _shotsRemainingInMagazine = Math.Max(1, _definition?.MagazineCount ?? 1);
-        }
-
-        private void PlayShotFeedback(
-            long entityId,
-            MatrixD projectileMatrix,
-            bool playReloadSound,
-            bool playMagazineReloadSound)
-        {
-            PlayShotFeedbackLocal(projectileMatrix, playReloadSound, playMagazineReloadSound);
-            if (MyMultiplayerModApi.Static != null && MyMultiplayerModApi.Static.IsServer)
-                MyMultiplayerModApi.Static.RaiseStaticEvent(
-                    x => PlayShotFeedbackClient,
-                    entityId,
-                    projectileMatrix,
-                    playReloadSound,
-                    playMagazineReloadSound);
-        }
-
-        [Event, Reliable, Broadcast]
-        private static void PlayShotFeedbackClient(
-            long entityId,
-            MatrixD projectileMatrix,
-            bool playReloadSound,
-            bool playMagazineReloadSound)
-        {
-            if (MyMultiplayerModApi.Static != null && MyMultiplayerModApi.Static.IsServer)
-                return;
-
-            var manager = SiNpcSessionComponent.Instance?.Npcs;
-            if (manager == null)
-                return;
-            if (!manager.Npcs.TryGetValue(entityId, out var npc))
-                return;
-
-            npc.Entity?.Components
-                .Get<SiShootOpposingNpcBehaviorComponent>()
-                ?.PlayShotFeedbackLocal(projectileMatrix, playReloadSound, playMagazineReloadSound);
-        }
-
-        private void PlayShotFeedbackLocal(
-            MatrixD projectileMatrix,
-            bool playReloadSound,
-            bool playMagazineReloadSound)
-        {
-            if (_definition == null)
-                return;
-
-            PlayMuzzleEffect(projectileMatrix);
-            QueueShotSound(projectileMatrix);
-
-            var position = projectileMatrix.Translation;
-            if (playReloadSound)
-                QueueWeaponSound(
-                    _definition.ReloadSoundName,
-                    position,
-                    Math.Min(500, _definition.FireCooldownMilliseconds / 3));
-            if (playMagazineReloadSound)
-                QueueWeaponSound(
-                    _definition.MagazineReloadSoundName,
-                    position,
-                    Math.Min(900, _definition.MagazineReloadMilliseconds / 4));
-        }
-
-        private void PlayMuzzleEffect(MatrixD projectileMatrix)
-        {
-            if (!_definition.ShootEffect.HasValue)
-                return;
-
-            MyEffectDefinition effectDefinition;
-            try
-            {
-                effectDefinition = MyDefinitionManager.Get<MyEffectDefinition>(_definition.ShootEffect.Value);
-            }
-            catch
-            {
-                return;
-            }
-
-            if (effectDefinition == null || effectDefinition.ParticleId == MyStringHash.NullOrEmpty)
-                return;
-
-            MyParticleEffect effect;
-            if (!MyParticlesManager.TryCreateParticleEffect(effectDefinition.ParticleId, out effect, false)
-                || effect == null)
-                return;
-
-            effect.WorldMatrix = projectileMatrix;
-            effect.UserScale *= effectDefinition.ParticleScale;
-        }
-
-        private void QueueShotSound(MatrixD projectileMatrix)
-        {
-            if (!HasAnyShootSound
-                || _definition.ShootSoundSpeedMetersPerSecond <= 0
-                || _definition.ShootSoundFalloffMilliseconds <= 0)
-                return;
-
-            var camera = MyAPIGateway.Session?.Camera;
-            if (camera == null)
-                return;
-
-            var position = projectileMatrix.Translation;
-            var toCamera = camera.WorldMatrix.Translation - position;
-            var distanceSquared = toCamera.LengthSquared();
-            var distance = distanceSquared > 0.0001 ? Math.Sqrt(distanceSquared) : 0;
-            var delayMilliseconds = (long)(distance * 1000 / _definition.ShootSoundSpeedMetersPerSecond);
-            if (_definition.ShootSoundMaxDelayMilliseconds > 0
-                && delayMilliseconds >= _definition.ShootSoundMaxDelayMilliseconds)
-                return;
-
-            var frontAngle = 0f;
-            if (distance > 0.0001)
-            {
-                var shotDirection = NormalizedOrFallback(projectileMatrix.Forward, Vector3D.Forward);
-                frontAngle = (float)Vector3D.Dot(shotDirection, toCamera / distance);
-            }
-
-            _pendingShotSounds.Add(new PendingShotSound
-            {
-                Position = position,
-                DelayMilliseconds = delayMilliseconds,
-                DueTimeMilliseconds = CurrentTimeMilliseconds() + delayMilliseconds,
-                FrontAngle = frontAngle,
-            });
-
-            if (delayMilliseconds <= 0)
-                PlayDelayedShotSound(0);
-            else
-                AddScheduledCallback(PlayDelayedShotSound, delayMilliseconds);
-        }
-
-        private void QueueWeaponSound(string cue, Vector3D position, long actionDelayMilliseconds)
-        {
-            if (string.IsNullOrWhiteSpace(cue))
-                return;
-
-            var delayMilliseconds = Math.Max(0, actionDelayMilliseconds + SoundTravelDelayMilliseconds(position));
-            _pendingWeaponSounds.Add(new PendingWeaponSound
-            {
-                Cue = cue,
-                Position = position,
-                DueTimeMilliseconds = CurrentTimeMilliseconds() + delayMilliseconds,
-            });
-
-            if (delayMilliseconds <= 0)
-                PlayDelayedWeaponSound(0);
-            else
-                AddScheduledCallback(PlayDelayedWeaponSound, delayMilliseconds);
-        }
-
-        [Update(false)]
-        private void PlayDelayedWeaponSound(long elapsedMilliseconds)
-        {
-            if (_pendingWeaponSounds.Count == 0)
-                return;
-
-            var index = PendingWeaponSoundIndex();
-            var pending = _pendingWeaponSounds[index];
-            _pendingWeaponSounds.RemoveAt(index);
-            PlayWorldSound(pending.Cue, pending.Position, 1f);
-        }
-
-        [Update(false)]
-        private void PlayDelayedShotSound(long elapsedMilliseconds)
-        {
-            if (_pendingShotSounds.Count == 0)
-                return;
-
-            var index = PendingShotSoundIndex();
-            var pending = _pendingShotSounds[index];
-            _pendingShotSounds.RemoveAt(index);
-
-            var distancePower = 1f - pending.DelayMilliseconds / _definition.ShootSoundFalloffMilliseconds;
-            if (distancePower > 0)
-                distancePower = distancePower * distancePower * distancePower;
-            if (distancePower <= 0)
-                return;
-
-            if (pending.DelayMilliseconds > _definition.ShootSoundDirectMaximumDelayMilliseconds
-                && HasDistanceShootSounds)
-            {
-                var angleRange = 2 * _definition.ShootSoundFrontAngleBlendRange;
-                var angleWeight = MathHelper.Clamp(
-                    (pending.FrontAngle
-                     - _definition.ShootSoundFrontAngleThreshold
-                     + _definition.ShootSoundFrontAngleBlendRange)
-                    / angleRange,
-                    0,
-                    1);
-                var distanceWeight = MathHelper.Clamp(
-                    (pending.DelayMilliseconds - _definition.ShootSoundDistanceBlendStartMilliseconds)
-                    / _definition.ShootSoundDistanceBlendRangeMilliseconds,
-                    0,
-                    1);
-
-                var closeVolume = MathHelper.Clamp(1f - distanceWeight, 0, 1);
-                var farVolume = MathHelper.Clamp(distanceWeight, 0, 1);
-                var frontVolume = MathHelper.Clamp(angleWeight, 0, 1);
-                var backVolume = MathHelper.Clamp(1f - angleWeight, 0, 1);
-
-                PlayWorldSound(_definition.ShootSoundMidFront, pending.Position, distancePower * closeVolume * frontVolume);
-                PlayWorldSound(_definition.ShootSoundMid, pending.Position, distancePower * closeVolume * backVolume);
-                PlayWorldSound(_definition.ShootSoundFarFront, pending.Position, distancePower * farVolume * frontVolume);
-                PlayWorldSound(_definition.ShootSoundFar, pending.Position, distancePower * farVolume * backVolume);
-                return;
-            }
-
-            PlayWorldSound(_definition.ShootSoundName, pending.Position, distancePower);
-        }
-
-        private int PendingShotSoundIndex()
-        {
-            var bestIndex = 0;
-            var bestDueTime = _pendingShotSounds[0].DueTimeMilliseconds;
-            for (var i = 1; i < _pendingShotSounds.Count; i++)
-            {
-                var dueTime = _pendingShotSounds[i].DueTimeMilliseconds;
-                if (dueTime >= bestDueTime)
-                    continue;
-
-                bestIndex = i;
-                bestDueTime = dueTime;
-            }
-
-            return bestIndex;
-        }
-
-        private int PendingWeaponSoundIndex()
-        {
-            var bestIndex = 0;
-            var bestDueTime = _pendingWeaponSounds[0].DueTimeMilliseconds;
-            for (var i = 1; i < _pendingWeaponSounds.Count; i++)
-            {
-                var dueTime = _pendingWeaponSounds[i].DueTimeMilliseconds;
-                if (dueTime >= bestDueTime)
-                    continue;
-
-                bestIndex = i;
-                bestDueTime = dueTime;
-            }
-
-            return bestIndex;
-        }
-
-        private bool HasAnyShootSound =>
-            !string.IsNullOrEmpty(_definition.ShootSoundName)
-            || HasDistanceShootSounds;
-
-        private bool HasDistanceShootSounds =>
-            !string.IsNullOrEmpty(_definition.ShootSoundMid)
-            && !string.IsNullOrEmpty(_definition.ShootSoundMidFront)
-            && !string.IsNullOrEmpty(_definition.ShootSoundFar)
-            && !string.IsNullOrEmpty(_definition.ShootSoundFarFront)
-            && _definition.ShootSoundFrontAngleBlendRange > 0
-            && _definition.ShootSoundDistanceBlendRangeMilliseconds > 0;
-
-        private static void PlayWorldSound(string cue, Vector3D position, float volume)
-        {
-            if (string.IsNullOrEmpty(cue) || volume <= 0)
-                return;
-
-            var audio = Sandbox.Game.World.MyAudioComponent.Instance;
-            if (audio == null)
-                return;
-
-            audio.TryPlayOneOffSound(new VRage.Audio.MyCueId(cue), position, volume, null, null);
-        }
-
-        private long SoundTravelDelayMilliseconds(Vector3D position)
-        {
-            if (_definition == null || _definition.ShootSoundSpeedMetersPerSecond <= 0)
-                return 0;
-
-            var camera = MyAPIGateway.Session?.Camera;
-            if (camera == null)
-                return 0;
-
-            var distanceSquared = Vector3D.DistanceSquared(position, camera.WorldMatrix.Translation);
-            var distance = distanceSquared > 0.0001 ? Math.Sqrt(distanceSquared) : 0;
-            return (long)(distance * 1000 / _definition.ShootSoundSpeedMetersPerSecond);
-        }
-
         private static long CurrentTimeMilliseconds()
         {
             var session = MyAPIGateway.Session;
             return session != null
                 ? (long)session.ElapsedPlayTime.TotalMilliseconds
                 : 0;
-        }
-
-        private bool CanShoot
-        {
-            get
-            {
-                _definition.ResolveBalance();
-                return !string.IsNullOrWhiteSpace(_definition.Projectile)
-                       && _definition.SearchRadius > 0
-                       && _definition.ProjectileVelocityMultiplier > 0
-                       && _definition.ProjectileAccuracyMultiplier > 0
-                       && _definition.ProjectileSyncDistance > 0
-                       && SiPaxProjectileSpawner.IsAvailable
-                       && ProjectileDefinitionExists(_definition.Projectile);
-            }
         }
 
         private ShootTarget FindBestTarget(SiUtilityContext context, out double bestDistance)
@@ -1003,7 +434,7 @@ namespace Si.UtilityAI
                 if (distanceSquared > bestDistanceSquared)
                     continue;
                 if (_definition.RequireLineOfSight
-                    && !HasLineOfSight(context.Entity, target.Entity))
+                    && !HasLineOfSight(context.Entity, target.Entity, GetWeaponAimHeight()))
                     continue;
 
                 best = target;
@@ -1028,7 +459,7 @@ namespace Si.UtilityAI
                     if (distanceSquared > bestDistanceSquared)
                         continue;
                     if (_definition.RequireLineOfSight
-                        && !HasLineOfSight(context.Entity, target.Entity))
+                        && !HasLineOfSight(context.Entity, target.Entity, GetWeaponAimHeight()))
                         continue;
 
                     best = target;
@@ -1040,45 +471,8 @@ namespace Si.UtilityAI
             return best;
         }
 
-        private bool TryCreateShot(
-            SiUtilityContext context,
-            ShootTarget target,
-            out MatrixD projectileMatrix)
-        {
-            projectileMatrix = MatrixD.Identity;
-            var shooter = context.Entity;
-            var targetEntity = target?.Entity;
-            if (shooter == null || targetEntity == null)
-                return false;
-            if (_definition.RequireLineOfSight && !HasLineOfSight(shooter, targetEntity))
-                return false;
-
-            var shooterWorld = shooter.WorldMatrix;
-            var shooterUp = NormalizedOrFallback(shooterWorld.Up, Vector3D.Up);
-            var targetWorld = targetEntity.WorldMatrix;
-            var targetUp = NormalizedOrFallback(targetWorld.Up, shooterUp);
-
-            var initialMuzzle = shooterWorld.Translation + shooterUp * _definition.AimTargetHeight;
-            var aimPoint = targetWorld.Translation + targetUp * _definition.AimTargetHeight;
-            var distance = (initialMuzzle - aimPoint).Length();
-
-            var closeRangeOffset = distance < _definition.AimCloseRangeDistance
-                ? _definition.AimCloseRangeHeightOffset
-                : 0;
-            aimPoint += targetUp * (_definition.AimExtraHeight
-                                    + closeRangeOffset
-                                    + distance * distance / _definition.ElevationAiming);
-            aimPoint += target.Velocity * (distance / _definition.ExpectedProjectileVelocity);
-
-            var shotDirection = NormalizedOrFallback(aimPoint - initialMuzzle, shooterWorld.Forward);
-            shotDirection = ApplySpread(shotDirection, shooterUp);
-            var muzzlePosition = shooterWorld.Translation
-                                 + shotDirection * _definition.MuzzleForwardOffset
-                                 + shooterUp * _definition.MuzzleUpOffset;
-            var shotUp = RejectOrFallback(shooterUp, shotDirection, Vector3D.CalculatePerpendicularVector(shotDirection));
-            projectileMatrix = MatrixD.CreateWorld(muzzlePosition, shotDirection, shotUp);
-            return true;
-        }
+        private float GetWeaponAimHeight() =>
+            GetWeapon()?.Definition?.AimTargetHeight ?? 0.9f;
 
         private bool IsOpposing(SiNpc self, SiNpc candidate, SiSquadBook squads, SiSquadEngagementStance stance)
         {
@@ -1240,31 +634,6 @@ namespace Si.UtilityAI
             }
         }
 
-        private Vector3D ApplySpread(in Vector3D shotDirection, in Vector3D fallbackUp)
-        {
-            var spreadRadians = MathHelper.ToRadians(_definition.ShootingSpreadDegrees);
-            if (spreadRadians <= 0)
-                return shotDirection;
-
-            double yaw;
-            double pitch;
-            lock (ShotSpreadRandomLock)
-            {
-                yaw = (ShotSpreadRandom.NextDouble() * 2 - 1) * spreadRadians;
-                pitch = (ShotSpreadRandom.NextDouble() * 2 - 1) * spreadRadians;
-            }
-
-            var spreadRight = RejectOrFallback(
-                Vector3D.CalculatePerpendicularVector(shotDirection),
-                shotDirection,
-                Vector3D.Right);
-            var spreadUp = RejectOrFallback(fallbackUp, shotDirection, Vector3D.Cross(spreadRight, shotDirection));
-            var spreadDirection = shotDirection
-                                  + spreadRight * Math.Tan(yaw)
-                                  + spreadUp * Math.Tan(pitch);
-            return NormalizedOrFallback(spreadDirection, shotDirection);
-        }
-
         private bool CanTargetArchetype(string selfArchetype, string candidateArchetype)
         {
             if (_definition.TargetArchetypes.Length == 0)
@@ -1326,15 +695,15 @@ namespace Si.UtilityAI
             shooter.WorldMatrix = MatrixD.CreateWorld(world.Translation, forward, up);
         }
 
-        private bool HasLineOfSight(MyEntity shooter, MyEntity target)
+        internal static bool HasLineOfSight(MyEntity shooter, MyEntity target, float aimHeight)
         {
             if (shooter == null || target == null)
                 return false;
 
             var shooterUp = NormalizedOrFallback(shooter.WorldMatrix.Up, Vector3D.Up);
             var targetUp = NormalizedOrFallback(target.WorldMatrix.Up, shooterUp);
-            var start = shooter.WorldMatrix.Translation + shooterUp * _definition.AimTargetHeight;
-            var end = target.WorldMatrix.Translation + targetUp * _definition.AimTargetHeight;
+            var start = shooter.WorldMatrix.Translation + shooterUp * aimHeight;
+            var end = target.WorldMatrix.Translation + targetUp * aimHeight;
 
             IHitInfo hit;
             if (!MyAPIGateway.Physics.CastRay(start, end, out hit))
@@ -1344,6 +713,14 @@ namespace Si.UtilityAI
                    || hit.HitEntity == null
                    || hit.HitEntity == target
                    || hit.HitEntity == shooter;
+        }
+
+        internal static Vector3D NormalizedOrFallback(in Vector3D value, in Vector3D fallback)
+        {
+            var lengthSquared = value.LengthSquared();
+            return lengthSquared > 0.0001
+                ? value / Math.Sqrt(lengthSquared)
+                : fallback;
         }
 
         private sealed class ShootTarget
@@ -1367,87 +744,6 @@ namespace Si.UtilityAI
             public MyEntity Entity { get; }
             public long EntityId { get; }
             public Vector3D Velocity => TargetVelocity(this);
-        }
-
-        private static Vector3D NormalizedOrFallback(in Vector3D value, in Vector3D fallback)
-        {
-            var lengthSquared = value.LengthSquared();
-            return lengthSquared > 0.0001
-                ? value / Math.Sqrt(lengthSquared)
-                : fallback;
-        }
-
-        private static Vector3D RejectOrFallback(
-            in Vector3D value,
-            in Vector3D direction,
-            in Vector3D fallback)
-        {
-            var rejected = Vector3D.Reject(value, direction);
-            return NormalizedOrFallback(rejected, fallback);
-        }
-
-        private static bool ProjectileDefinitionExists(string subtype)
-        {
-            MyContainerDefinition ignored;
-            return MyDefinitionManager.TryGet(
-                new MyDefinitionId(typeof(MyObjectBuilder_EntityBase), subtype),
-                out ignored);
-        }
-
-        private struct PendingShotSound
-        {
-            public Vector3D Position;
-            public long DelayMilliseconds;
-            public long DueTimeMilliseconds;
-            public float FrontAngle;
-        }
-
-        private struct PendingWeaponSound
-        {
-            public string Cue;
-            public Vector3D Position;
-            public long DueTimeMilliseconds;
-        }
-
-        private struct ShotFeedback
-        {
-            public long CooldownMilliseconds;
-            public bool PlayReloadSound;
-            public bool PlayMagazineReloadSound;
-        }
-    }
-
-    internal static class SiPaxProjectileSpawner
-    {
-        public static bool IsAvailable => true;
-
-        public static bool TryCreateSyncedProjectile(
-            string projectile,
-            MatrixD matrix,
-            float velocity,
-            float accuracy,
-            Vector3 gridVelocity,
-            float maxDistance,
-            float characterDamageMultiplier,
-            long ownerId)
-        {
-            try
-            {
-                PAX_Projectile_Spawner.ServerCreateSyncedProjectile(
-                    projectile,
-                    matrix,
-                    velocity,
-                    accuracy,
-                    gridVelocity,
-                    maxDistance,
-                    characterDamageMultiplier,
-                    ownerId);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
         }
     }
 }

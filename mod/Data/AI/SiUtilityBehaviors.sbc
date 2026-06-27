@@ -20,40 +20,13 @@
     <DistanceExponent>1.5</DistanceExponent>
   </Definition>
 
-  <!-- Shared by all rifle troopers so no faction/model has hidden gameplay advantage. -->
+  <!-- Shared decision policy for all rifle troopers so no faction/model has hidden gameplay advantage. -->
   <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition">
     <Id Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />
     <SearchRadius>200</SearchRadius>
     <BaseScore>0.85</BaseScore>
     <DistanceScore>0.15</DistanceScore>
     <DistanceExponent>1</DistanceExponent>
-
-    <FireCooldownMilliseconds>3100</FireCooldownMilliseconds>
-    <Projectile>Cartridge30Cal</Projectile>
-    <ProjectileVelocityMultiplier>1</ProjectileVelocityMultiplier>
-    <ProjectileAccuracyMultiplier>4</ProjectileAccuracyMultiplier>
-    <ProjectileSyncDistance>1200</ProjectileSyncDistance>
-    <CharacterDamageMultiplier>1</CharacterDamageMultiplier>
-    <ShootingSpreadDegrees>0.5</ShootingSpreadDegrees>
-
-    <ShootEffect Type="EffectDefinition" Subtype="Rifle30CalFireEffect" />
-    <ShootSoundSpeedMetersPerSecond>343</ShootSoundSpeedMetersPerSecond>
-    <ShootSoundMaxDelayMilliseconds>6000</ShootSoundMaxDelayMilliseconds>
-    <ShootSoundFalloffMilliseconds>2000</ShootSoundFalloffMilliseconds>
-    <ShootSoundDirectMaximumDelayMilliseconds>20</ShootSoundDirectMaximumDelayMilliseconds>
-    <ShootSoundFrontAngleThreshold>0.6</ShootSoundFrontAngleThreshold>
-    <ShootSoundFrontAngleBlendRange>0.15</ShootSoundFrontAngleBlendRange>
-    <ShootSoundDistanceBlendStartMilliseconds>100</ShootSoundDistanceBlendStartMilliseconds>
-    <ShootSoundDistanceBlendRangeMilliseconds>200</ShootSoundDistanceBlendRangeMilliseconds>
-
-    <AimTargetHeight>0.9</AimTargetHeight>
-    <AimExtraHeight>0.7</AimExtraHeight>
-    <AimCloseRangeDistance>25</AimCloseRangeDistance>
-    <AimCloseRangeHeightOffset>-0.1</AimCloseRangeHeightOffset>
-    <ExpectedProjectileVelocity>800</ExpectedProjectileVelocity>
-    <ElevationAiming>96000</ElevationAiming>
-    <MuzzleForwardOffset>0.75</MuzzleForwardOffset>
-    <MuzzleUpOffset>0.65</MuzzleUpOffset>
 
     <RequireLineOfSight>true</RequireLineOfSight>
     <RotateToTarget>true</RotateToTarget>
@@ -67,6 +40,81 @@
   <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
     <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Garand" />
     <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
+    <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_K98" />
+    <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
+    <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mosin" />
+    <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition">
+    <Id Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiSmgTrooperSharedBalance" />
+    <SearchRadius>140</SearchRadius>
+    <BaseScore>0.8</BaseScore>
+    <DistanceScore>0.2</DistanceScore>
+    <DistanceExponent>1</DistanceExponent>
+    <RequireLineOfSight>true</RequireLineOfSight>
+    <RotateToTarget>true</RotateToTarget>
+    <EngageSpeech>engaging</EngageSpeech>
+    <EngageSpeechCooldownMilliseconds>7000</EngageSpeechCooldownMilliseconds>
+    <SpotTargetName>enemy infantry</SpotTargetName>
+    <SpotSpeechCooldownMilliseconds>15000</SpotSpeechCooldownMilliseconds>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
+    <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mp40" />
+    <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiSmgTrooperSharedBalance" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
+    <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Thompson" />
+    <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiSmgTrooperSharedBalance" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
+    <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Ppsh" />
+    <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiSmgTrooperSharedBalance" />
+  </Definition>
+
+  <!-- Shared firing profile for the rifle family. -->
+  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition">
+    <Id Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
+    <FireCooldownMilliseconds>3100</FireCooldownMilliseconds>
+    <BurstCount>1</BurstCount>
+    <BurstCooldownMilliseconds>3100</BurstCooldownMilliseconds>
+    <Projectile>Cartridge30Cal</Projectile>
+    <ProjectileVelocityMultiplier>1</ProjectileVelocityMultiplier>
+    <ProjectileAccuracyMultiplier>4</ProjectileAccuracyMultiplier>
+    <ProjectileSyncDistance>1200</ProjectileSyncDistance>
+    <CharacterDamageMultiplier>1</CharacterDamageMultiplier>
+    <ShootingSpreadDegrees>0.5</ShootingSpreadDegrees>
+    <ShootEffect Type="EffectDefinition" Subtype="Rifle30CalFireEffect" />
+    <ShootSoundSpeedMetersPerSecond>343</ShootSoundSpeedMetersPerSecond>
+    <ShootSoundMaxDelayMilliseconds>6000</ShootSoundMaxDelayMilliseconds>
+    <ShootSoundFalloffMilliseconds>2000</ShootSoundFalloffMilliseconds>
+    <ShootSoundDirectMaximumDelayMilliseconds>20</ShootSoundDirectMaximumDelayMilliseconds>
+    <ShootSoundFrontAngleThreshold>0.6</ShootSoundFrontAngleThreshold>
+    <ShootSoundFrontAngleBlendRange>0.15</ShootSoundFrontAngleBlendRange>
+    <ShootSoundDistanceBlendStartMilliseconds>100</ShootSoundDistanceBlendStartMilliseconds>
+    <ShootSoundDistanceBlendRangeMilliseconds>200</ShootSoundDistanceBlendRangeMilliseconds>
+    <AimTargetHeight>0.9</AimTargetHeight>
+    <AimExtraHeight>0.7</AimExtraHeight>
+    <AimCloseRangeDistance>25</AimCloseRangeDistance>
+    <AimCloseRangeHeightOffset>-0.1</AimCloseRangeHeightOffset>
+    <ExpectedProjectileVelocity>800</ExpectedProjectileVelocity>
+    <ElevationAiming>96000</ElevationAiming>
+    <MuzzleForwardOffset>0.75</MuzzleForwardOffset>
+    <MuzzleUpOffset>0.65</MuzzleUpOffset>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Garand" />
+    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
     <MagazineCount>8</MagazineCount>
     <MagazineReloadMilliseconds>7500</MagazineReloadMilliseconds>
     <MagazineReloadSoundName>M1_Garand_Reload</MagazineReloadSoundName>
@@ -77,9 +125,9 @@
     <ShootSoundFarFront>M1_Garand_Shot_Far_Front</ShootSoundFarFront>
   </Definition>
 
-  <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
-    <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_K98" />
-    <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />
+  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_K98" />
+    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
     <MagazineCount>5</MagazineCount>
     <MagazineReloadMilliseconds>4500</MagazineReloadMilliseconds>
     <ReloadSoundName>Kar98k_Cycle</ReloadSoundName>
@@ -91,9 +139,9 @@
     <ShootSoundFarFront>K98_Shot_Far_Front</ShootSoundFarFront>
   </Definition>
 
-  <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
-    <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mosin" />
-    <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />
+  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Mosin" />
+    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
     <MagazineCount>5</MagazineCount>
     <MagazineReloadMilliseconds>4500</MagazineReloadMilliseconds>
     <ReloadSoundName>Mosin_Cycle</ReloadSoundName>
@@ -103,5 +151,75 @@
     <ShootSoundMidFront>Mosin_Shot_Mid_Front</ShootSoundMidFront>
     <ShootSoundFar>Mosin_Shot_Far</ShootSoundFar>
     <ShootSoundFarFront>Mosin_Shot_Far_Front</ShootSoundFarFront>
+  </Definition>
+
+  <!-- Shared SMG burst profile; magazine size differences are balanced through reload time. -->
+  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition">
+    <Id Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiSmgTrooperSharedWeaponBalance" />
+    <FireCooldownMilliseconds>120</FireCooldownMilliseconds>
+    <BurstCount>5</BurstCount>
+    <BurstCooldownMilliseconds>450</BurstCooldownMilliseconds>
+    <Projectile>Cartridge9mm</Projectile>
+    <ProjectileVelocityMultiplier>1</ProjectileVelocityMultiplier>
+    <ProjectileAccuracyMultiplier>10</ProjectileAccuracyMultiplier>
+    <ProjectileSyncDistance>900</ProjectileSyncDistance>
+    <CharacterDamageMultiplier>1</CharacterDamageMultiplier>
+    <ShootingSpreadDegrees>1</ShootingSpreadDegrees>
+    <ShootEffect Type="EffectDefinition" Subtype="Smg9mmFireEffect" />
+    <ShootSoundSpeedMetersPerSecond>343</ShootSoundSpeedMetersPerSecond>
+    <ShootSoundMaxDelayMilliseconds>6000</ShootSoundMaxDelayMilliseconds>
+    <ShootSoundFalloffMilliseconds>2000</ShootSoundFalloffMilliseconds>
+    <ShootSoundDirectMaximumDelayMilliseconds>20</ShootSoundDirectMaximumDelayMilliseconds>
+    <ShootSoundFrontAngleThreshold>0.6</ShootSoundFrontAngleThreshold>
+    <ShootSoundFrontAngleBlendRange>0.15</ShootSoundFrontAngleBlendRange>
+    <ShootSoundDistanceBlendStartMilliseconds>100</ShootSoundDistanceBlendStartMilliseconds>
+    <ShootSoundDistanceBlendRangeMilliseconds>200</ShootSoundDistanceBlendRangeMilliseconds>
+    <AimTargetHeight>0.9</AimTargetHeight>
+    <AimExtraHeight>0.55</AimExtraHeight>
+    <AimCloseRangeDistance>20</AimCloseRangeDistance>
+    <AimCloseRangeHeightOffset>-0.1</AimCloseRangeHeightOffset>
+    <ExpectedProjectileVelocity>400</ExpectedProjectileVelocity>
+    <ElevationAiming>96000</ElevationAiming>
+    <MuzzleForwardOffset>0.72</MuzzleForwardOffset>
+    <MuzzleUpOffset>0.65</MuzzleUpOffset>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Mp40" />
+    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiSmgTrooperSharedWeaponBalance" />
+    <MagazineCount>32</MagazineCount>
+    <MagazineReloadMilliseconds>2600</MagazineReloadMilliseconds>
+    <MagazineReloadSoundName>MP-40_Reload</MagazineReloadSoundName>
+    <ShootSoundName>MP-40_Shot_Holder</ShootSoundName>
+    <ShootSoundMid>MP-40_Shot_Mid</ShootSoundMid>
+    <ShootSoundMidFront>MP-40_Shot_Mid_Front</ShootSoundMidFront>
+    <ShootSoundFar>MP-40_Shot_Far</ShootSoundFar>
+    <ShootSoundFarFront>MP-40_Shot_Far_Front</ShootSoundFarFront>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Thompson" />
+    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiSmgTrooperSharedWeaponBalance" />
+    <MagazineCount>30</MagazineCount>
+    <MagazineReloadMilliseconds>2720</MagazineReloadMilliseconds>
+    <MagazineReloadSoundName>Thompson_Reload</MagazineReloadSoundName>
+    <ShootSoundName>Thompson_Shot_Holder</ShootSoundName>
+    <ShootSoundMid>Thompson_Shot_Mid</ShootSoundMid>
+    <ShootSoundMidFront>Thompson_Shot_Mid_Front</ShootSoundMidFront>
+    <ShootSoundFar>Thompson_Shot_Far</ShootSoundFar>
+    <ShootSoundFarFront>Thompson_Shot_Far_Front</ShootSoundFarFront>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Ppsh" />
+    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiSmgTrooperSharedWeaponBalance" />
+    <MagazineCount>35</MagazineCount>
+    <MagazineReloadMilliseconds>3080</MagazineReloadMilliseconds>
+    <MagazineReloadSoundName>PPSh-41_Reload</MagazineReloadSoundName>
+    <ShootSoundName>PPSH_Shot_Holder</ShootSoundName>
+    <ShootSoundMid>PPSH_Shot_Mid</ShootSoundMid>
+    <ShootSoundMidFront>PPSH_Shot_Mid_Front</ShootSoundMidFront>
+    <ShootSoundFar>PPSH_Shot_Far</ShootSoundFar>
+    <ShootSoundFarFront>PPSH_Shot_Far_Front</ShootSoundFarFront>
   </Definition>
 </Definitions>
