@@ -71,6 +71,11 @@ namespace Si.UtilityAI
         {
             _session?.CommandSettingsToggleUi();
         }
+
+        public void CommandSettingsToggleSpottingChatter()
+        {
+            _session?.CommandSettingsToggleSpottingChatter();
+        }
     }
 
     [MyObjectBuilderDefinition]

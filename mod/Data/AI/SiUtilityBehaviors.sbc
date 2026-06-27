@@ -34,7 +34,7 @@
     <ProjectileAccuracyMultiplier>4</ProjectileAccuracyMultiplier>
     <ProjectileSyncDistance>1200</ProjectileSyncDistance>
     <CharacterDamageMultiplier>1</CharacterDamageMultiplier>
-    <ShootingSpreadDegrees>1.5</ShootingSpreadDegrees>
+    <ShootingSpreadDegrees>0.5</ShootingSpreadDegrees>
 
     <ShootEffect Type="EffectDefinition" Subtype="Rifle30CalFireEffect" />
     <ShootSoundSpeedMetersPerSecond>343</ShootSoundSpeedMetersPerSecond>

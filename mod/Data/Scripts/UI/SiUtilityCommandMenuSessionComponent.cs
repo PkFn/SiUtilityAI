@@ -106,6 +106,11 @@ namespace Si.UtilityAI
             RequestCommand(SiUtilityCommandMenuCommand.ToggleUi);
         }
 
+        internal void CommandSettingsToggleSpottingChatter()
+        {
+            RequestCommand(SiUtilityCommandMenuCommand.ToggleSpottingChatter);
+        }
+
         private static void RequestCommand(SiUtilityCommandMenuCommand command)
         {
             SiNpcSessionComponent.Instance?.RequestUtilityCommand(command);
@@ -125,5 +130,6 @@ namespace Si.UtilityAI
         EngagementEnemies,
         EngagementHoldFire,
         ToggleUi,
+        ToggleSpottingChatter,
     }
 }

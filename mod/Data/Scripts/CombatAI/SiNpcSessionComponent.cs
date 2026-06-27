@@ -46,6 +46,7 @@ namespace Si.UtilityAI
         [Automatic]
         private readonly MyChatSystem _chat = null;
         private bool _showTroopMarkers;
+        private bool _showSpottingChatter;
 
         public static SiNpcSessionComponent Instance => _instance;
         public SiNpcManager Npcs { get; private set; }
@@ -143,10 +144,16 @@ namespace Si.UtilityAI
 
         internal void RequestUtilityCommand(SiUtilityCommandMenuCommand command)
         {
-            if (command == SiUtilityCommandMenuCommand.ToggleUi)
+            switch(command)
             {
-                ToggleTroopMarkers();
-                return;
+                case SiUtilityCommandMenuCommand.ToggleUi:
+                    ToggleTroopMarkers();
+                    return;
+                case SiUtilityCommandMenuCommand.ToggleSpottingChatter:
+                    ToggleSpottingChatter();
+                    return;
+                default:
+                    break;
             }
 
             if (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer)
@@ -220,14 +227,22 @@ namespace Si.UtilityAI
             }
         }
 
+        private void NotifyShow(string text)
+        {
+            MyAPIGateway.Utilities?.ShowNotification(
+                text,
+                1500);
+        }
         private void ToggleTroopMarkers()
         {
             _showTroopMarkers = !_showTroopMarkers;
-            MyAPIGateway.Utilities?.ShowNotification(
-                _showTroopMarkers
-                    ? "Si Utility AI troop markers shown."
-                    : "Si Utility AI troop markers hidden.",
-                1500);
+            NotifyShow($"Troop markers {(_showTroopMarkers ? "shown" : "hidden")}.");
+        }
+
+        private void ToggleSpottingChatter()
+        {
+            _showSpottingChatter = !_showSpottingChatter;
+            NotifyShow($"Spotting Chatter {(_showSpottingChatter ? "enabled" : "disabled")}.");
         }
 
         private void SpeakPlayerCommand(MyPlayer player, SiUtilityCommandMenuCommand command)
@@ -308,6 +323,7 @@ namespace Si.UtilityAI
                     SetEngagementStance(leaderIdentityId, SiSquadEngagementStance.HoldFire);
                     return;
                 case SiUtilityCommandMenuCommand.ToggleUi:
+                case SiUtilityCommandMenuCommand.ToggleSpottingChatter:
                     return;
                 default:
                     Respond(sender, "Unknown Si Utility AI command.");
