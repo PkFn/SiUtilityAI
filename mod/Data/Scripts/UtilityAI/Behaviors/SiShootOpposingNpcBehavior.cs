@@ -41,6 +41,7 @@ namespace Si.UtilityAI
         public int SpotSpeechCooldownMilliseconds;
         public int SpottingReevaluationIntervalMilliseconds;
         public int SpottingTrackingTimeoutMilliseconds;
+        public float SpottingChanceThreshold;
         public float HearingGuaranteedRadius;
         public float StillnessVelocityThreshold;
         public float StillnessChanceMultiplier;
@@ -79,6 +80,7 @@ namespace Si.UtilityAI
         public int SpotSpeechCooldownMilliseconds;
         public int SpottingReevaluationIntervalMilliseconds;
         public int SpottingTrackingTimeoutMilliseconds;
+        public float SpottingChanceThreshold;
         public float HearingGuaranteedRadius;
         public float StillnessVelocityThreshold;
         public float StillnessChanceMultiplier;
@@ -117,6 +119,7 @@ namespace Si.UtilityAI
         public int SpotSpeechCooldownMilliseconds { get; private set; }
         public int SpottingReevaluationIntervalMilliseconds { get; private set; }
         public int SpottingTrackingTimeoutMilliseconds { get; private set; }
+        public float SpottingChanceThreshold { get; private set; }
         public float HearingGuaranteedRadius { get; private set; }
         public float StillnessVelocityThreshold { get; private set; }
         public float StillnessChanceMultiplier { get; private set; }
@@ -152,6 +155,7 @@ namespace Si.UtilityAI
             SpotSpeechCooldownMilliseconds = Math.Max(0, ob.SpotSpeechCooldownMilliseconds);
             SpottingReevaluationIntervalMilliseconds = Math.Max(50, ob.SpottingReevaluationIntervalMilliseconds);
             SpottingTrackingTimeoutMilliseconds = Math.Max(SpottingReevaluationIntervalMilliseconds, ob.SpottingTrackingTimeoutMilliseconds);
+            SpottingChanceThreshold = MathHelper.Clamp(ob.SpottingChanceThreshold, 0, 1);
             HearingGuaranteedRadius = Math.Max(0, ob.HearingGuaranteedRadius);
             StillnessVelocityThreshold = Math.Max(0, ob.StillnessVelocityThreshold);
             StillnessChanceMultiplier = MathHelper.Clamp(ob.StillnessChanceMultiplier, 0, 1);
@@ -191,6 +195,7 @@ namespace Si.UtilityAI
         public int SpotSpeechCooldownMilliseconds { get; private set; }
         public int SpottingReevaluationIntervalMilliseconds { get; private set; }
         public int SpottingTrackingTimeoutMilliseconds { get; private set; }
+        public float SpottingChanceThreshold { get; private set; }
         public float HearingGuaranteedRadius { get; private set; }
         public float StillnessVelocityThreshold { get; private set; }
         public float StillnessChanceMultiplier { get; private set; }
@@ -247,6 +252,7 @@ namespace Si.UtilityAI
             SpotSpeechCooldownMilliseconds = Math.Max(0, ob.SpotSpeechCooldownMilliseconds);
             SpottingReevaluationIntervalMilliseconds = Math.Max(50, ob.SpottingReevaluationIntervalMilliseconds);
             SpottingTrackingTimeoutMilliseconds = Math.Max(SpottingReevaluationIntervalMilliseconds, ob.SpottingTrackingTimeoutMilliseconds);
+            SpottingChanceThreshold = MathHelper.Clamp(ob.SpottingChanceThreshold, 0, 1);
             HearingGuaranteedRadius = Math.Max(0, ob.HearingGuaranteedRadius);
             StillnessVelocityThreshold = Math.Max(0, ob.StillnessVelocityThreshold);
             StillnessChanceMultiplier = MathHelper.Clamp(ob.StillnessChanceMultiplier, 0, 1);
@@ -280,6 +286,7 @@ namespace Si.UtilityAI
             SpotSpeechCooldownMilliseconds = balance.SpotSpeechCooldownMilliseconds;
             SpottingReevaluationIntervalMilliseconds = balance.SpottingReevaluationIntervalMilliseconds;
             SpottingTrackingTimeoutMilliseconds = balance.SpottingTrackingTimeoutMilliseconds;
+            SpottingChanceThreshold = balance.SpottingChanceThreshold;
             HearingGuaranteedRadius = balance.HearingGuaranteedRadius;
             StillnessVelocityThreshold = balance.StillnessVelocityThreshold;
             StillnessChanceMultiplier = balance.StillnessChanceMultiplier;
@@ -588,7 +595,8 @@ namespace Si.UtilityAI
                     _definition,
                     GetWeaponAimHeight(),
                     distance) ?? default(SiSpottingObservation);
-                if (!observation.IsSpotted)
+                if (!observation.IsSpotted
+                    || observation.Chance < _definition.SpottingChanceThreshold)
                     continue;
 
                 best = target;
@@ -620,7 +628,8 @@ namespace Si.UtilityAI
                         _definition,
                         GetWeaponAimHeight(),
                         distance) ?? default(SiSpottingObservation);
-                    if (!observation.IsSpotted)
+                    if (!observation.IsSpotted
+                        || observation.Chance < _definition.SpottingChanceThreshold)
                         continue;
 
                     best = target;

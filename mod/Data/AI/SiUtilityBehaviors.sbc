@@ -36,6 +36,7 @@
     <SpotSpeechCooldownMilliseconds>15000</SpotSpeechCooldownMilliseconds>
     <SpottingReevaluationIntervalMilliseconds>250</SpottingReevaluationIntervalMilliseconds>
     <SpottingTrackingTimeoutMilliseconds>2000</SpottingTrackingTimeoutMilliseconds>
+    <SpottingChanceThreshold>0.5</SpottingChanceThreshold>
     <HearingGuaranteedRadius>4</HearingGuaranteedRadius>
     <StillnessVelocityThreshold>0.4</StillnessVelocityThreshold>
     <StillnessChanceMultiplier>0.75</StillnessChanceMultiplier>
@@ -84,6 +85,7 @@
     <SpotSpeechCooldownMilliseconds>15000</SpotSpeechCooldownMilliseconds>
     <SpottingReevaluationIntervalMilliseconds>200</SpottingReevaluationIntervalMilliseconds>
     <SpottingTrackingTimeoutMilliseconds>1800</SpottingTrackingTimeoutMilliseconds>
+    <SpottingChanceThreshold>0.5</SpottingChanceThreshold>
     <HearingGuaranteedRadius>4</HearingGuaranteedRadius>
     <StillnessVelocityThreshold>0.4</StillnessVelocityThreshold>
     <StillnessChanceMultiplier>0.75</StillnessChanceMultiplier>
