@@ -86,7 +86,7 @@
     <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_K98" />
     <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />
     <MagazineCount>5</MagazineCount>
-    <MagazineReloadMilliseconds>7500</MagazineReloadMilliseconds>
+    <MagazineReloadMilliseconds>4500</MagazineReloadMilliseconds>
     <ReloadSoundName>Kar98k_Cycle</ReloadSoundName>
     <MagazineReloadSoundName>Kar98k_Reload</MagazineReloadSoundName>
     <ShootSoundName>K98_Shot_Holder</ShootSoundName>
@@ -100,7 +100,7 @@
     <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mosin" />
     <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />
     <MagazineCount>5</MagazineCount>
-    <MagazineReloadMilliseconds>7500</MagazineReloadMilliseconds>
+    <MagazineReloadMilliseconds>4500</MagazineReloadMilliseconds>
     <ReloadSoundName>Mosin_Cycle</ReloadSoundName>
     <MagazineReloadSoundName>Mosin_Reload</MagazineReloadSoundName>
     <ShootSoundName>Mosin_Shot_Holder</ShootSoundName>
