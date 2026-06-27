@@ -92,7 +92,7 @@
     <ProjectileAccuracyMultiplier>4</ProjectileAccuracyMultiplier>
     <ProjectileSyncDistance>1200</ProjectileSyncDistance>
     <CharacterDamageMultiplier>1</CharacterDamageMultiplier>
-    <ShootingSpreadDegrees>0.5</ShootingSpreadDegrees>
+    <ShootingSpreadDegrees>1.0</ShootingSpreadDegrees>
     <ShootEffect Type="EffectDefinition" Subtype="Rifle30CalFireEffect" />
     <ShootSoundSpeedMetersPerSecond>343</ShootSoundSpeedMetersPerSecond>
     <ShootSoundMaxDelayMilliseconds>6000</ShootSoundMaxDelayMilliseconds>
@@ -164,7 +164,7 @@
     <ProjectileAccuracyMultiplier>10</ProjectileAccuracyMultiplier>
     <ProjectileSyncDistance>900</ProjectileSyncDistance>
     <CharacterDamageMultiplier>1</CharacterDamageMultiplier>
-    <ShootingSpreadDegrees>1</ShootingSpreadDegrees>
+    <ShootingSpreadDegrees>4</ShootingSpreadDegrees>
     <ShootEffect Type="EffectDefinition" Subtype="Smg9mmFireEffect" />
     <ShootSoundSpeedMetersPerSecond>343</ShootSoundSpeedMetersPerSecond>
     <ShootSoundMaxDelayMilliseconds>6000</ShootSoundMaxDelayMilliseconds>
