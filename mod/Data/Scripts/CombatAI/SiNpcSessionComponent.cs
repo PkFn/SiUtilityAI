@@ -51,6 +51,7 @@ namespace Si.UtilityAI
         public static SiNpcSessionComponent Instance => _instance;
         public SiNpcManager Npcs { get; private set; }
         internal SiSquadBook Squads { get; private set; }
+        internal bool ShowSquadChatter => _showSquadChatter;
 
         protected override void OnLoad()
         {
@@ -1106,6 +1107,8 @@ namespace Si.UtilityAI
         {
             var instance = _instance;
             if (instance == null || string.IsNullOrWhiteSpace(message))
+                return;
+            if (!instance.ShowSquadChatter)
                 return;
 
             var speaker = instance.NpcCallsign(entityId);

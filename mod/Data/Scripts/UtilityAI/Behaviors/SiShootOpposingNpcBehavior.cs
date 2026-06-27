@@ -622,7 +622,10 @@ namespace Si.UtilityAI
             ref long lastSpeechTime,
             int cooldownMilliseconds)
         {
+            var session = SiNpcSessionComponent.Instance;
             if (context == null
+                || session == null
+                || !session.ShowSquadChatter
                 || string.IsNullOrWhiteSpace(message)
                 || !IsSpeechDue(lastSpeechTime, cooldownMilliseconds))
                 return false;
