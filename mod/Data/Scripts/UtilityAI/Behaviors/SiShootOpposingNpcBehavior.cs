@@ -43,6 +43,7 @@ namespace Si.UtilityAI
         public float ProjectileAccuracyMultiplier;
         public float ProjectileSyncDistance;
         public float CharacterDamageMultiplier;
+        public float ShootingSpreadDegrees;
 
         public SerializableDefinitionId? ShootEffect;
         public int MagazineCount;
@@ -98,6 +99,7 @@ namespace Si.UtilityAI
         public float ProjectileAccuracyMultiplier;
         public float ProjectileSyncDistance;
         public float CharacterDamageMultiplier;
+        public float ShootingSpreadDegrees;
 
         public SerializableDefinitionId? ShootEffect;
         public float ShootSoundSpeedMetersPerSecond;
@@ -145,6 +147,7 @@ namespace Si.UtilityAI
         public float ProjectileAccuracyMultiplier { get; private set; }
         public float ProjectileSyncDistance { get; private set; }
         public float CharacterDamageMultiplier { get; private set; }
+        public float ShootingSpreadDegrees { get; private set; }
 
         public SerializableDefinitionId? ShootEffect { get; private set; }
         public float ShootSoundSpeedMetersPerSecond { get; private set; }
@@ -189,6 +192,7 @@ namespace Si.UtilityAI
             ProjectileAccuracyMultiplier = Math.Max(0, ob.ProjectileAccuracyMultiplier);
             ProjectileSyncDistance = Math.Max(0, ob.ProjectileSyncDistance);
             CharacterDamageMultiplier = Math.Max(0, ob.CharacterDamageMultiplier);
+            ShootingSpreadDegrees = Math.Max(0, ob.ShootingSpreadDegrees);
 
             ShootEffect = ob.ShootEffect;
             ShootSoundSpeedMetersPerSecond = Math.Max(0, ob.ShootSoundSpeedMetersPerSecond);
@@ -233,6 +237,7 @@ namespace Si.UtilityAI
         public float ProjectileAccuracyMultiplier { get; private set; }
         public float ProjectileSyncDistance { get; private set; }
         public float CharacterDamageMultiplier { get; private set; }
+        public float ShootingSpreadDegrees { get; private set; }
 
         public SerializableDefinitionId? ShootEffect { get; private set; }
         public int MagazineCount { get; private set; }
@@ -319,6 +324,7 @@ namespace Si.UtilityAI
             ProjectileAccuracyMultiplier = Math.Max(0, ob.ProjectileAccuracyMultiplier);
             ProjectileSyncDistance = Math.Max(0, ob.ProjectileSyncDistance);
             CharacterDamageMultiplier = Math.Max(0, ob.CharacterDamageMultiplier);
+            ShootingSpreadDegrees = Math.Max(0, ob.ShootingSpreadDegrees);
 
             ShootEffect = ob.ShootEffect;
             ShootSoundSpeedMetersPerSecond = Math.Max(0, ob.ShootSoundSpeedMetersPerSecond);
@@ -361,6 +367,7 @@ namespace Si.UtilityAI
             ProjectileAccuracyMultiplier = balance.ProjectileAccuracyMultiplier;
             ProjectileSyncDistance = balance.ProjectileSyncDistance;
             CharacterDamageMultiplier = balance.CharacterDamageMultiplier;
+            ShootingSpreadDegrees = balance.ShootingSpreadDegrees;
 
             ShootEffect = balance.ShootEffect;
             ShootSoundSpeedMetersPerSecond = balance.ShootSoundSpeedMetersPerSecond;
@@ -422,6 +429,8 @@ namespace Si.UtilityAI
     public class SiShootOpposingNpcBehaviorComponent : MyEntityComponent, ISiUtilityBehavior
     {
         private static readonly MyStringHash HostileRelationship = MyStringHash.GetOrCompute("War");
+        private static readonly Random ShotSpreadRandom = new Random();
+        private static readonly object ShotSpreadRandomLock = new object();
         private readonly List<PendingShotSound> _pendingShotSounds = new List<PendingShotSound>();
         private readonly List<PendingWeaponSound> _pendingWeaponSounds = new List<PendingWeaponSound>();
         private SiShootOpposingNpcBehaviorDefinition _definition;
@@ -982,7 +991,7 @@ namespace Si.UtilityAI
                     continue;
                 if (!IsOpposing(context.Agent, candidate, session.Squads, stance))
                     continue;
-                if (!CanTargetArchetype(candidate.Archetype))
+                if (!CanTargetArchetype(context.Agent.Archetype, candidate.Archetype))
                     continue;
 
                 var distanceSquared = Vector3D.DistanceSquared(
@@ -1059,6 +1068,7 @@ namespace Si.UtilityAI
             aimPoint += target.Velocity * (distance / _definition.ExpectedProjectileVelocity);
 
             var shotDirection = NormalizedOrFallback(aimPoint - initialMuzzle, shooterWorld.Forward);
+            shotDirection = ApplySpread(shotDirection, shooterUp);
             var muzzlePosition = shooterWorld.Translation
                                  + shotDirection * _definition.MuzzleForwardOffset
                                  + shooterUp * _definition.MuzzleUpOffset;
@@ -1227,13 +1237,38 @@ namespace Si.UtilityAI
             }
         }
 
-        private bool CanTargetArchetype(string archetype)
+        private Vector3D ApplySpread(in Vector3D shotDirection, in Vector3D fallbackUp)
+        {
+            var spreadRadians = MathHelper.ToRadians(_definition.ShootingSpreadDegrees);
+            if (spreadRadians <= 0)
+                return shotDirection;
+
+            double yaw;
+            double pitch;
+            lock (ShotSpreadRandomLock)
+            {
+                yaw = (ShotSpreadRandom.NextDouble() * 2 - 1) * spreadRadians;
+                pitch = (ShotSpreadRandom.NextDouble() * 2 - 1) * spreadRadians;
+            }
+
+            var spreadRight = RejectOrFallback(
+                Vector3D.CalculatePerpendicularVector(shotDirection),
+                shotDirection,
+                Vector3D.Right);
+            var spreadUp = RejectOrFallback(fallbackUp, shotDirection, Vector3D.Cross(spreadRight, shotDirection));
+            var spreadDirection = shotDirection
+                                  + spreadRight * Math.Tan(yaw)
+                                  + spreadUp * Math.Tan(pitch);
+            return NormalizedOrFallback(spreadDirection, shotDirection);
+        }
+
+        private bool CanTargetArchetype(string selfArchetype, string candidateArchetype)
         {
             if (_definition.TargetArchetypes.Length == 0)
-                return true;
+                return !string.Equals(selfArchetype, candidateArchetype, StringComparison.OrdinalIgnoreCase);
 
             for (var i = 0; i < _definition.TargetArchetypes.Length; i++)
-                if (string.Equals(_definition.TargetArchetypes[i], archetype, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(_definition.TargetArchetypes[i], candidateArchetype, StringComparison.OrdinalIgnoreCase))
                     return true;
             return false;
         }

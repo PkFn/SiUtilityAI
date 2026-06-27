@@ -34,6 +34,7 @@
     <ProjectileAccuracyMultiplier>4</ProjectileAccuracyMultiplier>
     <ProjectileSyncDistance>1200</ProjectileSyncDistance>
     <CharacterDamageMultiplier>1</CharacterDamageMultiplier>
+    <ShootingSpreadDegrees>1.5</ShootingSpreadDegrees>
 
     <ShootEffect Type="EffectDefinition" Subtype="Rifle30CalFireEffect" />
     <ShootSoundSpeedMetersPerSecond>343</ShootSoundSpeedMetersPerSecond>
@@ -60,12 +61,6 @@
     <EngageSpeechCooldownMilliseconds>7000</EngageSpeechCooldownMilliseconds>
     <SpotTargetName>enemy infantry</SpotTargetName>
     <SpotSpeechCooldownMilliseconds>15000</SpotSpeechCooldownMilliseconds>
-    <TargetArchetypes>
-      <Archetype>us-rifle-trooper</Archetype>
-      <Archetype>german-rifle-trooper</Archetype>
-      <Archetype>soviet-rifle-trooper</Archetype>
-      <Archetype>enemy-trooper</Archetype>
-    </TargetArchetypes>
   </Definition>
 
   <!-- Uses PAX defender projectile definitions through the PAX projectile spawner. -->
