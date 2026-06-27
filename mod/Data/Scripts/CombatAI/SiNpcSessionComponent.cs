@@ -40,6 +40,10 @@ namespace Si.UtilityAI
         private static double _speakRange = -1;
         private readonly Dictionary<long, SiSquadCommandState> _squadOrders =
             new Dictionary<long, SiSquadCommandState>();
+        private readonly Dictionary<long, SiMotionState> _leaderMotionStates =
+            new Dictionary<long, SiMotionState>();
+        private readonly Dictionary<long, SiMotionState> _npcMotionStates =
+            new Dictionary<long, SiMotionState>();
         private List<MyObjectBuilder_SiNpcSessionComponent.SavedNpc> _savedNpcs;
         private List<MyObjectBuilder_SiNpcSessionComponent.SquadOrder> _savedSquadOrders;
 
@@ -102,6 +106,8 @@ namespace Si.UtilityAI
             Npcs?.CloseAll(false);
             Npcs = null;
             _squadOrders.Clear();
+            _leaderMotionStates.Clear();
+            _npcMotionStates.Clear();
             _savedNpcs = null;
             _savedSquadOrders = null;
             Squads?.ClearNpcs();
@@ -115,7 +121,10 @@ namespace Si.UtilityAI
         private void UpdateNpcs(long elapsedMilliseconds)
         {
             if (IsAuthoritative)
+            {
+                UpdateTrackedMotionStates();
                 UpdateSquadOrders();
+            }
             Npcs?.Update(elapsedMilliseconds);
         }
 
@@ -693,35 +702,71 @@ namespace Si.UtilityAI
                 return 0;
             }
 
+            var leaderMotion = UpdateLeaderMotionState(leaderIdentityId, leaderTransform);
             Vector3D origin;
             Vector3D forward;
             Vector3D right;
-            CreateLeaderFrame(leaderTransform, out origin, out forward, out right);
+            CreateLeaderFrame(leaderTransform, leaderMotion.Direction, out origin, out forward, out right);
 
             var definition = Squads.Definition;
             var refreshDistanceSquared = definition.WaypointRefreshDistance * definition.WaypointRefreshDistance;
             var issued = 0;
+            if (state.Formation == SiSquadFormation.File || state.Formation == SiSquadFormation.Column)
+            {
+                issued = ApplyChainedFollowOrder(
+                    troops,
+                    state.Formation,
+                    origin,
+                    forward,
+                    definition,
+                    refreshDistanceSquared);
+            }
+            else
+            {
+                for (var i = 0; i < troops.Count; i++)
+                {
+                    var target = origin + FormationOffset(
+                        state.Formation,
+                        i,
+                        troops.Count,
+                        forward,
+                        right,
+                        definition);
+                    if (TryIssueFollowWaypoint(troops[i], target, refreshDistanceSquared))
+                        issued++;
+                }
+            }
+
+            return issued;
+        }
+
+        private int ApplyChainedFollowOrder(
+            List<SiNpc> troops,
+            SiSquadFormation formation,
+            in Vector3D leaderPosition,
+            in Vector3D leaderForward,
+            SiSquadSystemDefinition definition,
+            double refreshDistanceSquared)
+        {
+            var issued = 0;
+            var anchorPosition = leaderPosition;
+            var anchorForward = leaderForward;
+            var followerGap = formation == SiSquadFormation.File
+                ? definition.FileSpacing
+                : definition.ColumnSpacing;
+            if (followerGap <= 0)
+                followerGap = definition.FollowDistance;
+
             for (var i = 0; i < troops.Count; i++)
             {
-                var target = origin + FormationOffset(
-                    state.Formation,
-                    i,
-                    troops.Count,
-                    forward,
-                    right,
-                    definition);
-                var mover = troops[i] as ISiWaypointMover;
-                if (mover != null
-                    && mover.HasWaypoint
-                    && refreshDistanceSquared > 0
-                    && Vector3D.DistanceSquared(mover.Waypoint, target) < refreshDistanceSquared)
-                {
+                var gap = i == 0 ? definition.FollowDistance : followerGap;
+                var target = anchorPosition - anchorForward * gap;
+                if (TryIssueFollowWaypoint(troops[i], target, refreshDistanceSquared))
                     issued++;
-                    continue;
-                }
 
-                if (Npcs.TrySetWaypoint(troops[i].EntityId, target))
-                    issued++;
+                var anchor = TryGetNpcFollowAnchor(troops[i], anchorForward);
+                anchorPosition = anchor.Position;
+                anchorForward = anchor.Forward;
             }
 
             return issued;
@@ -754,6 +799,18 @@ namespace Si.UtilityAI
             return state;
         }
 
+        private bool TryIssueFollowWaypoint(SiNpc npc, in Vector3D target, double refreshDistanceSquared)
+        {
+            var mover = npc as ISiWaypointMover;
+            if (mover != null
+                && mover.HasWaypoint
+                && refreshDistanceSquared > 0
+                && Vector3D.DistanceSquared(mover.Waypoint, target) < refreshDistanceSquared)
+                return true;
+
+            return Npcs.TrySetWaypoint(npc.EntityId, target);
+        }
+
         private static Vector3D FormationOffset(
             SiSquadFormation formation,
             int index,
@@ -765,10 +822,12 @@ namespace Si.UtilityAI
             switch (formation)
             {
                 case SiSquadFormation.File:
-                    return -forward * (definition.FollowDistance + index * definition.FileSpacing);
+                    return -forward * definition.FollowDistance;
                 case SiSquadFormation.Line:
-                    return -forward * definition.FollowDistance
-                           + right * ((index - (count - 1) * 0.5) * definition.LineSpacing);
+                    var wingRank = index / 2;
+                    var wingSide = index % 2 == 0 ? -1 : 1;
+                    return -forward * (definition.FollowDistance * 0.35 + wingRank * definition.LineSpacing * 0.5)
+                           + right * (wingSide * (definition.LineSpacing + wingRank * definition.LineSpacing));
                 case SiSquadFormation.Vee:
                     var row = (index + 2) / 2;
                     var side = index % 2 == 0 ? -1 : 1;
@@ -776,7 +835,7 @@ namespace Si.UtilityAI
                            + right * (side * row * definition.VeeSpacing);
                 case SiSquadFormation.Column:
                 default:
-                    return -forward * (definition.FollowDistance + index * definition.ColumnSpacing);
+                    return -forward * definition.FollowDistance;
             }
         }
 
@@ -805,6 +864,7 @@ namespace Si.UtilityAI
 
         private static void CreateLeaderFrame(
             in MatrixD leaderTransform,
+            in Vector3D movementDirection,
             out Vector3D origin,
             out Vector3D forward,
             out Vector3D right)
@@ -815,9 +875,103 @@ namespace Si.UtilityAI
                 ? -Vector3D.Normalize(gravity)
                 : NormalizedOrFallback(leaderTransform.Up, Vector3D.Up);
 
-            forward = Vector3D.Reject(leaderTransform.Forward, up);
+            forward = movementDirection.LengthSquared() > 0.0001
+                ? Vector3D.Reject(movementDirection, up)
+                : Vector3D.Reject(leaderTransform.Forward, up);
             forward = NormalizedOrFallback(forward, Vector3D.CalculatePerpendicularVector(up));
             right = NormalizedOrFallback(Vector3D.Cross(forward, up), leaderTransform.Right);
+        }
+
+        private void UpdateTrackedMotionStates()
+        {
+            foreach (var entry in _squadOrders)
+            {
+                if (entry.Value.Mode != SiSquadOrderMode.Follow)
+                    continue;
+
+                MatrixD leaderTransform;
+                if (TryGetLeaderTransform(entry.Key, out leaderTransform))
+                    UpdateLeaderMotionState(entry.Key, leaderTransform);
+            }
+
+            if (Npcs == null)
+                return;
+
+            foreach (var npc in Npcs.Npcs.Values)
+            {
+                var entity = npc?.Entity;
+                if (entity == null || entity.Closed || entity.MarkedForClose)
+                    continue;
+
+                UpdateMotionState(
+                    _npcMotionStates,
+                    npc.EntityId,
+                    entity.WorldMatrix.Translation,
+                    entity.WorldMatrix.Forward);
+            }
+        }
+
+        private SiMotionState UpdateLeaderMotionState(long leaderIdentityId, in MatrixD leaderTransform)
+        {
+            return UpdateMotionState(
+                _leaderMotionStates,
+                leaderIdentityId,
+                leaderTransform.Translation,
+                leaderTransform.Forward);
+        }
+
+        private SiMotionState UpdateMotionState(
+            Dictionary<long, SiMotionState> states,
+            long entityId,
+            in Vector3D position,
+            in Vector3D fallbackForward)
+        {
+            SiMotionState state;
+            if (!states.TryGetValue(entityId, out state))
+                states.Add(entityId, state = new SiMotionState());
+
+            var up = SurfaceUp(position);
+            if (state.HasPosition)
+            {
+                var delta = Vector3D.Reject(position - state.Position, up);
+                if (delta.LengthSquared() > 0.0025)
+                    state.Direction = Vector3D.Normalize(delta);
+            }
+
+            if (state.Direction.LengthSquared() <= 0.0001)
+            {
+                var projectedFallback = Vector3D.Reject(fallbackForward, up);
+                if (projectedFallback.LengthSquared() > 0.0001)
+                    state.Direction = Vector3D.Normalize(projectedFallback);
+            }
+
+            state.Position = position;
+            state.HasPosition = true;
+            return state;
+        }
+
+        private static Vector3D SurfaceUp(in Vector3D position)
+        {
+            var gravity = MyGravityProviderSystem.CalculateTotalGravityInPoint(position);
+            if (gravity.LengthSquared() > 0.0001)
+                return -Vector3D.Normalize(gravity);
+
+            return Vector3D.Up;
+        }
+
+        private SiFollowAnchor TryGetNpcFollowAnchor(SiNpc npc, in Vector3D fallbackForward)
+        {
+            var entity = npc?.Entity;
+            if (entity == null || entity.Closed || entity.MarkedForClose)
+                return new SiFollowAnchor(Vector3D.Zero, fallbackForward);
+
+            var forward = fallbackForward;
+            SiMotionState state;
+            if (_npcMotionStates.TryGetValue(npc.EntityId, out state)
+                && state.Direction.LengthSquared() > 0.0001)
+                forward = state.Direction;
+
+            return new SiFollowAnchor(entity.WorldMatrix.Translation, forward);
         }
 
         private static Vector3D NormalizedOrFallback(in Vector3D value, in Vector3D fallback)
@@ -1456,5 +1610,24 @@ namespace Si.UtilityAI
         public SiSquadOrderMode Mode { get; set; }
         public SiSquadFormation Formation { get; set; }
         public SiSquadEngagementStance EngagementStance { get; set; }
+    }
+
+    internal sealed class SiMotionState
+    {
+        public bool HasPosition { get; set; }
+        public Vector3D Position { get; set; }
+        public Vector3D Direction { get; set; }
+    }
+
+    internal struct SiFollowAnchor
+    {
+        public SiFollowAnchor(in Vector3D position, in Vector3D forward)
+        {
+            Position = position;
+            Forward = forward;
+        }
+
+        public Vector3D Position { get; }
+        public Vector3D Forward { get; }
     }
 }
