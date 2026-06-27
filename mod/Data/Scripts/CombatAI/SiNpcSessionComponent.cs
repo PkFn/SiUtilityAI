@@ -255,7 +255,9 @@ namespace Si.UtilityAI
             if (controlledEntity == null || Npcs == null)
                 return;
 
-            var highestChance = 0f;
+            var highestSpottingSum = 0f;
+            var highestSpottingThreshold = 1f;
+            var isSpotted = false;
             foreach (var npc in Npcs.Npcs.Values)
             {
                 var entity = npc?.Entity;
@@ -270,16 +272,22 @@ namespace Si.UtilityAI
                 if (!behavior.TryObservePlayer(npc, player, controlledEntity, this, out observation))
                     continue;
 
-                if (observation.Chance > highestChance)
-                    highestChance = observation.Chance;
+                if (observation.SpottingSum > highestSpottingSum)
+                {
+                    highestSpottingSum = observation.SpottingSum;
+                    highestSpottingThreshold = observation.SpottingThreshold;
+                    isSpotted = observation.IsSpotted;
+                }
             }
 
-            var clampedChance = MathHelper.Clamp(highestChance, 0, 1);
-            var percent = (int)Math.Round(clampedChance * 100f);
-            var color = Color.Lerp(Color.LightGreen, Color.OrangeRed, clampedChance);
+            var clampedSum = MathHelper.Clamp(highestSpottingSum, 0, 1);
+            var clampedThreshold = MathHelper.Clamp(highestSpottingThreshold, 0, 1);
+            var color = isSpotted
+                ? Color.OrangeRed
+                : Color.Lerp(Color.LightGreen, Color.OrangeRed, Math.Max(clampedSum, clampedThreshold));
             MyRenderProxy.DebugDrawText2D(
                 SpottingTextAnchor,
-                $"Enemy spotting chance: {percent}%",
+                $"Enemy spotting: {(isSpotted ? "spotted" : "hidden")} | sum {clampedSum:0.00} / thr {clampedThreshold:0.00}",
                 color,
                 0.8f);
         }

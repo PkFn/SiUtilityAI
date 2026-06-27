@@ -362,8 +362,7 @@ namespace Si.UtilityAI
                 return 0;
             }
 
-            var spottingChance = 0f;
-            var target = FindBestTarget(context, out var distance, out spottingChance);
+            var target = FindBestTarget(context, out var distance);
             _target = target;
             if (target == null)
             {
@@ -379,7 +378,7 @@ namespace Si.UtilityAI
             var score = _definition.BaseScore
                         + _definition.DistanceScore
                         * (float)Math.Pow(normalizedDistance, _definition.DistanceExponent);
-            return score * MathHelper.Clamp(spottingChance, 0, 1);
+            return score;
         }
 
         void ISiUtilityBehavior.Begin(SiUtilityContext context)
@@ -557,11 +556,9 @@ namespace Si.UtilityAI
 
         private ShootTarget FindBestTarget(
             SiUtilityContext context,
-            out double bestDistance,
-            out float bestSpottingChance)
+            out double bestDistance)
         {
             bestDistance = 0;
-            bestSpottingChance = 0;
             var session = SiNpcSessionComponent.Instance;
             var manager = session?.Npcs;
             if (manager == null)
@@ -595,13 +592,11 @@ namespace Si.UtilityAI
                     _definition,
                     GetWeaponAimHeight(),
                     distance) ?? default(SiSpottingObservation);
-                if (!observation.IsSpotted
-                    || observation.Chance < _definition.SpottingChanceThreshold)
+                if (!observation.IsSpotted)
                     continue;
 
                 best = target;
                 bestDistanceSquared = distanceSquared;
-                bestSpottingChance = observation.Chance;
             }
 
             if (MyPlayers.Static != null)
@@ -628,13 +623,11 @@ namespace Si.UtilityAI
                         _definition,
                         GetWeaponAimHeight(),
                         distance) ?? default(SiSpottingObservation);
-                    if (!observation.IsSpotted
-                        || observation.Chance < _definition.SpottingChanceThreshold)
+                    if (!observation.IsSpotted)
                         continue;
 
                     best = target;
                     bestDistanceSquared = distanceSquared;
-                    bestSpottingChance = observation.Chance;
                 }
             }
 

@@ -12,23 +12,22 @@ namespace Si.UtilityAI
 {
     internal struct SiSpottingObservation
     {
-        public static readonly SiSpottingObservation None = new SiSpottingObservation(false, 0);
+        public static readonly SiSpottingObservation None = new SiSpottingObservation(false, 0, 1);
 
-        public SiSpottingObservation(bool isSpotted, float chance)
+        public SiSpottingObservation(bool isSpotted, float spottingSum, float spottingThreshold)
         {
             IsSpotted = isSpotted;
-            Chance = chance;
+            SpottingSum = spottingSum;
+            SpottingThreshold = spottingThreshold;
         }
 
         public bool IsSpotted { get; }
-        public float Chance { get; }
+        public float SpottingSum { get; }
+        public float SpottingThreshold { get; }
     }
 
     internal sealed class SiSpottingSystem
     {
-        private static readonly Random SpottingRandom = new Random();
-        private static readonly object SpottingRandomLock = new object();
-
         private readonly Dictionary<SpottingKey, SpottingState> _observations =
             new Dictionary<SpottingKey, SpottingState>();
         private readonly Dictionary<long, long> _recentShotTimes =
@@ -121,7 +120,7 @@ namespace Si.UtilityAI
             if (state.NextEvaluationTime <= 0 || CurrentTimeMilliseconds() >= state.NextEvaluationTime)
                 Evaluate(state, observer, target, CurrentTimeMilliseconds(), distance);
 
-            return new SiSpottingObservation(state.IsSpotted, state.Chance);
+            return new SiSpottingObservation(state.IsSpotted, state.SpottingSum, state.SpottingThreshold);
         }
 
         public void ReportShot(long shooterEntityId, MyEntity shooter)
@@ -177,7 +176,8 @@ namespace Si.UtilityAI
             if (observer?.Entity == null || target == null || !target.InScene || target.Closed || target.MarkedForClose)
             {
                 state.IsSpotted = false;
-                state.Chance = 0;
+                state.SpottingSum = 0;
+                state.SpottingThreshold = 1;
                 state.NextEvaluationTime = now + EvaluationInterval(state);
                 return;
             }
@@ -188,7 +188,8 @@ namespace Si.UtilityAI
             if (state.Definition.HearingGuaranteedRadius > 0
                 && distance <= state.Definition.HearingGuaranteedRadius)
             {
-                state.Chance = 1;
+                state.SpottingSum = 1;
+                state.SpottingThreshold = 0;
                 state.IsSpotted = true;
                 state.NextEvaluationTime = now + EvaluationInterval(state);
                 return;
@@ -200,19 +201,35 @@ namespace Si.UtilityAI
                     target,
                     state.AimHeight))
             {
-                state.Chance = 0;
+                state.SpottingSum = 0;
+                state.SpottingThreshold = ComputeSpottingThreshold(state.Definition, distance);
                 state.IsSpotted = false;
                 state.NextEvaluationTime = now + EvaluationInterval(state);
                 return;
             }
 
-            var chance = ComputeVisualChance(target, state.Definition, now);
-            chance = 1f - (1f - chance) * (1f - state.ShotAwareness);
-            chance = MathHelper.Clamp(chance, 0, 1);
+            var spottingSum = ComputeVisualChance(target, state.Definition, now);
+            spottingSum = 1f - (1f - spottingSum) * (1f - state.ShotAwareness);
+            spottingSum = MathHelper.Clamp(spottingSum, 0, 1);
 
-            state.Chance = chance;
-            state.IsSpotted = chance >= 1f || Roll(chance);
+            state.SpottingSum = spottingSum;
+            state.SpottingThreshold = ComputeSpottingThreshold(state.Definition, distance);
+            state.IsSpotted = spottingSum >= state.SpottingThreshold;
             state.NextEvaluationTime = now + EvaluationInterval(state);
+        }
+
+        private static float ComputeSpottingThreshold(
+            SiShootOpposingNpcBehaviorDefinition definition,
+            double distance)
+        {
+            if (definition == null)
+                return 1f;
+
+            var normalizedDistance = (float)Math.Max(0, distance) / 100f;
+            var threshold = definition.SpottingChanceThreshold
+                            * normalizedDistance
+                            * normalizedDistance;
+            return MathHelper.Clamp(threshold, 0, 1);
         }
 
         private float ComputeVisualChance(
@@ -397,17 +414,6 @@ namespace Si.UtilityAI
             return Math.Max(50, state?.Definition?.SpottingReevaluationIntervalMilliseconds ?? 250);
         }
 
-        private static bool Roll(float chance)
-        {
-            if (chance <= 0)
-                return false;
-            if (chance >= 1)
-                return true;
-
-            lock (SpottingRandomLock)
-                return SpottingRandom.NextDouble() <= chance;
-        }
-
         private static long CurrentTimeMilliseconds()
         {
             var session = MyAPIGateway.Session;
@@ -444,7 +450,8 @@ namespace Si.UtilityAI
             public SiShootOpposingNpcBehaviorDefinition Definition;
             public float AimHeight;
             public bool IsSpotted;
-            public float Chance;
+            public float SpottingSum;
+            public float SpottingThreshold;
             public float ShotAwareness;
             public long LastRequestedTime;
             public long LastAwarenessUpdateTime;
