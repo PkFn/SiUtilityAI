@@ -116,6 +116,7 @@ namespace Si.UtilityAI
         private ISiUtilityBehavior _activeBehavior;
         private long _decisionCountdown;
         private long _startupDelayCountdown;
+        private bool _decisionMakingEnabled = true;
 
         public string ActiveBehaviorName => _activeBehavior?.BehaviorName;
         public float ActiveBehaviorScore { get; private set; }
@@ -149,7 +150,7 @@ namespace Si.UtilityAI
 
         internal void UpdateDecision(long elapsedMilliseconds)
         {
-            if (_context == null || !IsAuthoritative)
+            if (_context == null || !IsAuthoritative || !_decisionMakingEnabled)
                 return;
 
             if (_startupDelayCountdown > 0)
@@ -170,8 +171,7 @@ namespace Si.UtilityAI
 
         internal void Unbind()
         {
-            if (_context != null && _activeBehavior != null && IsAuthoritative)
-                _activeBehavior.End(_context);
+            EndActiveBehavior();
 
             _activeBehavior = null;
             ActiveBehaviorScore = 0;
@@ -179,6 +179,30 @@ namespace Si.UtilityAI
             _behaviors.Clear();
             _decisionCountdown = 0;
             _startupDelayCountdown = 0;
+            _decisionMakingEnabled = true;
+        }
+
+        internal void SetDecisionMakingEnabled(bool enabled)
+        {
+            if (_decisionMakingEnabled == enabled)
+                return;
+
+            _decisionMakingEnabled = enabled;
+            if (!_decisionMakingEnabled)
+            {
+                EndActiveBehavior();
+                _decisionCountdown = 0;
+                ActiveBehaviorScore = 0;
+                return;
+            }
+
+            if (_context == null || !IsAuthoritative)
+                return;
+
+            _startupDelayCountdown = 0;
+            _decisionCountdown = 0;
+            Decide();
+            _activeBehavior?.Tick(_context, 0);
         }
 
         private void Decide()
@@ -249,6 +273,13 @@ namespace Si.UtilityAI
             if (float.IsNaN(score) || score <= 0)
                 return 0;
             return Math.Min(score, 1);
+        }
+
+        private void EndActiveBehavior()
+        {
+            if (_context != null && _activeBehavior != null && IsAuthoritative)
+                _activeBehavior.End(_context);
+            _activeBehavior = null;
         }
 
         private static bool IsAuthoritative =>

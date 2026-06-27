@@ -47,11 +47,13 @@ namespace Si.UtilityAI
         private readonly MyChatSystem _chat = null;
         private bool _showTroopMarkers;
         private bool _showSquadChatter;
+        private bool _utilityDecisionMakingEnabled = true;
 
         public static SiNpcSessionComponent Instance => _instance;
         public SiNpcManager Npcs { get; private set; }
         internal SiSquadBook Squads { get; private set; }
         internal bool ShowSquadChatter => _showSquadChatter;
+        internal bool UtilityDecisionMakingEnabled => _utilityDecisionMakingEnabled;
 
         protected override void OnLoad()
         {
@@ -66,7 +68,7 @@ namespace Si.UtilityAI
             _chat?.RegisterChatCommand(
                 Command,
                 HandleCommand,
-                "Manage custom Si Utility AI NPCs. /si-npc spawn [archetype] | spawn-enemy | list | clear",
+                "Manage custom Si Utility AI NPCs. /si-npc spawn [archetype] | spawn-enemy | list | clear | utility-ai [toggle|on|off|status]",
                 MyChatCommandType.Server);
             _chat?.RegisterChatCommand(
                 EnemyCommand,
@@ -246,6 +248,27 @@ namespace Si.UtilityAI
             NotifyShow($"Squad chatter {(_showSquadChatter ? "enabled" : "disabled")}.");
         }
 
+        private bool HandleUtilityAiCommand(ulong sender, string[] tokens)
+        {
+            var action = tokens.Length >= 3 ? tokens[2].ToLowerInvariant() : "toggle";
+            switch (action)
+            {
+                case "toggle":
+                    _utilityDecisionMakingEnabled = !_utilityDecisionMakingEnabled;
+                    return Respond(sender, UtilityAiDecisionMakingStatusText());
+                case "on":
+                    _utilityDecisionMakingEnabled = true;
+                    return Respond(sender, UtilityAiDecisionMakingStatusText());
+                case "off":
+                    _utilityDecisionMakingEnabled = false;
+                    return Respond(sender, UtilityAiDecisionMakingStatusText());
+                case "status":
+                    return Respond(sender, UtilityAiDecisionMakingStatusText());
+                default:
+                    return Respond(sender, $"{Command} utility-ai [toggle|on|off|status]");
+            }
+        }
+
         private void SpeakPlayerCommand(MyPlayer player, SiUtilityCommandMenuCommand command)
         {
             var message = UtilityCommandSpeech(command);
@@ -407,6 +430,10 @@ namespace Si.UtilityAI
                     Squads?.ClearNpcs();
                     BroadcastClear();
                     return Respond(sender, $"Removed {removed} custom NPC(s).");
+                case "utility-ai":
+                case "utilityai":
+                case "ai":
+                    return HandleUtilityAiCommand(sender, tokens);
                 default:
                     return Respond(sender, HelpText());
             }
@@ -860,7 +887,10 @@ namespace Si.UtilityAI
         }
 
         private string HelpText() =>
-            $"{Command} spawn [archetype] | spawn-enemy | list | clear. Available: {Npcs?.KnownArchetypesText ?? SiNpcManager.SoldierArchetype}";
+            $"{Command} spawn [archetype] | spawn-enemy | list | clear | utility-ai [toggle|on|off|status]. Available: {Npcs?.KnownArchetypesText ?? SiNpcManager.SoldierArchetype}";
+
+        private string UtilityAiDecisionMakingStatusText() =>
+            $"UtilityAI decision making {(_utilityDecisionMakingEnabled ? "enabled" : "disabled")}.";
 
         private static string SquadHelpText() =>
             $"{SquadCommand} list | members";

@@ -106,6 +106,8 @@ namespace Si.UtilityAI
             }
             else
             {
+                _utilityBrain?.SetDecisionMakingEnabled(
+                    SiNpcSessionComponent.Instance?.UtilityDecisionMakingEnabled ?? true);
                 _utilityBrain?.UpdateDecision(elapsedMilliseconds);
                 OnUpdate(elapsedMilliseconds);
             }
