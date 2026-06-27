@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Xml.Serialization;
+using Sandbox.Game.EntityComponents.Character;
 using Sandbox.ModAPI;
 using VRage.Components;
 using VRage.Game;
@@ -8,7 +8,6 @@ using VRage.Game.Components;
 using VRage.Game.Definitions;
 using VRage.Game.ObjectBuilders.ComponentSystem;
 using VRage.Entities.Gravity;
-using VRage.ModAPI;
 using VRage.ObjectBuilders;
 using VRageMath;
 
@@ -24,49 +23,28 @@ namespace Si.UtilityAI
     [XmlSerializerAssembly("MedievalEngineers.ObjectBuilders.XmlSerializers")]
     public class MyObjectBuilder_SiGroundedNpcControllerComponentDefinition : MyObjectBuilder_EntityComponentDefinition
     {
-        public double MoveSpeed;
-        public double Acceleration;
-        public double BrakingAcceleration;
         public double ArrivalRadius;
-        public double StepHeight;
-        public double GroundProbeDistance;
-        public double GroundOffset;
-        public double ObstacleProbeHeight;
-        public double CollisionRadius;
-        public double MaximumFallSpeed;
         public bool ModelFacesBackward;
+        public bool WantsWalk;
+        public bool WantsSprint;
     }
 
     [MyDefinitionType(typeof(MyObjectBuilder_SiGroundedNpcControllerComponentDefinition))]
     public class SiGroundedNpcControllerComponentDefinition : MyEntityComponentDefinition
     {
-        public double MoveSpeed { get; private set; }
-        public double Acceleration { get; private set; }
-        public double BrakingAcceleration { get; private set; }
         public double ArrivalRadius { get; private set; }
-        public double StepHeight { get; private set; }
-        public double GroundProbeDistance { get; private set; }
-        public double GroundOffset { get; private set; }
-        public double ObstacleProbeHeight { get; private set; }
-        public double CollisionRadius { get; private set; }
-        public double MaximumFallSpeed { get; private set; }
         public bool ModelFacesBackward { get; private set; }
+        public bool WantsWalk { get; private set; }
+        public bool WantsSprint { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
         {
             base.Init(builder);
             var ob = (MyObjectBuilder_SiGroundedNpcControllerComponentDefinition)builder;
-            MoveSpeed = Math.Max(0, ob.MoveSpeed);
-            Acceleration = Math.Max(0, ob.Acceleration);
-            BrakingAcceleration = Math.Max(0, ob.BrakingAcceleration);
             ArrivalRadius = Math.Max(0, ob.ArrivalRadius);
-            StepHeight = Math.Max(0, ob.StepHeight);
-            GroundProbeDistance = Math.Max(0, ob.GroundProbeDistance);
-            GroundOffset = Math.Max(0, ob.GroundOffset);
-            ObstacleProbeHeight = Math.Max(0, ob.ObstacleProbeHeight);
-            CollisionRadius = Math.Max(0, ob.CollisionRadius);
-            MaximumFallSpeed = Math.Max(0, ob.MaximumFallSpeed);
             ModelFacesBackward = ob.ModelFacesBackward;
+            WantsWalk = ob.WantsWalk;
+            WantsSprint = ob.WantsSprint;
         }
     }
 
@@ -104,28 +82,16 @@ namespace Si.UtilityAI
     }
 
     /// <summary>
-    /// Reusable kinematic locomotion for NPCs which walk under natural/artificial
-    /// gravity.  Downward physics probes recognize both voxel terrain and grids.
+    /// Reusable waypoint locomotion for NPCs driven by the stock
+    /// character movement component.
     /// </summary>
     public abstract class SiGroundedNpc : SiNpc, ISiWaypointMover
     {
         private const double MinimumDirectionLengthSquared = 0.0001;
 
-        private readonly List<IHitInfo> _raycastHits = new List<IHitInfo>();
-
-        private Vector3D _horizontalVelocity;
-        private Vector3D _verticalVelocity;
         private Vector3D _waypoint;
-        private Vector3D? _groundPosition;
-        private bool _deathMotionInitialized;
-        private Vector3D _deathPivotPosition;
-        private Vector3D _deathVelocity;
-        private Vector3D _deathBaseForward;
-        private Vector3D _deathBaseUp;
-        private Vector3D _deathFallAxis;
-        private double _deathPitch;
-        private double _deathPitchSpeed;
-        private double _deathRestAngle;
+        private MyCharacterMovementComponent _movement;
+        private bool _movementHandlersRegistered;
 
         protected SiGroundedNpc(long entityId, in MatrixD transform)
             : base(entityId, transform)
@@ -134,9 +100,7 @@ namespace Si.UtilityAI
 
         public bool HasWaypoint { get; private set; }
         public Vector3D Waypoint => _waypoint;
-        public Vector3D Velocity => _horizontalVelocity + _verticalVelocity;
-        public bool IsGrounded { get; private set; }
-        public long? GroundEntityId { get; private set; }
+        public Vector3D Velocity => Entity?.Physics?.LinearVelocity ?? Vector3.Zero;
 
         public void SetWaypoint(in Vector3D waypoint)
         {
@@ -152,12 +116,6 @@ namespace Si.UtilityAI
         protected sealed override void OnUpdate(long elapsedMilliseconds)
         {
             UpdateBehavior(elapsedMilliseconds);
-
-            var deltaSeconds = Math.Min(elapsedMilliseconds / 1000.0, 0.25);
-            if (deltaSeconds <= 0)
-                return;
-
-            UpdateLocomotion(deltaSeconds);
         }
 
         /// <summary>
@@ -172,105 +130,56 @@ namespace Si.UtilityAI
         {
         }
 
-        protected override void OnKilled(SiNpcDamageComponent damage)
+        protected override void OnActivated()
         {
-            base.OnKilled(damage);
-            ClearWaypoint();
+            base.OnActivated();
+            _movement = Entity?.Components.Get<MyCharacterMovementComponent>();
+            if (_movement == null)
+                throw new InvalidOperationException(
+                    $"Grounded NPC '{EntityDefinition}' requires a {nameof(MyCharacterMovementComponent)}.");
+
+            _movement.MovementIndicatorHandler += MovementIndicatorHandler;
+            _movement.RotationIndicatorHandler += RotationIndicatorHandler;
+            _movement.OnPostProcessPhysicalMovement += PostProcessPhysicalMovement;
+            _movementHandlersRegistered = true;
         }
 
-        protected override void OnDeathUpdate(long elapsedMilliseconds, SiNpcDamageComponent damage)
+        protected override void OnKilled()
         {
-            var definition = damage?.Definition;
-            if (definition == null)
-                return;
-
-            var deltaSeconds = Math.Min(elapsedMilliseconds / 1000.0, 0.25);
-            if (deltaSeconds <= 0)
-                return;
-
-            var controller = GetControllerDefinition();
-            if (!_deathMotionInitialized)
-                InitializeDeathMotion(damage, controller);
-
-            UpdateDeathMotion(deltaSeconds, definition, controller);
+            base.OnKilled();
+            ClearWaypoint();
+            if (_movement != null)
+                _movement.BlockMovement = true;
         }
 
         protected override void OnClosing()
         {
+            if (_movementHandlersRegistered && _movement != null)
+            {
+                _movement.MovementIndicatorHandler -= MovementIndicatorHandler;
+                _movement.RotationIndicatorHandler -= RotationIndicatorHandler;
+                _movement.OnPostProcessPhysicalMovement -= PostProcessPhysicalMovement;
+            }
+
             base.OnClosing();
-            _groundPosition = null;
-            _deathMotionInitialized = false;
-            _deathPivotPosition = Vector3D.Zero;
-            _deathVelocity = Vector3D.Zero;
-            _deathPitch = 0;
+            _movement = null;
+            _movementHandlersRegistered = false;
         }
 
-        private void UpdateLocomotion(double deltaSeconds)
+        private bool TryGetMoveDirection(
+            out Vector3D direction,
+            SiGroundedNpcControllerComponentDefinition definition)
         {
-            var definition = GetControllerDefinition();
+            direction = Vector3D.Zero;
+            if (!HasWaypoint || Entity == null)
+                return false;
+
             var world = Entity.WorldMatrix;
             var position = world.Translation;
             var gravity = (Vector3D)MyGravityProviderSystem.CalculateTotalGravityInPoint(position);
             var up = gravity.LengthSquared() > MinimumDirectionLengthSquared
                 ? -Vector3D.Normalize(gravity)
                 : NormalizedOrFallback(world.Up, Vector3D.Up);
-
-            _horizontalVelocity = Vector3D.Reject(_horizontalVelocity, up);
-            var desiredVelocity = CalculateDesiredVelocity(position, up, definition);
-            var acceleration = desiredVelocity.LengthSquared() > MinimumDirectionLengthSquared
-                ? definition.Acceleration
-                : definition.BrakingAcceleration;
-            _horizontalVelocity = MoveTowards(
-                _horizontalVelocity,
-                desiredVelocity,
-                acceleration * deltaSeconds);
-
-            var horizontalDisplacement = _horizontalVelocity * deltaSeconds;
-            if (IsObstacleAhead(position, up, horizontalDisplacement, definition))
-            {
-                horizontalDisplacement = Vector3D.Zero;
-                _horizontalVelocity = Vector3D.Zero;
-            }
-
-            if (IsGrounded)
-                _verticalVelocity = Vector3D.Zero;
-            else
-                _verticalVelocity += gravity * deltaSeconds;
-
-            var fallSpeed = Vector3D.Dot(_verticalVelocity, -up);
-            if (fallSpeed > definition.MaximumFallSpeed)
-                _verticalVelocity += up * (fallSpeed - definition.MaximumFallSpeed);
-
-            var horizontalPosition = position + horizontalDisplacement;
-            var desiredPosition = horizontalPosition + _verticalVelocity * deltaSeconds;
-            if (TryFindGround(horizontalPosition, desiredPosition, up, definition, out var hit))
-            {
-                desiredPosition = hit.Position + up * definition.GroundOffset;
-                _verticalVelocity = Vector3D.Zero;
-                IsGrounded = true;
-                GroundEntityId = hit.HitEntity?.EntityId;
-                _groundPosition = hit.Position;
-            }
-            else
-            {
-                IsGrounded = false;
-                GroundEntityId = null;
-                _groundPosition = null;
-            }
-
-            var facing = CalculateFacing(world, up, desiredVelocity, definition);
-            var modelForward = definition.ModelFacesBackward ? -facing : facing;
-            Entity.WorldMatrix = MatrixD.CreateWorld(desiredPosition, modelForward, up);
-        }
-
-        private Vector3D CalculateDesiredVelocity(
-            in Vector3D position,
-            in Vector3D up,
-            SiGroundedNpcControllerComponentDefinition definition)
-        {
-            if (!HasWaypoint)
-                return Vector3D.Zero;
-
             var toWaypoint = Vector3D.Reject(_waypoint - position, up);
             var distanceSquared = toWaypoint.LengthSquared();
             if (distanceSquared <= definition.ArrivalRadius * definition.ArrivalRadius)
@@ -278,228 +187,77 @@ namespace Si.UtilityAI
                 var reachedWaypoint = _waypoint;
                 HasWaypoint = false;
                 OnWaypointReached(reachedWaypoint);
-                return Vector3D.Zero;
-            }
-
-            return toWaypoint / Math.Sqrt(distanceSquared) * definition.MoveSpeed;
-        }
-
-        private bool IsObstacleAhead(
-            in Vector3D position,
-            in Vector3D up,
-            in Vector3D horizontalDisplacement,
-            SiGroundedNpcControllerComponentDefinition definition)
-        {
-            var distanceSquared = horizontalDisplacement.LengthSquared();
-            if (distanceSquared <= MinimumDirectionLengthSquared)
                 return false;
-
-            var direction = horizontalDisplacement / Math.Sqrt(distanceSquared);
-            var start = position + up * definition.ObstacleProbeHeight;
-            var end = start + horizontalDisplacement + direction * definition.CollisionRadius;
-            IHitInfo hit;
-            return TryCastRayIgnoringSelf(start, end, out hit);
-        }
-
-        private bool TryFindGround(
-            in Vector3D horizontalPosition,
-            in Vector3D desiredPosition,
-            in Vector3D up,
-            SiGroundedNpcControllerComponentDefinition definition,
-            out IHitInfo hit)
-        {
-            var start = horizontalPosition + up * definition.StepHeight;
-            var end = desiredPosition - up * definition.GroundProbeDistance;
-            return TryCastRayIgnoringSelf(start, end, out hit);
-        }
-
-        private bool TryCastRayIgnoringSelf(
-            in Vector3D start,
-            in Vector3D end,
-            out IHitInfo hit)
-        {
-            hit = null;
-            _raycastHits.Clear();
-            MyAPIGateway.Physics.CastRay(start, end, _raycastHits);
-
-            for (var i = 0; i < _raycastHits.Count; i++)
-            {
-                var candidate = _raycastHits[i];
-                if (candidate?.HitEntity == Entity)
-                    continue;
-
-                hit = candidate;
-                _raycastHits.Clear();
-                return true;
             }
 
-            _raycastHits.Clear();
-            return false;
+            direction = toWaypoint / Math.Sqrt(distanceSquared);
+            return true;
         }
 
-        private void InitializeDeathMotion(
-            SiNpcDamageComponent damage,
-            SiGroundedNpcControllerComponentDefinition controllerDefinition)
+        private void MovementIndicatorHandler(
+            MyCharacterMovementComponent _,
+            ref Vector3 moveIndicator)
         {
-            var definition = damage.Definition;
-            var world = Entity.WorldMatrix;
-            var gravity = (Vector3D)MyGravityProviderSystem.CalculateTotalGravityInPoint(world.Translation);
-            var up = gravity.LengthSquared() > MinimumDirectionLengthSquared
-                ? -Vector3D.Normalize(gravity)
-                : NormalizedOrFallback(world.Up, Vector3D.Up);
-            var pivotPosition = FindCurrentBottomPosition(world.Translation, up, controllerDefinition);
-            var forward = NormalizedOrFallback(
-                Vector3D.Reject(world.Forward, up),
-                Vector3D.CalculatePerpendicularVector(up));
-            var fallDirection = CalculateDeathFallDirection(
-                pivotPosition,
-                up,
-                forward,
-                damage.KillingHitPosition);
-            var fallAxis = NormalizedOrFallback(
-                Vector3D.Cross(up, fallDirection),
-                Vector3D.CalculatePerpendicularVector(up));
-
-            _deathPivotPosition = pivotPosition;
-            _deathBaseForward = forward;
-            _deathBaseUp = up;
-            _deathFallAxis = fallAxis;
-            _deathVelocity = Vector3D.Reject(Velocity, up)
-                             + fallDirection * definition.DeathInitialHorizontalSpeed
-                             - up * definition.DeathInitialDownwardSpeed;
-            _deathPitch = 0;
-            _deathPitchSpeed = MathHelper.ToRadians((float)definition.DeathPitchSpeedDegreesPerSecond);
-            _deathRestAngle = MathHelper.ToRadians((float)definition.DeathRestAngleDegrees);
-            _deathMotionInitialized = true;
-        }
-
-        private void UpdateDeathMotion(
-            double deltaSeconds,
-            SiNpcDamageComponentDefinition deathDefinition,
-            SiGroundedNpcControllerComponentDefinition controllerDefinition)
-        {
-            var gravity = (Vector3D)MyGravityProviderSystem.CalculateTotalGravityInPoint(_deathPivotPosition);
-            var up = gravity.LengthSquared() > MinimumDirectionLengthSquared
-                ? -Vector3D.Normalize(gravity)
-                : _deathBaseUp;
-
-            var horizontalVelocity = Vector3D.Reject(_deathVelocity, up);
-            var verticalVelocity = _deathVelocity - horizontalVelocity;
-            horizontalVelocity *= Math.Pow(
-                deathDefinition.DeathHorizontalVelocityMultiplierPerSecond,
-                deltaSeconds);
-            verticalVelocity += gravity * deathDefinition.DeathGravityMultiplier * deltaSeconds;
-
-            var fallSpeed = Vector3D.Dot(verticalVelocity, -up);
-            if (deathDefinition.DeathMaximumFallSpeed > 0
-                && fallSpeed > deathDefinition.DeathMaximumFallSpeed)
-                verticalVelocity += up * (fallSpeed - deathDefinition.DeathMaximumFallSpeed);
-
-            _deathVelocity = horizontalVelocity + verticalVelocity;
-
-            var desiredPivotPosition = _deathPivotPosition + _deathVelocity * deltaSeconds;
-            IHitInfo groundHit;
-            if (TryFindGround(_deathPivotPosition, desiredPivotPosition, up, controllerDefinition, out groundHit))
+            if (IsDead)
             {
-                desiredPivotPosition = groundHit.Position;
-                var downwardSpeed = Vector3D.Dot(_deathVelocity, -up);
-                if (downwardSpeed > 0)
-                    _deathVelocity += up * downwardSpeed;
+                moveIndicator = Vector3.Zero;
+                return;
             }
 
-            _deathPivotPosition = desiredPivotPosition;
-            _deathPitch = Math.Min(_deathRestAngle, _deathPitch + _deathPitchSpeed * deltaSeconds);
-
-            var forward = _deathBaseForward;
-            var modelUp = _deathBaseUp;
-            if (Math.Abs(_deathPitch) > 1e-6)
+            var definition = GetControllerDefinition();
+            if (!TryGetMoveDirection(out var direction, definition))
             {
-                var pitchMatrix = MatrixD.CreateFromAxisAngle(_deathFallAxis, _deathPitch);
-                forward = Vector3D.TransformNormal(forward, pitchMatrix);
-                modelUp = Vector3D.TransformNormal(modelUp, pitchMatrix);
+                moveIndicator = Vector3.Zero;
+                return;
             }
 
-            forward = NormalizedOrFallback(forward, _deathBaseForward);
-            modelUp = NormalizePerpendicular(modelUp, forward);
-
-            var desiredPosition = _deathPivotPosition + modelUp * controllerDefinition.GroundOffset;
-            Entity.WorldMatrix = MatrixD.CreateWorld(desiredPosition, forward, modelUp);
+            var localDirection = Vector3D.TransformNormal(
+                direction,
+                Entity.PositionComp.WorldMatrixNormalizedInv);
+            moveIndicator = (Vector3)localDirection;
         }
 
-        private Vector3D FindCurrentBottomPosition(
-            in Vector3D position,
-            in Vector3D up,
-            SiGroundedNpcControllerComponentDefinition definition)
+        private void RotationIndicatorHandler(
+            MyCharacterMovementComponent _,
+            ref Vector2 rotationIndicator,
+            ref Vector3? forcedForward)
         {
-            IHitInfo hit;
-            if (TryFindGround(position, position, up, definition, out hit))
-                return hit.Position;
-            if (IsGrounded && _groundPosition.HasValue)
-                return _groundPosition.Value;
-            return position - up * definition.GroundOffset;
+            var definition = GetControllerDefinition();
+            if (!TryGetMoveDirection(out var direction, definition))
+                return;
+
+            var gravity = (Vector3D)(-MyGravityProviderSystem.CalculateTotalGravityInPoint(Entity.GetPosition()));
+            if (gravity.LengthSquared() <= MinimumDirectionLengthSquared)
+                gravity = Vector3D.Up;
+            gravity.Normalize();
+
+            if (definition.ModelFacesBackward)
+                direction = -direction;
+
+            Vector3D.Cross(ref direction, ref gravity, out var right);
+            Vector3D.Cross(ref gravity, ref right, out var forward);
+            if (forward.Normalize() < 1e-2f)
+                return;
+
+            forcedForward = (Vector3)forward;
         }
 
-        private static Vector3D CalculateDeathFallDirection(
-            in Vector3D pivotPosition,
-            in Vector3D up,
-            in Vector3D forward,
-            Vector3D? hitPosition)
+        private void PostProcessPhysicalMovement(
+            MyCharacterMovementComponent cmp,
+            ref MatrixD transform)
         {
-            if (hitPosition.HasValue)
-            {
-                var awayFromHit = Vector3D.Reject(pivotPosition - hitPosition.Value, up);
-                if (awayFromHit.LengthSquared() > MinimumDirectionLengthSquared)
-                    return awayFromHit / Math.Sqrt(awayFromHit.LengthSquared());
-            }
-
-            return NormalizedOrFallback(
-                Vector3D.Reject(-forward, up),
-                Vector3D.CalculatePerpendicularVector(up));
+            var definition = GetControllerDefinition();
+            cmp.WantsWalk = definition.WantsWalk;
+            cmp.WantsSprint = definition.WantsSprint;
+            cmp.BlockMovement = IsDead;
         }
 
-        private Vector3D CalculateFacing(
-            in MatrixD world,
-            in Vector3D up,
-            in Vector3D desiredVelocity,
-            SiGroundedNpcControllerComponentDefinition definition)
-        {
-            var facing = desiredVelocity.LengthSquared() > MinimumDirectionLengthSquared
-                ? desiredVelocity
-                : definition.ModelFacesBackward ? world.Backward : world.Forward;
-            facing = Vector3D.Reject(facing, up);
-            return NormalizedOrFallback(facing, Vector3D.CalculatePerpendicularVector(up));
-        }
-
-        private static Vector3D MoveTowards(
-            in Vector3D current,
-            in Vector3D target,
-            double maximumDelta)
-        {
-            var delta = target - current;
-            var distanceSquared = delta.LengthSquared();
-            if (distanceSquared <= maximumDelta * maximumDelta)
-                return target;
-
-            return current + delta / Math.Sqrt(distanceSquared) * maximumDelta;
-        }
-
-        private static Vector3D NormalizedOrFallback(
-            in Vector3D value,
-            in Vector3D fallback)
+        private static Vector3D NormalizedOrFallback(in Vector3D value, in Vector3D fallback)
         {
             var lengthSquared = value.LengthSquared();
             return lengthSquared > MinimumDirectionLengthSquared
                 ? value / Math.Sqrt(lengthSquared)
                 : fallback;
-        }
-
-        private static Vector3D NormalizePerpendicular(
-            in Vector3D value,
-            in Vector3D direction)
-        {
-            return NormalizedOrFallback(
-                Vector3D.Reject(value, direction),
-                Vector3D.CalculatePerpendicularVector(direction));
         }
 
         private SiGroundedNpcControllerComponentDefinition GetControllerDefinition()

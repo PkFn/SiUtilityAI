@@ -3,16 +3,9 @@
   <!-- Attach a controller subtype to an entity container to tune its grounded locomotion. -->
   <Definition xsi:type="MyObjectBuilder_SiGroundedNpcControllerComponentDefinition">
     <Id Type="MyObjectBuilder_SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
-    <MoveSpeed>4.5</MoveSpeed>
-    <Acceleration>10</Acceleration>
-    <BrakingAcceleration>16</BrakingAcceleration>
     <ArrivalRadius>0.25</ArrivalRadius>
-    <StepHeight>0.45</StepHeight>
-    <GroundProbeDistance>1.0</GroundProbeDistance>
-    <GroundOffset>0.82</GroundOffset>
-    <ObstacleProbeHeight>0.8</ObstacleProbeHeight>
-    <CollisionRadius>0.25</CollisionRadius>
-    <MaximumFallSpeed>50</MaximumFallSpeed>
     <ModelFacesBackward>false</ModelFacesBackward>
+    <WantsWalk>false</WantsWalk>
+    <WantsSprint>false</WantsSprint>
   </Definition>
 </Definitions>

@@ -1,9 +1,11 @@
-﻿using System;
+using System;
+using Sandbox.Game.Entities.Entity.Stats;
+using Sandbox.Game.Entities.Entity.Stats.Extensions;
 using Sandbox.Game.Players;
 using Sandbox.ModAPI;
-using VRage.Session;
 using VRage.Game;
 using VRage.Game.Entity;
+using VRage.Session;
 using VRageMath;
 
 namespace Si.UtilityAI
@@ -17,9 +19,11 @@ namespace Si.UtilityAI
     {
         private SiNpcManager _manager;
         private SiUtilityBrainComponent _utilityBrain;
-        private SiNpcDamageComponent _damage;
+        private SiNpcLifecycleComponent _lifecycle;
+        private MyEntityStatComponent _stats;
         private bool _deleteDiplomaticIdentityOnClose;
         private bool _deathStarted;
+        private long _deadElapsedMilliseconds;
 
         protected SiNpc(long entityId, in MatrixD transform)
         {
@@ -31,7 +35,7 @@ namespace Si.UtilityAI
         public long DiplomaticIdentityId { get; private set; }
         public MatrixD Transform { get; protected set; }
         public MyEntity Entity { get; private set; }
-        public bool IsDead => _damage?.IsDead ?? false;
+        public bool IsDead => _stats?.IsDead() ?? false;
 
         public abstract string Archetype { get; }
         protected abstract MyDefinitionId EntityDefinition { get; }
@@ -66,8 +70,10 @@ namespace Si.UtilityAI
 
                 Entity = entity;
                 _utilityBrain = Entity.Components.Get<SiUtilityBrainComponent>();
-                _damage = Entity.Components.Get<SiNpcDamageComponent>();
+                _lifecycle = Entity.Components.Get<SiNpcLifecycleComponent>();
+                _stats = Entity.Components.Get<MyEntityStatComponent>();
                 _utilityBrain?.Bind(this);
+                _deadElapsedMilliseconds = 0;
                 OnActivated();
                 return true;
             }
@@ -77,8 +83,10 @@ namespace Si.UtilityAI
                     $"Failed to create {Archetype}: {exception.Message}", 5000);
                 _utilityBrain?.Unbind();
                 _utilityBrain = null;
-                _damage = null;
+                _lifecycle = null;
+                _stats = null;
                 _deathStarted = false;
+                _deadElapsedMilliseconds = 0;
                 entity?.Close();
                 return false;
             }
@@ -94,14 +102,18 @@ namespace Si.UtilityAI
                 if (!_deathStarted)
                 {
                     _deathStarted = true;
+                    _deadElapsedMilliseconds = 0;
                     _utilityBrain?.Unbind();
                     _utilityBrain = null;
-                    OnKilled(_damage);
+                    OnKilled();
                 }
 
-                _damage?.AdvanceDeath(elapsedMilliseconds);
-                OnDeathUpdate(elapsedMilliseconds, _damage);
-                if (_damage?.IsRemovalDue ?? false)
+                if (elapsedMilliseconds > 0)
+                    _deadElapsedMilliseconds += elapsedMilliseconds;
+
+                OnDeathUpdate(elapsedMilliseconds);
+                if (_lifecycle != null
+                    && _deadElapsedMilliseconds >= _lifecycle.Definition.DeathRemovalMilliseconds)
                     return false;
             }
             else
@@ -126,8 +138,10 @@ namespace Si.UtilityAI
             _utilityBrain?.Unbind();
             _utilityBrain = null;
             OnClosing();
-            _damage = null;
+            _lifecycle = null;
+            _stats = null;
             _deathStarted = false;
+            _deadElapsedMilliseconds = 0;
             if (deleteDiplomaticIdentity)
                 DeleteDiplomaticIdentity();
             Entity.Close();
@@ -146,11 +160,11 @@ namespace Si.UtilityAI
         {
         }
 
-        protected virtual void OnKilled(SiNpcDamageComponent damage)
+        protected virtual void OnKilled()
         {
         }
 
-        protected virtual void OnDeathUpdate(long elapsedMilliseconds, SiNpcDamageComponent damage)
+        protected virtual void OnDeathUpdate(long elapsedMilliseconds)
         {
         }
 
