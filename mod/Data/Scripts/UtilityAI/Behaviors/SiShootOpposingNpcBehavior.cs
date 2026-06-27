@@ -39,6 +39,24 @@ namespace Si.UtilityAI
         public int EngageSpeechCooldownMilliseconds;
         public string SpotTargetName;
         public int SpotSpeechCooldownMilliseconds;
+        public int SpottingReevaluationIntervalMilliseconds;
+        public int SpottingTrackingTimeoutMilliseconds;
+        public float HearingGuaranteedRadius;
+        public float StillnessVelocityThreshold;
+        public float StillnessChanceMultiplier;
+        public int RecentShotMilliseconds;
+        public float NotFiringChanceMultiplier;
+        public float ShotAwarenessPerShot;
+        public float ShotAwarenessDecayPerSecond;
+        public float ShotAwarenessMaxDistance;
+        public float ShotAwarenessDistanceExponent;
+        public float NearbyBushScanRadius;
+        public float NearbyBushMinimumChanceMultiplier;
+        public float NearbyBushDistanceExponent;
+        public float DarknessMinimumChanceMultiplier;
+        public float DarknessNightSolarElevation;
+        public float DarknessDaySolarElevation;
+        public float InteriorChanceMultiplier;
 
         [XmlArrayItem("Archetype")]
         public string[] TargetArchetypes;
@@ -59,6 +77,24 @@ namespace Si.UtilityAI
         public int EngageSpeechCooldownMilliseconds;
         public string SpotTargetName;
         public int SpotSpeechCooldownMilliseconds;
+        public int SpottingReevaluationIntervalMilliseconds;
+        public int SpottingTrackingTimeoutMilliseconds;
+        public float HearingGuaranteedRadius;
+        public float StillnessVelocityThreshold;
+        public float StillnessChanceMultiplier;
+        public int RecentShotMilliseconds;
+        public float NotFiringChanceMultiplier;
+        public float ShotAwarenessPerShot;
+        public float ShotAwarenessDecayPerSecond;
+        public float ShotAwarenessMaxDistance;
+        public float ShotAwarenessDistanceExponent;
+        public float NearbyBushScanRadius;
+        public float NearbyBushMinimumChanceMultiplier;
+        public float NearbyBushDistanceExponent;
+        public float DarknessMinimumChanceMultiplier;
+        public float DarknessNightSolarElevation;
+        public float DarknessDaySolarElevation;
+        public float InteriorChanceMultiplier;
 
         [XmlArrayItem("Archetype")]
         public string[] TargetArchetypes;
@@ -79,6 +115,24 @@ namespace Si.UtilityAI
         public int EngageSpeechCooldownMilliseconds { get; private set; }
         public string SpotTargetName { get; private set; }
         public int SpotSpeechCooldownMilliseconds { get; private set; }
+        public int SpottingReevaluationIntervalMilliseconds { get; private set; }
+        public int SpottingTrackingTimeoutMilliseconds { get; private set; }
+        public float HearingGuaranteedRadius { get; private set; }
+        public float StillnessVelocityThreshold { get; private set; }
+        public float StillnessChanceMultiplier { get; private set; }
+        public int RecentShotMilliseconds { get; private set; }
+        public float NotFiringChanceMultiplier { get; private set; }
+        public float ShotAwarenessPerShot { get; private set; }
+        public float ShotAwarenessDecayPerSecond { get; private set; }
+        public float ShotAwarenessMaxDistance { get; private set; }
+        public float ShotAwarenessDistanceExponent { get; private set; }
+        public float NearbyBushScanRadius { get; private set; }
+        public float NearbyBushMinimumChanceMultiplier { get; private set; }
+        public float NearbyBushDistanceExponent { get; private set; }
+        public float DarknessMinimumChanceMultiplier { get; private set; }
+        public float DarknessNightSolarElevation { get; private set; }
+        public float DarknessDaySolarElevation { get; private set; }
+        public float InteriorChanceMultiplier { get; private set; }
         public string[] TargetArchetypes { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
@@ -96,6 +150,24 @@ namespace Si.UtilityAI
             EngageSpeechCooldownMilliseconds = Math.Max(0, ob.EngageSpeechCooldownMilliseconds);
             SpotTargetName = ob.SpotTargetName;
             SpotSpeechCooldownMilliseconds = Math.Max(0, ob.SpotSpeechCooldownMilliseconds);
+            SpottingReevaluationIntervalMilliseconds = Math.Max(50, ob.SpottingReevaluationIntervalMilliseconds);
+            SpottingTrackingTimeoutMilliseconds = Math.Max(SpottingReevaluationIntervalMilliseconds, ob.SpottingTrackingTimeoutMilliseconds);
+            HearingGuaranteedRadius = Math.Max(0, ob.HearingGuaranteedRadius);
+            StillnessVelocityThreshold = Math.Max(0, ob.StillnessVelocityThreshold);
+            StillnessChanceMultiplier = MathHelper.Clamp(ob.StillnessChanceMultiplier, 0, 1);
+            RecentShotMilliseconds = Math.Max(0, ob.RecentShotMilliseconds);
+            NotFiringChanceMultiplier = MathHelper.Clamp(ob.NotFiringChanceMultiplier, 0, 1);
+            ShotAwarenessPerShot = MathHelper.Clamp(ob.ShotAwarenessPerShot, 0, 1);
+            ShotAwarenessDecayPerSecond = Math.Max(0, ob.ShotAwarenessDecayPerSecond);
+            ShotAwarenessMaxDistance = Math.Max(0, ob.ShotAwarenessMaxDistance);
+            ShotAwarenessDistanceExponent = Math.Max(0.01f, ob.ShotAwarenessDistanceExponent);
+            NearbyBushScanRadius = Math.Max(0, ob.NearbyBushScanRadius);
+            NearbyBushMinimumChanceMultiplier = MathHelper.Clamp(ob.NearbyBushMinimumChanceMultiplier, 0, 1);
+            NearbyBushDistanceExponent = Math.Max(0.01f, ob.NearbyBushDistanceExponent);
+            DarknessMinimumChanceMultiplier = MathHelper.Clamp(ob.DarknessMinimumChanceMultiplier, 0, 1);
+            DarknessNightSolarElevation = ob.DarknessNightSolarElevation;
+            DarknessDaySolarElevation = ob.DarknessDaySolarElevation;
+            InteriorChanceMultiplier = MathHelper.Clamp(ob.InteriorChanceMultiplier, 0, 1);
             TargetArchetypes = ob.TargetArchetypes ?? EmptyArchetypes;
         }
     }
@@ -117,6 +189,24 @@ namespace Si.UtilityAI
         public int EngageSpeechCooldownMilliseconds { get; private set; }
         public string SpotTargetName { get; private set; }
         public int SpotSpeechCooldownMilliseconds { get; private set; }
+        public int SpottingReevaluationIntervalMilliseconds { get; private set; }
+        public int SpottingTrackingTimeoutMilliseconds { get; private set; }
+        public float HearingGuaranteedRadius { get; private set; }
+        public float StillnessVelocityThreshold { get; private set; }
+        public float StillnessChanceMultiplier { get; private set; }
+        public int RecentShotMilliseconds { get; private set; }
+        public float NotFiringChanceMultiplier { get; private set; }
+        public float ShotAwarenessPerShot { get; private set; }
+        public float ShotAwarenessDecayPerSecond { get; private set; }
+        public float ShotAwarenessMaxDistance { get; private set; }
+        public float ShotAwarenessDistanceExponent { get; private set; }
+        public float NearbyBushScanRadius { get; private set; }
+        public float NearbyBushMinimumChanceMultiplier { get; private set; }
+        public float NearbyBushDistanceExponent { get; private set; }
+        public float DarknessMinimumChanceMultiplier { get; private set; }
+        public float DarknessNightSolarElevation { get; private set; }
+        public float DarknessDaySolarElevation { get; private set; }
+        public float InteriorChanceMultiplier { get; private set; }
         public string[] TargetArchetypes { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
@@ -155,6 +245,24 @@ namespace Si.UtilityAI
             EngageSpeechCooldownMilliseconds = Math.Max(0, ob.EngageSpeechCooldownMilliseconds);
             SpotTargetName = ob.SpotTargetName;
             SpotSpeechCooldownMilliseconds = Math.Max(0, ob.SpotSpeechCooldownMilliseconds);
+            SpottingReevaluationIntervalMilliseconds = Math.Max(50, ob.SpottingReevaluationIntervalMilliseconds);
+            SpottingTrackingTimeoutMilliseconds = Math.Max(SpottingReevaluationIntervalMilliseconds, ob.SpottingTrackingTimeoutMilliseconds);
+            HearingGuaranteedRadius = Math.Max(0, ob.HearingGuaranteedRadius);
+            StillnessVelocityThreshold = Math.Max(0, ob.StillnessVelocityThreshold);
+            StillnessChanceMultiplier = MathHelper.Clamp(ob.StillnessChanceMultiplier, 0, 1);
+            RecentShotMilliseconds = Math.Max(0, ob.RecentShotMilliseconds);
+            NotFiringChanceMultiplier = MathHelper.Clamp(ob.NotFiringChanceMultiplier, 0, 1);
+            ShotAwarenessPerShot = MathHelper.Clamp(ob.ShotAwarenessPerShot, 0, 1);
+            ShotAwarenessDecayPerSecond = Math.Max(0, ob.ShotAwarenessDecayPerSecond);
+            ShotAwarenessMaxDistance = Math.Max(0, ob.ShotAwarenessMaxDistance);
+            ShotAwarenessDistanceExponent = Math.Max(0.01f, ob.ShotAwarenessDistanceExponent);
+            NearbyBushScanRadius = Math.Max(0, ob.NearbyBushScanRadius);
+            NearbyBushMinimumChanceMultiplier = MathHelper.Clamp(ob.NearbyBushMinimumChanceMultiplier, 0, 1);
+            NearbyBushDistanceExponent = Math.Max(0.01f, ob.NearbyBushDistanceExponent);
+            DarknessMinimumChanceMultiplier = MathHelper.Clamp(ob.DarknessMinimumChanceMultiplier, 0, 1);
+            DarknessNightSolarElevation = ob.DarknessNightSolarElevation;
+            DarknessDaySolarElevation = ob.DarknessDaySolarElevation;
+            InteriorChanceMultiplier = MathHelper.Clamp(ob.InteriorChanceMultiplier, 0, 1);
             TargetArchetypes = ob.TargetArchetypes ?? EmptyArchetypes;
         }
 
@@ -170,6 +278,24 @@ namespace Si.UtilityAI
             EngageSpeechCooldownMilliseconds = balance.EngageSpeechCooldownMilliseconds;
             SpotTargetName = balance.SpotTargetName;
             SpotSpeechCooldownMilliseconds = balance.SpotSpeechCooldownMilliseconds;
+            SpottingReevaluationIntervalMilliseconds = balance.SpottingReevaluationIntervalMilliseconds;
+            SpottingTrackingTimeoutMilliseconds = balance.SpottingTrackingTimeoutMilliseconds;
+            HearingGuaranteedRadius = balance.HearingGuaranteedRadius;
+            StillnessVelocityThreshold = balance.StillnessVelocityThreshold;
+            StillnessChanceMultiplier = balance.StillnessChanceMultiplier;
+            RecentShotMilliseconds = balance.RecentShotMilliseconds;
+            NotFiringChanceMultiplier = balance.NotFiringChanceMultiplier;
+            ShotAwarenessPerShot = balance.ShotAwarenessPerShot;
+            ShotAwarenessDecayPerSecond = balance.ShotAwarenessDecayPerSecond;
+            ShotAwarenessMaxDistance = balance.ShotAwarenessMaxDistance;
+            ShotAwarenessDistanceExponent = balance.ShotAwarenessDistanceExponent;
+            NearbyBushScanRadius = balance.NearbyBushScanRadius;
+            NearbyBushMinimumChanceMultiplier = balance.NearbyBushMinimumChanceMultiplier;
+            NearbyBushDistanceExponent = balance.NearbyBushDistanceExponent;
+            DarknessMinimumChanceMultiplier = balance.DarknessMinimumChanceMultiplier;
+            DarknessNightSolarElevation = balance.DarknessNightSolarElevation;
+            DarknessDaySolarElevation = balance.DarknessDaySolarElevation;
+            InteriorChanceMultiplier = balance.InteriorChanceMultiplier;
             TargetArchetypes = balance.TargetArchetypes ?? EmptyArchetypes;
         }
 
@@ -229,7 +355,8 @@ namespace Si.UtilityAI
                 return 0;
             }
 
-            var target = FindBestTarget(context, out var distance);
+            var spottingChance = 0f;
+            var target = FindBestTarget(context, out var distance, out spottingChance);
             _target = target;
             if (target == null)
             {
@@ -242,9 +369,10 @@ namespace Si.UtilityAI
             var normalizedDistance = _definition.SearchRadius > 0
                 ? MathHelper.Clamp(1f - (float)(distance / _definition.SearchRadius), 0, 1)
                 : 1;
-            return _definition.BaseScore
-                   + _definition.DistanceScore
-                   * (float)Math.Pow(normalizedDistance, _definition.DistanceExponent);
+            var score = _definition.BaseScore
+                        + _definition.DistanceScore
+                        * (float)Math.Pow(normalizedDistance, _definition.DistanceExponent);
+            return score * MathHelper.Clamp(spottingChance, 0, 1);
         }
 
         void ISiUtilityBehavior.Begin(SiUtilityContext context)
@@ -272,6 +400,22 @@ namespace Si.UtilityAI
                 FaceTarget(context.Entity, targetEntity);
 
             weapon.Advance(elapsedMilliseconds);
+
+            var spotting = session?.Spotting;
+            if (spotting != null)
+            {
+                var targetDistance = Vector3D.Distance(
+                    context.Position,
+                    targetEntity.WorldMatrix.Translation);
+                var observation = spotting.ObserveTarget(
+                    context.Agent,
+                    targetEntity,
+                    _definition,
+                    GetWeaponAimHeight(),
+                    targetDistance);
+                if (!observation.IsSpotted)
+                    return;
+            }
 
             if (_definition.RequireLineOfSight && !HasLineOfSight(context.Entity, targetEntity, weapon.Definition.AimTargetHeight))
                 return;
@@ -404,9 +548,13 @@ namespace Si.UtilityAI
                 : 0;
         }
 
-        private ShootTarget FindBestTarget(SiUtilityContext context, out double bestDistance)
+        private ShootTarget FindBestTarget(
+            SiUtilityContext context,
+            out double bestDistance,
+            out float bestSpottingChance)
         {
             bestDistance = 0;
+            bestSpottingChance = 0;
             var session = SiNpcSessionComponent.Instance;
             var manager = session?.Npcs;
             if (manager == null)
@@ -433,12 +581,19 @@ namespace Si.UtilityAI
                     target.Entity.WorldMatrix.Translation);
                 if (distanceSquared > bestDistanceSquared)
                     continue;
-                if (_definition.RequireLineOfSight
-                    && !HasLineOfSight(context.Entity, target.Entity, GetWeaponAimHeight()))
+                var distance = Math.Sqrt(distanceSquared);
+                var observation = session.Spotting?.ObserveTarget(
+                    context.Agent,
+                    target.Entity,
+                    _definition,
+                    GetWeaponAimHeight(),
+                    distance) ?? default(SiSpottingObservation);
+                if (!observation.IsSpotted)
                     continue;
 
                 best = target;
                 bestDistanceSquared = distanceSquared;
+                bestSpottingChance = observation.Chance;
             }
 
             if (MyPlayers.Static != null)
@@ -458,12 +613,19 @@ namespace Si.UtilityAI
                         target.Entity.WorldMatrix.Translation);
                     if (distanceSquared > bestDistanceSquared)
                         continue;
-                    if (_definition.RequireLineOfSight
-                        && !HasLineOfSight(context.Entity, target.Entity, GetWeaponAimHeight()))
+                    var distance = Math.Sqrt(distanceSquared);
+                    var observation = session.Spotting?.ObserveTarget(
+                        context.Agent,
+                        target.Entity,
+                        _definition,
+                        GetWeaponAimHeight(),
+                        distance) ?? default(SiSpottingObservation);
+                    if (!observation.IsSpotted)
                         continue;
 
                     best = target;
                     bestDistanceSquared = distanceSquared;
+                    bestSpottingChance = observation.Chance;
                 }
             }
 
@@ -634,7 +796,7 @@ namespace Si.UtilityAI
             }
         }
 
-        private bool CanTargetArchetype(string selfArchetype, string candidateArchetype)
+        internal bool CanTargetArchetype(string selfArchetype, string candidateArchetype)
         {
             if (_definition.TargetArchetypes.Length == 0)
                 return !string.Equals(selfArchetype, candidateArchetype, StringComparison.OrdinalIgnoreCase);

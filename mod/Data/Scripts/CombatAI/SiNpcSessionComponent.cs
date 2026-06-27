@@ -56,6 +56,7 @@ namespace Si.UtilityAI
         public static SiNpcSessionComponent Instance => _instance;
         public SiNpcManager Npcs { get; private set; }
         internal SiSquadBook Squads { get; private set; }
+        internal SiSpottingSystem Spotting { get; private set; }
         internal bool ShowSquadChatter => _showSquadChatter;
         internal bool UtilityDecisionMakingEnabled => _utilityDecisionMakingEnabled;
 
@@ -65,6 +66,7 @@ namespace Si.UtilityAI
             _instance = this;
             Npcs = new SiNpcManager();
             Squads = new SiSquadBook();
+            Spotting = new SiSpottingSystem(this);
             Npcs.WaypointSet += OnWaypointSet;
             Npcs.WaypointCleared += OnWaypointCleared;
             Npcs.NpcSpoke += OnNpcSpoke;
@@ -108,6 +110,8 @@ namespace Si.UtilityAI
             _squadOrders.Clear();
             _leaderMotionStates.Clear();
             _npcMotionStates.Clear();
+            Spotting?.Clear();
+            Spotting = null;
             _savedNpcs = null;
             _savedSquadOrders = null;
             Squads?.ClearNpcs();
@@ -126,6 +130,8 @@ namespace Si.UtilityAI
                 UpdateSquadOrders();
             }
             Npcs?.Update(elapsedMilliseconds);
+            if (IsAuthoritative)
+                Spotting?.Update(elapsedMilliseconds);
         }
 
         protected override bool IsSerialized =>
