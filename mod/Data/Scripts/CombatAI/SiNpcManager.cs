@@ -15,7 +15,7 @@ namespace Si.UtilityAI
     /// </summary>
     public sealed class SiNpcManager
     {
-        public const string SoldierArchetype = "trooper";
+        public const string SoldierArchetype = "us-rifle-trooper";
         public const string EnemyTrooperArchetype = "enemy-trooper";
         public const string EnemyFactionTag = "BARB";
 

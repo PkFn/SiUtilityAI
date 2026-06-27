@@ -44,7 +44,7 @@
 
   <Definition xsi:type="MyObjectBuilder_SiNpcArchetypeComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcArchetypeComponent" Subtype="SiTrooper_US_Rifle" />
-    <Archetype>trooper</Archetype>
+    <Archetype>us-rifle-trooper</Archetype>
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcArchetypeComponentDefinition">

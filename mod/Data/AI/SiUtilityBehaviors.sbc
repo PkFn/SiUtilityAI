@@ -61,7 +61,7 @@
     <SpotTargetName>enemy infantry</SpotTargetName>
     <SpotSpeechCooldownMilliseconds>15000</SpotSpeechCooldownMilliseconds>
     <TargetArchetypes>
-      <Archetype>trooper</Archetype>
+      <Archetype>us-rifle-trooper</Archetype>
       <Archetype>german-rifle-trooper</Archetype>
       <Archetype>soviet-rifle-trooper</Archetype>
       <Archetype>enemy-trooper</Archetype>
