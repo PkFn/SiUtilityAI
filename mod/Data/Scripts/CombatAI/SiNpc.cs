@@ -1,12 +1,12 @@
 using System;
 using Sandbox.Game.Entities.Entity.Stats;
 using Sandbox.Game.Entities.Entity.Stats.Extensions;
-using Sandbox.Game.Entities.Character.Components;
 using Sandbox.Game.Players;
 using Sandbox.ModAPI;
 using VRage;
 using VRage.Game;
 using VRage.Game.Entity;
+using VRage.ObjectBuilders;
 using VRage.Session;
 using VRageMath;
 
@@ -22,10 +22,8 @@ namespace Si.UtilityAI
         private SiNpcManager _manager;
         private SiUtilityBrainComponent _utilityBrain;
         private MyEntityStatComponent _stats;
-        private MyDeathComponent _deathComponent;
         private bool _deleteDiplomaticIdentityOnClose;
         private bool _deathStarted;
-        private bool _deathProcessed;
 
         protected SiNpc(long entityId, in MatrixD transform)
         {
@@ -52,7 +50,7 @@ namespace Si.UtilityAI
             MyEntity entity = null;
             try
             {
-                var builder = new MyObjectBuilder_Character
+                var builder = new MyObjectBuilder_EntityBase
                 {
                     EntityId = EntityId,
                     Name = $"SiNpc_{Archetype}_{EntityId}",
@@ -76,11 +74,7 @@ namespace Si.UtilityAI
                 Entity = entity;
                 _utilityBrain = Entity.Components.Get<SiUtilityBrainComponent>();
                 _stats = Entity.Components.Get<MyEntityStatComponent>();
-                _deathComponent = Entity.Components.Get<MyDeathComponent>();
-                if (_deathComponent != null)
-                    _deathComponent.OnDeathProcessed += HandleDeathProcessed;
                 _utilityBrain?.Bind(this);
-                _deathProcessed = false;
                 OnActivated();
                 return true;
             }
@@ -91,9 +85,7 @@ namespace Si.UtilityAI
                 _utilityBrain?.Unbind();
                 _utilityBrain = null;
                 _stats = null;
-                _deathComponent = null;
                 _deathStarted = false;
-                _deathProcessed = false;
                 entity?.Close();
                 return false;
             }
@@ -113,9 +105,6 @@ namespace Si.UtilityAI
                     _utilityBrain = null;
                     OnKilled();
                 }
-
-                if (_deathProcessed)
-                    return false;
             }
             else
             {
@@ -138,13 +127,9 @@ namespace Si.UtilityAI
 
             _utilityBrain?.Unbind();
             _utilityBrain = null;
-            if (_deathComponent != null)
-                _deathComponent.OnDeathProcessed -= HandleDeathProcessed;
             OnClosing();
             _stats = null;
-            _deathComponent = null;
             _deathStarted = false;
-            _deathProcessed = false;
             if (deleteDiplomaticIdentity)
                 DeleteDiplomaticIdentity();
             Entity.Close();
@@ -204,12 +189,6 @@ namespace Si.UtilityAI
 
             DiplomaticIdentityId = 0;
             _deleteDiplomaticIdentityOnClose = false;
-        }
-
-        private void HandleDeathProcessed(MyEntity entity)
-        {
-            if (entity == Entity)
-                _deathProcessed = true;
         }
     }
 }

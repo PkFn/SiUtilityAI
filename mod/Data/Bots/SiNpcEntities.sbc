@@ -3,9 +3,9 @@
   <Definition xsi:type="MyObjectBuilder_ContainerDefinition" Abstract="true">
     <Id Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <CopyFrom Type="EntityBase" Subtype="Humanoid" />
+    <Tag>AI</Tag>
     <Component Type="EntityTerrainHeightProvider" />
     <Component Type="SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
-    <Component Type="CharacterPhysics" Subtype="Humanoid" />
     <Component Type="MyObjectBuilder_PAX_CharacterUniformEquipment" />
     <Component Type="EntityStateComponent" Subtype="CharacterStances" />
     <Component Type="RagdollComponent" Subtype="Humanoid" />
@@ -16,6 +16,7 @@
     <Component Type="CharacterAnimationControllerComponent" Subtype="Medieval_male" />
     <Component Type="CharacterSoundComponent" Subtype="MedievalMale" />
     <Component Type="RenderComponentCharacter" Subtype="Medieval_male" />
+    <Component Type="ThirdPersonCameraComponent" Subtype="DefaultThirdPerson" />
     <Component Type="EntityStatComponent" Subtype="SiNpcStats" />
     <Component Type="DeathComponent" Subtype="Medieval_male" />
     <Component Type="EntityFXComponent" Subtype="Medieval_male" />
