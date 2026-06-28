@@ -3,6 +3,7 @@
   <Definition xsi:type="MyObjectBuilder_ContainerDefinition" Abstract="true">
     <Id Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <CopyFrom Type="EntityBase" Subtype="Humanoid" />
+    <Component Type="EntityTerrainHeightProvider" />
     <Component Type="SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
     <Component Type="SiNpcLifecycleComponent" Subtype="SiRifleTrooperLifecycle" />
     <Component Type="CharacterPhysics" Subtype="Humanoid" />
