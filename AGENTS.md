@@ -19,6 +19,7 @@
 - If a change reveals reusable code that belongs in shared infrastructure, it is acceptable to add or update code in `ref_si_core/`, following its existing structure and style.
 - `ref_pax_defenders/` adds static defenders.
 - `ref_modern_smallarms/` adds player held guns.
+- `ref_pax_water_core/` adds content using PAX Core.
 
 ## Folder Layout Rules
 
