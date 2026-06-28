@@ -240,9 +240,15 @@ namespace Si.UtilityAI
                     && Vector3D.Dot(cameraForward, toMarker) <= 0)
                     continue;
 
+                var label = marker.Label;
+                float healthCurrent;
+                float healthMax;
+                if (marker.Npc.TryGetHealth(out healthCurrent, out healthMax))
+                    label += $"\nHealth {healthCurrent:0}/{healthMax:0}";
+
                 MyRenderProxy.DebugDrawText3D(
                     position + entity.WorldMatrix.Up * definition.MarkerHeight,
-                    marker.Label,
+                    label,
                     Color.LightGreen,
                     definition.MarkerTextScale,
                     align: MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER);

@@ -8,6 +8,7 @@ using VRage.Game;
 using VRage.Game.Entity;
 using VRage.ObjectBuilders;
 using VRage.Session;
+using VRage.Utils;
 using VRageMath;
 
 namespace Si.UtilityAI
@@ -19,6 +20,8 @@ namespace Si.UtilityAI
     /// </summary>
     public abstract class SiNpc
     {
+        private static readonly MyStringHash HealthStat = MyStringHash.GetOrCompute("Health");
+
         private SiNpcManager _manager;
         private SiUtilityBrainComponent _utilityBrain;
         private MyEntityStatComponent _stats;
@@ -118,6 +121,24 @@ namespace Si.UtilityAI
                 return false;
             Transform = Entity.WorldMatrix;
             return true;
+        }
+
+        public bool TryGetHealth(out float current, out float max)
+        {
+            current = 0;
+            max = 0;
+
+            var stats = _stats;
+            if (stats == null)
+                return false;
+
+            MyEntityStat health;
+            if (!stats.TryGetStat(HealthStat, out health) || health == null)
+                return false;
+
+            current = health.Current;
+            max = health.Max;
+            return max > 0;
         }
 
         public void Close(bool deleteDiplomaticIdentity = true)
