@@ -21,6 +21,10 @@
 - `ref_modern_smallarms/` adds player held guns.
 - `ref_pax_water_core/` adds content using PAX Core.
 
+## Linked Vanilla Game Content
+- `ref_vanilla_content/` leads to vanilla game content folder (no scripts).
+- `ref_vanilla_content/Data/Characters` has in-game NPC character containers.
+
 ## Folder Layout Rules
 
 - Preserve the general Medieval Engineers mod folder tree to avoid file loading problems.
