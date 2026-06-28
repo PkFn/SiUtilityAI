@@ -5,7 +5,6 @@
     <CopyFrom Type="EntityBase" Subtype="Humanoid" />
     <Component Type="EntityTerrainHeightProvider" />
     <Component Type="SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
-    <Component Type="SiNpcLifecycleComponent" Subtype="SiRifleTrooperLifecycle" />
     <Component Type="CharacterPhysics" Subtype="Humanoid" />
     <Component Type="MyObjectBuilder_PAX_CharacterUniformEquipment" />
     <Component Type="EntityStateComponent" Subtype="CharacterStances" />
@@ -18,7 +17,7 @@
     <Component Type="CharacterSoundComponent" Subtype="MedievalMale" />
     <Component Type="RenderComponentCharacter" Subtype="Medieval_male" />
     <Component Type="EntityStatComponent" Subtype="SiNpcStats" />
-    <Component Type="DeathComponent" Subtype="Medieval_male_noApron" />
+    <Component Type="DeathComponent" Subtype="Medieval_male" />
     <Component Type="EntityFXComponent" Subtype="Medieval_male" />
     <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
   </Definition>
@@ -129,11 +128,6 @@
     <Id Type="MyObjectBuilder_SiNpcArchetypeComponent" Subtype="SiEnemyTrooper_German_Smg" />
     <Archetype>enemy-smg-trooper</Archetype>
     <SpawnDisposition>HostileToSpawner</SpawnDisposition>
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcLifecycleComponentDefinition">
-    <Id Type="MyObjectBuilder_SiNpcLifecycleComponent" Subtype="SiRifleTrooperLifecycle" />
-    <DeathRemovalMilliseconds>4500</DeathRemovalMilliseconds>
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_EntityStatComponentDefinition">

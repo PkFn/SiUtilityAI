@@ -1,8 +1,10 @@
 using System;
 using Sandbox.Game.Entities.Entity.Stats;
 using Sandbox.Game.Entities.Entity.Stats.Extensions;
+using Sandbox.Game.Entities.Character.Components;
 using Sandbox.Game.Players;
 using Sandbox.ModAPI;
+using VRage;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Session;
@@ -19,11 +21,11 @@ namespace Si.UtilityAI
     {
         private SiNpcManager _manager;
         private SiUtilityBrainComponent _utilityBrain;
-        private SiNpcLifecycleComponent _lifecycle;
         private MyEntityStatComponent _stats;
+        private MyDeathComponent _deathComponent;
         private bool _deleteDiplomaticIdentityOnClose;
         private bool _deathStarted;
-        private long _deadElapsedMilliseconds;
+        private bool _deathProcessed;
 
         protected SiNpc(long entityId, in MatrixD transform)
         {
@@ -50,17 +52,20 @@ namespace Si.UtilityAI
             MyEntity entity = null;
             try
             {
-                entity = new MyEntity
+                var builder = new MyObjectBuilder_Character
                 {
                     EntityId = EntityId,
                     Name = $"SiNpc_{Archetype}_{EntityId}",
-                    Save = false,
+                    EntityDefinitionId = EntityDefinition,
+                    PositionAndOrientation = new MyPositionAndOrientation(Transform),
                 };
-                entity.Init(EntityDefinition);
-                entity.Save = false;
-                entity.WorldMatrix = Transform;
 
-                MySession.Static.Scene.ActivateEntity(entity);
+                entity = MySession.Static.Scene.LoadEntity(builder, null, activate: true);
+                if (entity == null)
+                    throw new InvalidOperationException(
+                        $"Failed to load character '{EntityDefinition.SubtypeName}'.");
+
+                entity.Save = false;
                 if (entity.Render != null)
                 {
                     entity.Render.Visible = true;
@@ -70,10 +75,12 @@ namespace Si.UtilityAI
 
                 Entity = entity;
                 _utilityBrain = Entity.Components.Get<SiUtilityBrainComponent>();
-                _lifecycle = Entity.Components.Get<SiNpcLifecycleComponent>();
                 _stats = Entity.Components.Get<MyEntityStatComponent>();
+                _deathComponent = Entity.Components.Get<MyDeathComponent>();
+                if (_deathComponent != null)
+                    _deathComponent.OnDeathProcessed += HandleDeathProcessed;
                 _utilityBrain?.Bind(this);
-                _deadElapsedMilliseconds = 0;
+                _deathProcessed = false;
                 OnActivated();
                 return true;
             }
@@ -83,10 +90,10 @@ namespace Si.UtilityAI
                     $"Failed to create {Archetype}: {exception.Message}", 5000);
                 _utilityBrain?.Unbind();
                 _utilityBrain = null;
-                _lifecycle = null;
                 _stats = null;
+                _deathComponent = null;
                 _deathStarted = false;
-                _deadElapsedMilliseconds = 0;
+                _deathProcessed = false;
                 entity?.Close();
                 return false;
             }
@@ -102,18 +109,12 @@ namespace Si.UtilityAI
                 if (!_deathStarted)
                 {
                     _deathStarted = true;
-                    _deadElapsedMilliseconds = 0;
                     _utilityBrain?.Unbind();
                     _utilityBrain = null;
                     OnKilled();
                 }
 
-                if (elapsedMilliseconds > 0)
-                    _deadElapsedMilliseconds += elapsedMilliseconds;
-
-                OnDeathUpdate(elapsedMilliseconds);
-                if (_lifecycle != null
-                    && _deadElapsedMilliseconds >= _lifecycle.Definition.DeathRemovalMilliseconds)
+                if (_deathProcessed)
                     return false;
             }
             else
@@ -137,11 +138,13 @@ namespace Si.UtilityAI
 
             _utilityBrain?.Unbind();
             _utilityBrain = null;
+            if (_deathComponent != null)
+                _deathComponent.OnDeathProcessed -= HandleDeathProcessed;
             OnClosing();
-            _lifecycle = null;
             _stats = null;
+            _deathComponent = null;
             _deathStarted = false;
-            _deadElapsedMilliseconds = 0;
+            _deathProcessed = false;
             if (deleteDiplomaticIdentity)
                 DeleteDiplomaticIdentity();
             Entity.Close();
@@ -161,10 +164,6 @@ namespace Si.UtilityAI
         }
 
         protected virtual void OnKilled()
-        {
-        }
-
-        protected virtual void OnDeathUpdate(long elapsedMilliseconds)
         {
         }
 
@@ -205,6 +204,12 @@ namespace Si.UtilityAI
 
             DiplomaticIdentityId = 0;
             _deleteDiplomaticIdentityOnClose = false;
+        }
+
+        private void HandleDeathProcessed(MyEntity entity)
+        {
+            if (entity == Entity)
+                _deathProcessed = true;
         }
     }
 }

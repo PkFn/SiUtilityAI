@@ -70,47 +70,6 @@ namespace Si.UtilityAI
         }
     }
 
-    [MyObjectBuilderDefinition]
-    [XmlSerializerAssembly("MedievalEngineers.ObjectBuilders.XmlSerializers")]
-    public class MyObjectBuilder_SiNpcLifecycleComponent : MyObjectBuilder_EntityComponent
-    {
-    }
-
-    [MyObjectBuilderDefinition]
-    [XmlSerializerAssembly("MedievalEngineers.ObjectBuilders.XmlSerializers")]
-    public class MyObjectBuilder_SiNpcLifecycleComponentDefinition : MyObjectBuilder_EntityComponentDefinition
-    {
-        public long DeathRemovalMilliseconds;
-    }
-
-    [MyDefinitionType(typeof(MyObjectBuilder_SiNpcLifecycleComponentDefinition))]
-    public class SiNpcLifecycleComponentDefinition : MyEntityComponentDefinition
-    {
-        public long DeathRemovalMilliseconds { get; private set; }
-
-        protected override void Init(MyObjectBuilder_DefinitionBase builder)
-        {
-            base.Init(builder);
-            var ob = (MyObjectBuilder_SiNpcLifecycleComponentDefinition)builder;
-            DeathRemovalMilliseconds = Math.Max(0, ob.DeathRemovalMilliseconds);
-        }
-    }
-
-    [MyComponent(typeof(MyObjectBuilder_SiNpcLifecycleComponent))]
-    [MyDefinitionRequired(typeof(SiNpcLifecycleComponentDefinition))]
-    public class SiNpcLifecycleComponent : MyEntityComponent
-    {
-        public SiNpcLifecycleComponentDefinition Definition { get; private set; }
-
-        public override bool IsSerialized => false;
-
-        public override void Init(MyEntityComponentDefinition definition)
-        {
-            base.Init(definition);
-            Definition = (SiNpcLifecycleComponentDefinition)definition;
-        }
-    }
-
     internal sealed class SiNpcArchetypeRecord
     {
         public SiNpcArchetypeRecord(
