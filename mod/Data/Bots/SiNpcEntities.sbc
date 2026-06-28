@@ -5,6 +5,7 @@
     <CopyFrom Type="EntityBase" Subtype="Humanoid" />
     <Component Type="SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
     <Component Type="SiNpcLifecycleComponent" Subtype="SiRifleTrooperLifecycle" />
+    <Component Type="CharacterPhysics" Subtype="Humanoid" />
     <Component Type="MyObjectBuilder_PAX_CharacterUniformEquipment" />
     <Component Type="EntityStateComponent" Subtype="CharacterStances" />
     <Component Type="RagdollComponent" Subtype="Humanoid" />
