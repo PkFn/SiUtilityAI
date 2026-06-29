@@ -4,6 +4,7 @@
     <Id Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <CopyFrom Type="EntityBase" Subtype="Humanoid" />
     <Tag>AI</Tag>
+    <Component Type="CharacterPhysics" Subtype="Humanoid" />
     <Component Type="SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
     <Component Type="MyObjectBuilder_PAX_CharacterUniformEquipment" />
     <Component Type="EntityStateComponent" Subtype="CharacterStances" />
