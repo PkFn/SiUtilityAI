@@ -33,6 +33,7 @@
     <Id Type="EntityBase" Subtype="SiTrooper" />
     <CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_US_Rifle" />
+    <Component Type="SiNpcUniformComponent" Subtype="SiTrooper_US_Rifle_Uniform" />
     <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Garand" />
     <Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Garand" />
   </Definition>
@@ -41,6 +42,7 @@
     <Id Type="EntityBase" Subtype="SiTrooper_German_Rifle" />
     <CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_German_Rifle" />
+    <Component Type="SiNpcUniformComponent" Subtype="SiTrooper_German_Rifle_Uniform" />
     <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_K98" />
     <Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_K98" />
   </Definition>
@@ -49,6 +51,7 @@
     <Id Type="EntityBase" Subtype="SiTrooper_Soviet_Rifle" />
     <CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_Soviet_Rifle" />
+    <Component Type="SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Rifle_Uniform" />
     <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mosin" />
     <Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Mosin" />
   </Definition>
@@ -57,6 +60,7 @@
     <Id Type="EntityBase" Subtype="SiEnemyTrooper" />
     <CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <Component Type="SiNpcArchetypeComponent" Subtype="SiEnemyTrooper_German_Rifle" />
+    <Component Type="SiNpcUniformComponent" Subtype="SiEnemyTrooper_German_Rifle_Uniform" />
     <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_K98" />
     <Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_K98" />
   </Definition>
@@ -65,6 +69,7 @@
     <Id Type="EntityBase" Subtype="SiTrooper_US_Smg" />
     <CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_US_Smg" />
+    <Component Type="SiNpcUniformComponent" Subtype="SiTrooper_US_Smg_Uniform" />
     <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Thompson" />
     <Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Thompson" />
   </Definition>
@@ -73,6 +78,7 @@
     <Id Type="EntityBase" Subtype="SiTrooper_German_Smg" />
     <CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_German_Smg" />
+    <Component Type="SiNpcUniformComponent" Subtype="SiTrooper_German_Smg_Uniform" />
     <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mp40" />
     <Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Mp40" />
   </Definition>
@@ -81,6 +87,7 @@
     <Id Type="EntityBase" Subtype="SiTrooper_Soviet_Smg" />
     <CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_Soviet_Smg" />
+    <Component Type="SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Smg_Uniform" />
     <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Ppsh" />
     <Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Ppsh" />
   </Definition>
@@ -89,8 +96,49 @@
     <Id Type="EntityBase" Subtype="SiEnemyTrooper_Smg" />
     <CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <Component Type="SiNpcArchetypeComponent" Subtype="SiEnemyTrooper_German_Smg" />
+    <Component Type="SiNpcUniformComponent" Subtype="SiEnemyTrooper_German_Smg_Uniform" />
     <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mp40" />
     <Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Mp40" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Rifle_Uniform" />
+    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_US_Olive" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_German_Rifle_Uniform" />
+    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_German_Feldgrau" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Rifle_Uniform" />
+    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_Soviet_Khaki" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiEnemyTrooper_German_Rifle_Uniform" />
+    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_German_Feldgrau" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Smg_Uniform" />
+    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_US_Olive" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_German_Smg_Uniform" />
+    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_German_Feldgrau" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Smg_Uniform" />
+    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_Soviet_Khaki" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiEnemyTrooper_German_Smg_Uniform" />
+    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_German_Feldgrau" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcArchetypeComponentDefinition">
