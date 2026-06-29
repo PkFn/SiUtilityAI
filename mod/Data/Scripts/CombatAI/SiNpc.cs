@@ -26,7 +26,6 @@ namespace Si.UtilityAI
 
         private SiNpcManager _manager;
         private SiUtilityBrainComponent _utilityBrain;
-        private MyEntityStatComponent _stats;
         private MyCharacterDamageComponent _damage;
         private bool _deleteDiplomaticIdentityOnClose;
         private bool _deathStarted;
@@ -43,7 +42,14 @@ namespace Si.UtilityAI
         public long DiplomaticIdentityId { get; private set; }
         public MatrixD Transform { get; protected set; }
         public MyEntity Entity { get; private set; }
-        public bool IsDead => _stats?.IsDead() ?? false;
+        public bool IsDead
+        {
+            get
+            {
+                var stats = ResolveStatComponent();
+                return stats?.IsDead() ?? false;
+            }
+        }
         public float LastDamageAmount => _lastDamageAmount;
         public MyStringHash LastDamageType => _lastDamageType;
 
@@ -85,7 +91,6 @@ namespace Si.UtilityAI
 
                 Entity = entity;
                 _utilityBrain = Entity.Components.Get<SiUtilityBrainComponent>();
-                _stats = Entity.Components.Get<MyEntityStatComponent>();
                 _damage = Entity.Components.Get<MyCharacterDamageComponent>();
                 if (_damage != null)
                     _damage.DamageTaken += OnDamageTaken;
@@ -101,7 +106,6 @@ namespace Si.UtilityAI
                     _damage.DamageTaken -= OnDamageTaken;
                 _utilityBrain?.Unbind();
                 _utilityBrain = null;
-                _stats = null;
                 _damage = null;
                 _deathStarted = false;
                 _lastDamageAmount = 0;
@@ -145,7 +149,7 @@ namespace Si.UtilityAI
             current = 0;
             max = 0;
 
-            var stats = _stats;
+            var stats = ResolveStatComponent();
             if (stats == null)
                 return false;
 
@@ -168,7 +172,6 @@ namespace Si.UtilityAI
             OnClosing();
             if (_damage != null)
                 _damage.DamageTaken -= OnDamageTaken;
-            _stats = null;
             _damage = null;
             _deathStarted = false;
             if (deleteDiplomaticIdentity)
@@ -197,6 +200,11 @@ namespace Si.UtilityAI
         {
             _lastDamageAmount = damage.Amount;
             _lastDamageType = damage.Type;
+        }
+
+        private MyEntityStatComponent ResolveStatComponent()
+        {
+            return Entity?.Components.Get<MyEntityStatComponent>();
         }
 
         internal void AttachManager(SiNpcManager manager)

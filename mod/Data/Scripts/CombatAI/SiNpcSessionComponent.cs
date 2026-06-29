@@ -254,7 +254,8 @@ namespace Si.UtilityAI
                              + $"res S:{(bridge.HasResolvedStatComponent ? 'Y' : 'N')} D:{(bridge.HasResolvedDamageComponent ? 'Y' : 'N')} "
                              + $"H:{(bridge.HasResolvedHealthStat ? 'Y' : 'N')} "
                              + $"A:{(bridge.IsAuthoritativeNow ? 'Y' : 'N')} "
-                             + $"Q:{bridge.QueuedApplyCount} P:{bridge.AppliedCount}";
+                             + $"Q:{bridge.QueuedApplyCount} P:{bridge.AppliedCount} "
+                             + $"W:{bridge.LastWriteBefore:0.0}>{bridge.LastWriteTarget:0.0}>{bridge.LastWriteAfterSame:0.0}/{bridge.LastWriteAfterFresh:0.0}";
 
                 MyRenderProxy.DebugDrawText3D(
                     position + entity.WorldMatrix.Up * definition.MarkerHeight,

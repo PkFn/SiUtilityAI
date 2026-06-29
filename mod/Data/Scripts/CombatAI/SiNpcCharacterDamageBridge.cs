@@ -45,6 +45,10 @@ namespace Si.UtilityAI
         private bool _suppressBridgeDamage;
         private int _queuedApplyCount;
         private int _appliedCount;
+        private float _lastWriteBefore;
+        private float _lastWriteTarget;
+        private float _lastWriteAfterSame;
+        private float _lastWriteAfterFresh;
 
         public override bool IsSerialized => false;
 
@@ -63,6 +67,10 @@ namespace Si.UtilityAI
         public bool IsAuthoritativeNow => IsAuthoritative();
         public int QueuedApplyCount => _queuedApplyCount;
         public int AppliedCount => _appliedCount;
+        public float LastWriteBefore => _lastWriteBefore;
+        public float LastWriteTarget => _lastWriteTarget;
+        public float LastWriteAfterSame => _lastWriteAfterSame;
+        public float LastWriteAfterFresh => _lastWriteAfterFresh;
 
         public override void OnAddedToScene()
         {
@@ -149,7 +157,14 @@ namespace Si.UtilityAI
             if (health.Current <= expectedHealth.Value + 0.001f)
                 return;
 
+            _lastWriteBefore = health.Current;
+            _lastWriteTarget = expectedHealth.Value;
             health.Current = expectedHealth.Value;
+            _lastWriteAfterSame = health.Current;
+            MyEntityStat freshHealth;
+            _lastWriteAfterFresh = TryResolveHealthStat(out freshHealth) && freshHealth != null
+                ? freshHealth.Current
+                : float.NaN;
             _appliedCount++;
 
             if (expectedHealth.Value <= 0.001f && _damage != null)
