@@ -557,7 +557,33 @@ namespace Si.UtilityAI
             if (Npcs != null && Npcs.IsHostileToSpawner(archetype))
                 return ConfigureEnemyTrooper(npc, player, out failure);
 
+            if (!ConfigureFriendlyTrooper(npc, player, out failure))
+                return false;
+
             Squads?.AssignNpcToPlayer(npc, player);
+            return true;
+        }
+
+        private static bool ConfigureFriendlyTrooper(SiNpc npc, MyPlayer player, out string failure)
+        {
+            failure = null;
+            if (npc == null || player?.Identity == null)
+            {
+                failure = "You must control a character to spawn a friendly NPC.";
+                return false;
+            }
+
+            if (npc.DiplomaticIdentityId != 0)
+                return true;
+
+            var identity = MyIdentities.Static?.CreateIdentity(FriendlyTrooperName(npc));
+            if (identity == null)
+            {
+                failure = "Failed to create a diplomatic identity for the friendly NPC.";
+                return false;
+            }
+
+            SetNpcDiplomaticIdentity(npc, identity);
             return true;
         }
 
@@ -706,6 +732,9 @@ namespace Si.UtilityAI
 
         private static string EnemyTrooperName(SiNpc npc) =>
             "Enemy trooper " + npc.EntityId;
+
+        private static string FriendlyTrooperName(SiNpc npc) =>
+            "Trooper " + npc.EntityId;
 
         private bool HandleSquadCommand(ulong sender, string message, MyChatCommandType handledAsType)
         {
@@ -1251,6 +1280,15 @@ namespace Si.UtilityAI
                 return;
 
             npc.SetDiplomaticIdentity(identity, true);
+            try
+            {
+                if (npc.Entity != null)
+                    MyIdentities.Static?.SetControlledEntity(identity, npc.Entity);
+            }
+            catch
+            {
+            }
+
             var ownership = npc.Entity?.Components.Get<MyEntityOwnershipComponent>();
             if (ownership != null)
                 ownership.OwnerId = identity.Id;
