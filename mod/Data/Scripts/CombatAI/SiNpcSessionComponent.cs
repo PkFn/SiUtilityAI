@@ -245,6 +245,8 @@ namespace Si.UtilityAI
                 float healthMax;
                 if (marker.Npc.TryGetHealth(out healthCurrent, out healthMax))
                     label += $"\nHealth {healthCurrent:0}/{healthMax:0}";
+                if (marker.Npc.LastDamageAmount > 0)
+                    label += $"\nLast dmg {marker.Npc.LastDamageAmount:0.0} {marker.Npc.LastDamageType.String}";
 
                 MyRenderProxy.DebugDrawText3D(
                     position + entity.WorldMatrix.Up * definition.MarkerHeight,
