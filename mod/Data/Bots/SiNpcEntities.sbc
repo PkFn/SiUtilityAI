@@ -4,8 +4,6 @@
     <Id Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <CopyFrom Type="EntityBase" Subtype="Humanoid" />
     <Tag>AI</Tag>
-    <Component Type="CharacterPhysics" Subtype="Humanoid" />
-    <Component Type="EntityTerrainHeightProvider" />
     <Component Type="SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
     <Component Type="MyObjectBuilder_PAX_CharacterUniformEquipment" />
     <Component Type="EntityStateComponent" Subtype="CharacterStances" />
@@ -19,7 +17,6 @@
     <Component Type="RenderComponentCharacter" Subtype="Medieval_male" />
     <Component Type="ThirdPersonCameraComponent" Subtype="DefaultThirdPerson" />
     <Component Type="EntityStatComponent" Subtype="SiNpcStats" />
-    <Component Type="CharacterDamageComponent" Subtype="Humanoid" />
     <Component Type="DeathComponent" Subtype="Medieval_male" />
     <Component Type="EntityFXComponent" Subtype="Medieval_male" />
     <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
