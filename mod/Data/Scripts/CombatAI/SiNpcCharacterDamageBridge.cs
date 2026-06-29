@@ -1,12 +1,8 @@
 using System;
-using System.Text;
 using System.Xml.Serialization;
-using Sandbox.Game.EntityComponents;
 using Sandbox.Game.Entities.Entity.Stats;
 using Sandbox.Game.EntityComponents.Character;
-using Sandbox.Game.Players;
 using Sandbox.ModAPI;
-using VRage.Components;
 using VRage.Components.Interfaces;
 using VRage.Game.Components;
 using VRage.Game.ObjectBuilders.ComponentSystem;
@@ -27,56 +23,18 @@ namespace Si.UtilityAI
     /// double-counting when vanilla already handled it.
     /// </summary>
     [MyComponent(typeof(MyObjectBuilder_SiNpcCharacterDamageBridgeComponent))]
-    [MyDependency(typeof(MyEntityStatComponent), Critical = false)]
-    [MyDependency(typeof(MyCharacterDamageComponent), Critical = false)]
     public class SiNpcCharacterDamageBridgeComponent : MyEntityComponent
     {
         private static readonly MyStringHash HealthStat = MyStringHash.GetOrCompute("Health");
         private const float MinimumDeathDamage = 0.001f;
 
-        [Automatic]
-        private readonly MyEntityStatComponent _automaticStatComponent = null;
-
-        [Automatic]
-        private readonly MyCharacterDamageComponent _automaticDamageComponent = null;
-
         private MyCharacterDamageComponent _damage;
         private float? _pendingExpectedHealth;
         private MyDamageInformation _pendingDamageInformation;
         private bool _hasPendingDamageInformation;
-        private bool _hasScheduledApply;
         private bool _suppressBridgeDamage;
-        private int _queuedApplyCount;
-        private int _appliedCount;
-        private float _lastWriteBefore;
-        private float _lastWriteTarget;
-        private float _lastWriteAfterSame;
-        private float _lastWriteAfterFresh;
 
         public override bool IsSerialized => false;
-
-        public bool HasAutomaticStatComponent => _automaticStatComponent != null;
-        public bool HasAutomaticDamageComponent => _automaticDamageComponent != null;
-        public bool HasResolvedStatComponent => Entity?.Components.Get<MyEntityStatComponent>() != null;
-        public bool HasResolvedDamageComponent => Entity?.Components.Get<MyCharacterDamageComponent>() != null;
-        public bool HasResolvedHealthStat
-        {
-            get
-            {
-                MyEntityStat health;
-                return TryResolveHealthStat(out health);
-            }
-        }
-        public bool IsAuthoritativeNow => IsAuthoritative();
-        public int QueuedApplyCount => _queuedApplyCount;
-        public int AppliedCount => _appliedCount;
-        public float LastWriteBefore => _lastWriteBefore;
-        public float LastWriteTarget => _lastWriteTarget;
-        public float LastWriteAfterSame => _lastWriteAfterSame;
-        public float LastWriteAfterFresh => _lastWriteAfterFresh;
-        public string StatDebugSummary => BuildStatDebugSummary();
-        public bool HasMappedIdentity => MyIdentities.Static?.GetIdentityFromEntity(Entity) != null;
-        public string ControllerDebugSummary => BuildControllerDebugSummary();
 
         public override void OnAddedToScene()
         {
@@ -107,7 +65,6 @@ namespace Si.UtilityAI
             _damage = null;
             _pendingExpectedHealth = null;
             _hasPendingDamageInformation = false;
-            _hasScheduledApply = false;
             _suppressBridgeDamage = false;
         }
 
@@ -125,7 +82,7 @@ namespace Si.UtilityAI
             if (!QueueDamageApplication(damageInformation))
                 return;
 
-            ApplyPendingDamage(0);
+            ApplyPendingDamage();
         }
 
         internal void ApplyReplicatedDamage(MyDamageInformation damageInformation)
@@ -136,24 +93,18 @@ namespace Si.UtilityAI
             if (!QueueDamageApplication(damageInformation))
                 return;
 
-            ApplyPendingDamage(0);
+            ApplyPendingDamage();
         }
 
-        [Update(false)]
-        private void ApplyPendingDamage(long _)
+        private void ApplyPendingDamage()
         {
-            _hasScheduledApply = false;
-
             var expectedHealth = _pendingExpectedHealth;
             if (!expectedHealth.HasValue)
                 return;
 
             MyEntityStat health;
             if (!TryResolveHealthStat(out health))
-            {
-                RescheduleApply();
                 return;
-            }
 
             var pendingDamageInformation = _pendingDamageInformation;
             var hasPendingDamageInformation = _hasPendingDamageInformation;
@@ -163,15 +114,7 @@ namespace Si.UtilityAI
             if (health.Current <= expectedHealth.Value + 0.001f)
                 return;
 
-            _lastWriteBefore = health.Current;
-            _lastWriteTarget = expectedHealth.Value;
             health.Current = expectedHealth.Value;
-            _lastWriteAfterSame = health.Current;
-            MyEntityStat freshHealth;
-            _lastWriteAfterFresh = TryResolveHealthStat(out freshHealth) && freshHealth != null
-                ? freshHealth.Current
-                : float.NaN;
-            _appliedCount++;
 
             if (expectedHealth.Value <= 0.001f && _damage != null)
             {
@@ -212,23 +155,7 @@ namespace Si.UtilityAI
                 _hasPendingDamageInformation = true;
             }
 
-            _queuedApplyCount++;
-
-            if (_hasScheduledApply)
-                return true;
-
-            _hasScheduledApply = true;
-            AddScheduledCallback(ApplyPendingDamage, 1);
             return true;
-        }
-
-        private void RescheduleApply()
-        {
-            if (_hasScheduledApply || Entity == null)
-                return;
-
-            _hasScheduledApply = true;
-            AddScheduledCallback(ApplyPendingDamage, 1);
         }
 
         private bool TryResolveHealthStat(out MyEntityStat health)
@@ -237,72 +164,6 @@ namespace Si.UtilityAI
 
             var stats = Entity?.Components.Get<MyEntityStatComponent>();
             return stats != null && stats.TryGetStat(HealthStat, out health) && health != null;
-        }
-
-        private string BuildStatDebugSummary()
-        {
-            var container = Entity?.Components;
-            if (container == null)
-                return "no-container";
-
-            var statsComponents = container.GetComponents<MyEntityStatComponent>();
-            if (statsComponents == null)
-                return "no-stats-enum";
-
-            var builder = new StringBuilder();
-            var index = 0;
-            foreach (var stats in statsComponents)
-            {
-                if (index > 0)
-                    builder.Append(" | ");
-
-                builder.Append(index);
-                builder.Append(':');
-                builder.Append(stats?.DefinitionId.SubtypeName ?? "null");
-                builder.Append('=');
-
-                MyEntityStat health;
-                if (stats != null && stats.TryGetStat(HealthStat, out health) && health != null)
-                {
-                    builder.Append(health.Current.ToString("0.0"));
-                    builder.Append('/');
-                    builder.Append(((float)health.Max).ToString("0.0"));
-                }
-                else
-                {
-                    builder.Append("no-health");
-                }
-
-                index++;
-            }
-
-            return index > 0 ? builder.ToString() : "no-stats";
-        }
-
-        private string BuildControllerDebugSummary()
-        {
-            var container = Entity?.Components;
-            if (container == null)
-                return "no-container";
-
-            var controllers = container.GetComponents<MyEntityControllerComponentBase>();
-            if (controllers == null)
-                return "no-controllers-enum";
-
-            var builder = new StringBuilder();
-            var index = 0;
-            foreach (var controller in controllers)
-            {
-                if (index > 0)
-                    builder.Append(" | ");
-
-                builder.Append(index);
-                builder.Append(':');
-                builder.Append(controller?.GetType().Name ?? "null");
-                index++;
-            }
-
-            return index > 0 ? builder.ToString() : "no-controllers";
         }
 
         private static bool IsAuthoritative()

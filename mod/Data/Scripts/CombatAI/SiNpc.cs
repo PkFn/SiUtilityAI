@@ -1,11 +1,9 @@
 using System;
 using Sandbox.Game.Entities.Entity.Stats;
 using Sandbox.Game.Entities.Entity.Stats.Extensions;
-using Sandbox.Game.EntityComponents.Character;
 using Sandbox.Game.Players;
 using Sandbox.ModAPI;
 using VRage;
-using VRage.Components.Interfaces;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.ObjectBuilders;
@@ -26,11 +24,8 @@ namespace Si.UtilityAI
 
         private SiNpcManager _manager;
         private SiUtilityBrainComponent _utilityBrain;
-        private MyCharacterDamageComponent _damage;
         private bool _deleteDiplomaticIdentityOnClose;
         private bool _deathStarted;
-        private float _lastDamageAmount;
-        private MyStringHash _lastDamageType;
 
         protected SiNpc(long entityId, in MatrixD transform)
         {
@@ -50,8 +45,6 @@ namespace Si.UtilityAI
                 return stats?.IsDead() ?? false;
             }
         }
-        public float LastDamageAmount => _lastDamageAmount;
-        public MyStringHash LastDamageType => _lastDamageType;
 
         public abstract string Archetype { get; }
         protected abstract MyDefinitionId EntityDefinition { get; }
@@ -91,9 +84,6 @@ namespace Si.UtilityAI
 
                 Entity = entity;
                 _utilityBrain = Entity.Components.Get<SiUtilityBrainComponent>();
-                _damage = Entity.Components.Get<MyCharacterDamageComponent>();
-                if (_damage != null)
-                    _damage.DamageTaken += OnDamageTaken;
                 _utilityBrain?.Bind(this);
                 OnActivated();
                 return true;
@@ -102,14 +92,9 @@ namespace Si.UtilityAI
             {
                 MyAPIGateway.Utilities?.ShowNotification(
                     $"Failed to create {Archetype}: {exception.Message}", 5000);
-                if (_damage != null)
-                    _damage.DamageTaken -= OnDamageTaken;
                 _utilityBrain?.Unbind();
                 _utilityBrain = null;
-                _damage = null;
                 _deathStarted = false;
-                _lastDamageAmount = 0;
-                _lastDamageType = MyStringHash.NullOrEmpty;
                 entity?.Close();
                 return false;
             }
@@ -170,9 +155,6 @@ namespace Si.UtilityAI
             _utilityBrain?.Unbind();
             _utilityBrain = null;
             OnClosing();
-            if (_damage != null)
-                _damage.DamageTaken -= OnDamageTaken;
-            _damage = null;
             _deathStarted = false;
             if (deleteDiplomaticIdentity)
                 DeleteDiplomaticIdentity();
@@ -194,12 +176,6 @@ namespace Si.UtilityAI
 
         protected virtual void OnKilled()
         {
-        }
-
-        private void OnDamageTaken(MyDamageInformation damage)
-        {
-            _lastDamageAmount = damage.Amount;
-            _lastDamageType = damage.Type;
         }
 
         private MyEntityStatComponent ResolveStatComponent()

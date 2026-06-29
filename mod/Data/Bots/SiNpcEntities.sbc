@@ -9,10 +9,11 @@
     <Component Type="EntityTerrainHeightProvider" />
     <Component Type="SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
     <Component Type="MyObjectBuilder_PAX_CharacterUniformEquipment" />
+    <Component Type="EntityOwnershipComponent" />
     <Component Type="EntityStateComponent" Subtype="CharacterStances" />
     <Component Type="RagdollComponent" Subtype="Humanoid" />
     <Component Type="CharacterMovementComponent" Subtype="SiTrooperMovement" />
-    <Component Type="ModelComponent" Subtype="Medieval_male_noApron" />
+    <Component Type="ModelComponent" Subtype="Medieval_male" />
     <Component Type="SkeletonComponent" Subtype="Medieval_male" />
     <Component Type="AnimationCollisionComponent" Subtype="Medieval_male" />
     <Component Type="CharacterAnimationControllerComponent" Subtype="Medieval_male" />
@@ -56,7 +57,6 @@
     <Id Type="EntityBase" Subtype="SiEnemyTrooper" />
     <CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <Component Type="SiNpcArchetypeComponent" Subtype="SiEnemyTrooper_German_Rifle" />
-    <Component Type="EntityOwnershipComponent" />
     <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_K98" />
     <Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_K98" />
   </Definition>
@@ -89,7 +89,6 @@
     <Id Type="EntityBase" Subtype="SiEnemyTrooper_Smg" />
     <CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <Component Type="SiNpcArchetypeComponent" Subtype="SiEnemyTrooper_German_Smg" />
-    <Component Type="EntityOwnershipComponent" />
     <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mp40" />
     <Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Mp40" />
   </Definition>
