@@ -1,4 +1,5 @@
 using System;
+using Sandbox.Game.Entities;
 using Sandbox.Game.Entities.Entity.Stats;
 using Sandbox.Game.Entities.Entity.Stats.Extensions;
 using Sandbox.Game.Players;
@@ -6,6 +7,7 @@ using Sandbox.ModAPI;
 using VRage;
 using VRage.Game;
 using VRage.Game.Entity;
+using VRage.ObjectBuilder;
 using VRage.ObjectBuilders;
 using VRage.Session;
 using VRage.Utils;
@@ -53,18 +55,22 @@ namespace Si.UtilityAI
             MyEntity entity = null;
             try
             {
-                var builder = new MyObjectBuilder_EntityBase
-                {
-                    EntityId = EntityId,
-                    Name = $"SiNpc_{Archetype}_{EntityId}",
-                    EntityDefinitionId = EntityDefinition,
-                    PositionAndOrientation = new MyPositionAndOrientation(Transform),
-                };
+                var builder = MyObjectBuilderSerializer.CreateNewObject(EntityDefinition) as MyObjectBuilder_EntityBase;
+                if (builder == null)
+                    throw new InvalidOperationException(
+                        $"Failed to create object builder for '{EntityDefinition.SubtypeName}'.");
 
-                entity = MySession.Static.Scene.LoadEntity(builder, null, activate: true);
+                builder.EntityId = EntityId;
+                builder.Name = $"SiNpc_{Archetype}_{EntityId}";
+                builder.PositionAndOrientation = new MyPositionAndOrientation(Transform);
+                builder.PersistentFlags |= MyPersistentEntityFlags2.InScene;
+
+                entity = MyEntities.CreateFromObjectBuilder(builder);
                 if (entity == null)
                     throw new InvalidOperationException(
-                        $"Failed to load character '{EntityDefinition.SubtypeName}'.");
+                        $"Failed to create character '{EntityDefinition.SubtypeName}'.");
+
+                MyEntities.Add(entity, insertIntoScene: true);
 
                 entity.Save = false;
                 if (entity.Render != null)
