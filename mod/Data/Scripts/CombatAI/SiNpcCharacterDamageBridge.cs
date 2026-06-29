@@ -43,6 +43,8 @@ namespace Si.UtilityAI
         private bool _hasPendingDamageInformation;
         private bool _hasScheduledApply;
         private bool _suppressBridgeDamage;
+        private int _queuedApplyCount;
+        private int _appliedCount;
 
         public override bool IsSerialized => false;
 
@@ -58,6 +60,9 @@ namespace Si.UtilityAI
                 return TryResolveHealthStat(out health);
             }
         }
+        public bool IsAuthoritativeNow => IsAuthoritative();
+        public int QueuedApplyCount => _queuedApplyCount;
+        public int AppliedCount => _appliedCount;
 
         public override void OnAddedToScene()
         {
@@ -97,11 +102,16 @@ namespace Si.UtilityAI
             if (_suppressBridgeDamage)
                 return;
 
+            if (!IsAuthoritative())
+            {
+                SiNpcSessionComponent.ReportNpcDamageBridgeHit(Entity?.EntityId ?? 0, damageInformation);
+                return;
+            }
+
             if (!QueueDamageApplication(damageInformation))
                 return;
 
-            if (!IsAuthoritative())
-                SiNpcSessionComponent.ReportNpcDamageBridgeHit(Entity?.EntityId ?? 0, damageInformation);
+            ApplyPendingDamage(0);
         }
 
         internal void ApplyReplicatedDamage(MyDamageInformation damageInformation)
@@ -109,7 +119,10 @@ namespace Si.UtilityAI
             if (!IsAuthoritative())
                 return;
 
-            QueueDamageApplication(damageInformation);
+            if (!QueueDamageApplication(damageInformation))
+                return;
+
+            ApplyPendingDamage(0);
         }
 
         [Update(false)]
@@ -137,6 +150,7 @@ namespace Si.UtilityAI
                 return;
 
             health.Current = expectedHealth.Value;
+            _appliedCount++;
 
             if (expectedHealth.Value <= 0.001f && _damage != null)
             {
@@ -176,6 +190,8 @@ namespace Si.UtilityAI
                 _pendingDamageInformation = damageInformation;
                 _hasPendingDamageInformation = true;
             }
+
+            _queuedApplyCount++;
 
             if (_hasScheduledApply)
                 return true;

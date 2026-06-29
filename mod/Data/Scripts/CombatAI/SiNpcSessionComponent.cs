@@ -252,7 +252,9 @@ namespace Si.UtilityAI
                 if (bridge != null)
                     label += $"\nBridge auto S:{(bridge.HasAutomaticStatComponent ? 'Y' : 'N')} D:{(bridge.HasAutomaticDamageComponent ? 'Y' : 'N')} "
                              + $"res S:{(bridge.HasResolvedStatComponent ? 'Y' : 'N')} D:{(bridge.HasResolvedDamageComponent ? 'Y' : 'N')} "
-                             + $"H:{(bridge.HasResolvedHealthStat ? 'Y' : 'N')}";
+                             + $"H:{(bridge.HasResolvedHealthStat ? 'Y' : 'N')} "
+                             + $"A:{(bridge.IsAuthoritativeNow ? 'Y' : 'N')} "
+                             + $"Q:{bridge.QueuedApplyCount} P:{bridge.AppliedCount}";
 
                 MyRenderProxy.DebugDrawText3D(
                     position + entity.WorldMatrix.Up * definition.MarkerHeight,
