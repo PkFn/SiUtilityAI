@@ -8,6 +8,7 @@ using Sandbox.Game.Players;
 using Sandbox.ModAPI;
 using VRage;
 using VRage.Components;
+using VRage.Components.Interfaces;
 using VRage.Game;
 using VRage.Entities.Gravity;
 using VRage.Game.Components;
@@ -1485,6 +1486,21 @@ namespace Si.UtilityAI
                 MyMultiplayerModApi.Static.RaiseStaticEvent(x => ClearNpcsClient);
         }
 
+        internal static void ReportNpcDamageBridgeHit(long entityId, MyDamageInformation damageInformation)
+        {
+            if (entityId == 0
+                || damageInformation.Amount <= 0
+                || MyMultiplayerModApi.Static == null
+                || MyMultiplayerModApi.Static.IsServer)
+                return;
+
+            MyMultiplayerModApi.Static.RaiseStaticEvent(
+                x => ApplyNpcDamageBridgeServer,
+                entityId,
+                damageInformation.Amount,
+                damageInformation.Type.String);
+        }
+
         private static void OnWaypointSet(long entityId, Vector3D waypoint)
         {
             if (MyMultiplayerModApi.Static != null && MyMultiplayerModApi.Static.IsServer)
@@ -1571,6 +1587,34 @@ namespace Si.UtilityAI
         private static void SpawnNpcSnapshotClient(SiNpcSnapshot snapshot)
         {
             SpawnNpcClient(snapshot);
+        }
+
+        [Event, Reliable, Server]
+        private static void ApplyNpcDamageBridgeServer(long entityId, float amount, string damageType)
+        {
+            if (entityId == 0 || amount <= 0)
+            {
+                MyEventContext.ValidationFailed();
+                return;
+            }
+
+            if (_instance?.Npcs == null)
+                return;
+
+            SiNpc npc;
+            if (!_instance.Npcs.Npcs.TryGetValue(entityId, out npc))
+                return;
+
+            var bridge = npc.Entity?.Components.Get<SiNpcCharacterDamageBridgeComponent>();
+            if (bridge == null)
+                return;
+
+            bridge.ApplyReplicatedDamage(
+                new MyDamageInformation(
+                    amount,
+                    string.IsNullOrWhiteSpace(damageType)
+                        ? MyStringHash.NullOrEmpty
+                        : MyStringHash.GetOrCompute(damageType)));
         }
 
         [Event, Reliable, Server]
