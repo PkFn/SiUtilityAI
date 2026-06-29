@@ -248,6 +248,11 @@ namespace Si.UtilityAI
                     label += $"\nHealth {healthCurrent:0}/{healthMax:0}";
                 if (marker.Npc.LastDamageAmount > 0)
                     label += $"\nLast dmg {marker.Npc.LastDamageAmount:0.0} {marker.Npc.LastDamageType.String}";
+                var bridge = entity.Components.Get<SiNpcCharacterDamageBridgeComponent>();
+                if (bridge != null)
+                    label += $"\nBridge auto S:{(bridge.HasAutomaticStatComponent ? 'Y' : 'N')} D:{(bridge.HasAutomaticDamageComponent ? 'Y' : 'N')} "
+                             + $"res S:{(bridge.HasResolvedStatComponent ? 'Y' : 'N')} D:{(bridge.HasResolvedDamageComponent ? 'Y' : 'N')} "
+                             + $"H:{(bridge.HasResolvedHealthStat ? 'Y' : 'N')}";
 
                 MyRenderProxy.DebugDrawText3D(
                     position + entity.WorldMatrix.Up * definition.MarkerHeight,

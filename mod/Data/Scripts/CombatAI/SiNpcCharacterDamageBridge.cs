@@ -24,10 +24,18 @@ namespace Si.UtilityAI
     /// double-counting when vanilla already handled it.
     /// </summary>
     [MyComponent(typeof(MyObjectBuilder_SiNpcCharacterDamageBridgeComponent))]
+    [MyDependency(typeof(MyEntityStatComponent), Critical = false)]
+    [MyDependency(typeof(MyCharacterDamageComponent), Critical = false)]
     public class SiNpcCharacterDamageBridgeComponent : MyEntityComponent
     {
         private static readonly MyStringHash HealthStat = MyStringHash.GetOrCompute("Health");
         private const float MinimumDeathDamage = 0.001f;
+
+        [Automatic]
+        private readonly MyEntityStatComponent _automaticStatComponent = null;
+
+        [Automatic]
+        private readonly MyCharacterDamageComponent _automaticDamageComponent = null;
 
         private MyCharacterDamageComponent _damage;
         private float? _pendingExpectedHealth;
@@ -37,6 +45,19 @@ namespace Si.UtilityAI
         private bool _suppressBridgeDamage;
 
         public override bool IsSerialized => false;
+
+        public bool HasAutomaticStatComponent => _automaticStatComponent != null;
+        public bool HasAutomaticDamageComponent => _automaticDamageComponent != null;
+        public bool HasResolvedStatComponent => Entity?.Components.Get<MyEntityStatComponent>() != null;
+        public bool HasResolvedDamageComponent => Entity?.Components.Get<MyCharacterDamageComponent>() != null;
+        public bool HasResolvedHealthStat
+        {
+            get
+            {
+                MyEntityStat health;
+                return TryResolveHealthStat(out health);
+            }
+        }
 
         public override void OnAddedToScene()
         {
