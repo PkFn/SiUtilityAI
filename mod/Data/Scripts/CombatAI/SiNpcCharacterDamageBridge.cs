@@ -136,7 +136,7 @@ namespace Si.UtilityAI
             if (health.Current <= expectedHealth.Value + 0.001f)
                 return;
 
-            health.SetCurrent(expectedHealth.Value, true);
+            health.Current = expectedHealth.Value;
 
             if (expectedHealth.Value <= 0.001f && _damage != null)
             {
