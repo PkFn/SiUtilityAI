@@ -1,8 +1,10 @@
 using System;
 using System.Text;
 using System.Xml.Serialization;
+using Sandbox.Game.EntityComponents;
 using Sandbox.Game.Entities.Entity.Stats;
 using Sandbox.Game.EntityComponents.Character;
+using Sandbox.Game.Players;
 using Sandbox.ModAPI;
 using VRage.Components;
 using VRage.Components.Interfaces;
@@ -73,6 +75,8 @@ namespace Si.UtilityAI
         public float LastWriteAfterSame => _lastWriteAfterSame;
         public float LastWriteAfterFresh => _lastWriteAfterFresh;
         public string StatDebugSummary => BuildStatDebugSummary();
+        public bool HasMappedIdentity => MyIdentities.Static?.GetIdentityFromEntity(Entity) != null;
+        public string ControllerDebugSummary => BuildControllerDebugSummary();
 
         public override void OnAddedToScene()
         {
@@ -273,6 +277,32 @@ namespace Si.UtilityAI
             }
 
             return index > 0 ? builder.ToString() : "no-stats";
+        }
+
+        private string BuildControllerDebugSummary()
+        {
+            var container = Entity?.Components;
+            if (container == null)
+                return "no-container";
+
+            var controllers = container.GetComponents<MyEntityControllerComponentBase>();
+            if (controllers == null)
+                return "no-controllers-enum";
+
+            var builder = new StringBuilder();
+            var index = 0;
+            foreach (var controller in controllers)
+            {
+                if (index > 0)
+                    builder.Append(" | ");
+
+                builder.Append(index);
+                builder.Append(':');
+                builder.Append(controller?.GetType().Name ?? "null");
+                index++;
+            }
+
+            return index > 0 ? builder.ToString() : "no-controllers";
         }
 
         private static bool IsAuthoritative()
