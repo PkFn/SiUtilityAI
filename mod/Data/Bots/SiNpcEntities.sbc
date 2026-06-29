@@ -14,18 +14,18 @@
     <Component Type="RagdollComponent" Subtype="Humanoid" />
     <Component Type="CharacterMovementComponent" Subtype="SiTrooperMovement" />
     <Component Type="ModelComponent" Subtype="Medieval_male_noApron" />
-    <Component Type="SkeletonComponent" Subtype="Medieval_male_noApron" />
-    <Component Type="AnimationCollisionComponent" Subtype="Medieval_male_noApron" />
-    <Component Type="CharacterAnimationControllerComponent" Subtype="Medieval_male_noApron" />
+    <Component Type="SkeletonComponent" Subtype="Medieval_male" />
+    <Component Type="AnimationCollisionComponent" Subtype="Medieval_male" />
+    <Component Type="CharacterAnimationControllerComponent" Subtype="Medieval_male" />
     <Component Type="CharacterSoundComponent" Subtype="MedievalMale" />
-    <Component Type="RenderComponentCharacter" Subtype="Medieval_male_noApron" />
+    <Component Type="RenderComponentCharacter" Subtype="Medieval_male" />
     <Component Type="ThirdPersonCameraComponent" Subtype="DefaultThirdPerson" />
     <Component Type="ThirdPersonControllerComponent" Subtype="DefaultThirdPerson" />
     <Component Type="EntityStatComponent" Subtype="SiNpcStats" />
     <Component Type="CharacterDamageComponent" Subtype="Humanoid" />
     <Component Type="SiNpcCharacterDamageBridgeComponent" />
     <Component Type="DeathComponent" Subtype="Medieval_male_noApron" />
-    <Component Type="EntityFXComponent" Subtype="Medieval_male_noApron" />
+    <Component Type="EntityFXComponent" Subtype="Medieval_male" />
     <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
   </Definition>
 
