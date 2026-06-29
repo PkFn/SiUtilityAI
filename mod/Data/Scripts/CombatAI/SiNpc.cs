@@ -53,19 +53,22 @@ namespace Si.UtilityAI
             MyEntity entity = null;
             try
             {
-                var objectBuilder = new MyObjectBuilder_EntityBase
-                {
-                    EntityId = EntityId,
-                    EntityDefinitionId = EntityDefinition,
-                    PositionAndOrientation = new MyPositionAndOrientation(Transform),
-                };
+                var objectBuilder = MyObjectBuilderSerializer.CreateNewObject(EntityDefinition) as MyObjectBuilder_EntityBase;
+                if (objectBuilder == null)
+                    throw new InvalidOperationException(
+                        $"Definition '{EntityDefinition}' could not create a character object builder.");
 
-                entity = MySession.Static.Scene.LoadEntity(objectBuilder, activate: true);
+                objectBuilder.EntityId = EntityId;
+                objectBuilder.PositionAndOrientation = new MyPositionAndOrientation(Transform);
+                objectBuilder.PersistentFlags |= MyPersistentEntityFlags2.InScene;
+
+                entity = Sandbox.Game.Entities.MyEntities.CreateFromObjectBuilder(objectBuilder);
                 if (entity == null)
                     throw new InvalidOperationException(
                         $"Failed to create character '{EntityDefinition.SubtypeName}'.");
 
                 entity.Name = $"SiNpc_{Archetype}_{EntityId}";
+                Sandbox.Game.Entities.MyEntities.Add(entity, insertIntoScene: true);
                 entity.Save = false;
                 if (entity.Render != null)
                 {
