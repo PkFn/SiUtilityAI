@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using System.Xml.Serialization;
 using Sandbox.Game.Entities.Entity.Stats;
 using Sandbox.Game.EntityComponents.Character;
@@ -71,6 +72,7 @@ namespace Si.UtilityAI
         public float LastWriteTarget => _lastWriteTarget;
         public float LastWriteAfterSame => _lastWriteAfterSame;
         public float LastWriteAfterFresh => _lastWriteAfterFresh;
+        public string StatDebugSummary => BuildStatDebugSummary();
 
         public override void OnAddedToScene()
         {
@@ -231,6 +233,46 @@ namespace Si.UtilityAI
 
             var stats = Entity?.Components.Get<MyEntityStatComponent>();
             return stats != null && stats.TryGetStat(HealthStat, out health) && health != null;
+        }
+
+        private string BuildStatDebugSummary()
+        {
+            var container = Entity?.Components;
+            if (container == null)
+                return "no-container";
+
+            var statsComponents = container.GetComponents<MyEntityStatComponent>();
+            if (statsComponents == null)
+                return "no-stats-enum";
+
+            var builder = new StringBuilder();
+            var index = 0;
+            foreach (var stats in statsComponents)
+            {
+                if (index > 0)
+                    builder.Append(" | ");
+
+                builder.Append(index);
+                builder.Append(':');
+                builder.Append(stats?.DefinitionId.SubtypeName ?? "null");
+                builder.Append('=');
+
+                MyEntityStat health;
+                if (stats != null && stats.TryGetStat(HealthStat, out health) && health != null)
+                {
+                    builder.Append(health.Current.ToString("0.0"));
+                    builder.Append('/');
+                    builder.Append(((float)health.Max).ToString("0.0"));
+                }
+                else
+                {
+                    builder.Append("no-health");
+                }
+
+                index++;
+            }
+
+            return index > 0 ? builder.ToString() : "no-stats";
         }
 
         private static bool IsAuthoritative()
