@@ -5,6 +5,7 @@
     <CopyFrom Type="EntityBase" Subtype="Humanoid" />
     <Tag>AI</Tag>
     <Component Type="CharacterPhysics" Subtype="Humanoid" />
+    <Component Type="EntityTerrainHeightProvider" />
     <Component Type="SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
     <Component Type="MyObjectBuilder_PAX_CharacterUniformEquipment" />
     <Component Type="EntityStateComponent" Subtype="CharacterStances" />
@@ -136,15 +137,20 @@
     <Stat Type="MyObjectBuilder_EntityStatDefinition" Subtype="Health" />
   </Definition>
 
-  <Definition xsi:type="MyObjectBuilder_CharacterMovementComponentDefinition">
+  <Definition xsi:type="MyObjectBuilder_CharacterMovementComponentDefinition" Copy="Append">
     <Id Type="CharacterMovementComponent" Subtype="SiTrooperMovement" />
+    <CopyFrom Type="CharacterMovementComponent" Subtype="PlayableCharacter" />
     <SprintSpeed Forward="7" Backward="0" Strafing="0" />
     <RunSpeed Forward="4.5" Backward="3.55" Strafing="3.25" />
     <WalkSpeed Forward="1.8" Backward="1.6" Strafing="1.45" />
     <CrouchSpeed Forward="1.3" Backward="0.9" Strafing="0.9" />
     <MaxSlope>70</MaxSlope>
+    <StaminaRequiredSprintStart>0</StaminaRequiredSprintStart>
+    <StaminaRequiredRunStart>0</StaminaRequiredRunStart>
     <JumpForce>2.5</JumpForce>
     <JumpForceForward>0.4</JumpForceForward>
+    <StaminaCostJump>0</StaminaCostJump>
+    <RequireJumpConfirmation>false</RequireJumpConfirmation>
   </Definition>
 
 </Definitions>
