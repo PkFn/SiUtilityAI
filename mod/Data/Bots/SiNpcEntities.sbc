@@ -4,8 +4,20 @@
     <Id Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <CopyFrom Type="EntityBase" Subtype="Humanoid" />
     <Tag>AI</Tag>
+    <Component Type="MultiplayerComponent" />
+    <Component Type="UseObjectsComponent" Subtype="Default" />
     <Component Type="CharacterPhysics" Subtype="Humanoid" />
     <Component Type="EntityTerrainHeightProvider" />
+    <Component Type="MedievalCharacterUseComponent" Subtype="CharacterUse" />
+    <Component Type="Inventory" Subtype="Internal" />
+    <Component Type="ModelAttachmentComponent" Subtype="Humanoid" />
+    <Component Type="EntityEquipmentComponent" Subtype="Humanoid" />
+    <Component Type="EntityStanceComponent" />
+    <Component Type="CharacterHandItemsComponent" Subtype="Humanoid" />
+    <Component Type="CharacterDamageComponent" Subtype="Humanoid" />
+    <Component Type="CombatComponent" Subtype="Humanoid" />
+    <Component Type="StepComponent" Subtype="Humanoid" />
+    <Component Type="TargetLockableEntityComponent" Subtype="Humanoid" />
     <Component Type="SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
     <Component Type="MyObjectBuilder_PAX_CharacterUniformEquipment" />
     <Component Type="EntityStateComponent" Subtype="CharacterStances" />
