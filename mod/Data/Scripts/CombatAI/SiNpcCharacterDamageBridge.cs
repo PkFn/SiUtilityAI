@@ -30,7 +30,6 @@ namespace Si.UtilityAI
         private const float MinimumDeathDamage = 0.001f;
 
         private MyCharacterDamageComponent _damage;
-        private MyEntityStat _health;
         private float? _pendingExpectedHealth;
         private MyDamageInformation _pendingDamageInformation;
         private bool _hasPendingDamageInformation;
@@ -44,11 +43,7 @@ namespace Si.UtilityAI
             base.OnAddedToScene();
 
             _damage = Entity?.Components.Get<MyCharacterDamageComponent>();
-            var stats = Entity?.Components.Get<MyEntityStatComponent>();
-            if (stats != null)
-                stats.TryGetStat(HealthStat, out _health);
-
-            if (_damage != null && _health != null)
+            if (_damage != null)
                 _damage.DamageTaken += OnDamageTaken;
         }
 
@@ -70,7 +65,6 @@ namespace Si.UtilityAI
                 _damage.DamageTaken -= OnDamageTaken;
 
             _damage = null;
-            _health = null;
             _pendingExpectedHealth = null;
             _hasPendingDamageInformation = false;
             _hasScheduledApply = false;
@@ -102,14 +96,21 @@ namespace Si.UtilityAI
         {
             _hasScheduledApply = false;
 
-            var health = _health;
             var expectedHealth = _pendingExpectedHealth;
+            if (!expectedHealth.HasValue)
+                return;
+
+            MyEntityStat health;
+            if (!TryResolveHealthStat(out health))
+            {
+                RescheduleApply();
+                return;
+            }
+
             var pendingDamageInformation = _pendingDamageInformation;
             var hasPendingDamageInformation = _hasPendingDamageInformation;
             _pendingExpectedHealth = null;
             _hasPendingDamageInformation = false;
-            if (health == null || !expectedHealth.HasValue)
-                return;
 
             if (health.Current <= expectedHealth.Value + 0.001f)
                 return;
@@ -139,9 +140,12 @@ namespace Si.UtilityAI
 
         private bool QueueDamageApplication(MyDamageInformation damageInformation)
         {
-            var health = _health;
             var damageAmount = Math.Max(0, damageInformation.Amount);
-            if (health == null || damageAmount <= 0 || health.Current <= 0)
+            if (damageAmount <= 0)
+                return false;
+
+            MyEntityStat health;
+            if (!TryResolveHealthStat(out health) || health.Current <= 0)
                 return false;
 
             var expectedHealth = Math.Max(0, health.Current - damageAmount);
@@ -158,6 +162,23 @@ namespace Si.UtilityAI
             _hasScheduledApply = true;
             AddScheduledCallback(ApplyPendingDamage, 1);
             return true;
+        }
+
+        private void RescheduleApply()
+        {
+            if (_hasScheduledApply || Entity == null)
+                return;
+
+            _hasScheduledApply = true;
+            AddScheduledCallback(ApplyPendingDamage, 1);
+        }
+
+        private bool TryResolveHealthStat(out MyEntityStat health)
+        {
+            health = null;
+
+            var stats = Entity?.Components.Get<MyEntityStatComponent>();
+            return stats != null && stats.TryGetStat(HealthStat, out health) && health != null;
         }
 
         private static bool IsAuthoritative()
