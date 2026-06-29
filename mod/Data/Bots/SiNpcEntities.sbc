@@ -19,7 +19,6 @@
     <Component Type="RenderComponentCharacter" Subtype="Medieval_male" />
     <Component Type="ThirdPersonCameraComponent" Subtype="DefaultThirdPerson" />
     <Component Type="EntityStatComponent" Subtype="SiNpcStats" />
-    <Component Type="CharacterDamageComponent" Subtype="Humanoid" />
     <Component Type="SiNpcCharacterDamageBridgeComponent" />
     <Component Type="DeathComponent" Subtype="Medieval_male" />
     <Component Type="EntityFXComponent" Subtype="Medieval_male" />

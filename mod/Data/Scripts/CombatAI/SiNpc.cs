@@ -69,13 +69,12 @@ namespace Si.UtilityAI
                 objectBuilder.PositionAndOrientation = new MyPositionAndOrientation(Transform);
                 objectBuilder.PersistentFlags |= MyPersistentEntityFlags2.InScene;
 
-                entity = Sandbox.Game.Entities.MyEntities.CreateFromObjectBuilder(objectBuilder);
+                entity = Sandbox.Game.Entities.MyEntities.CreateFromObjectBuilderAndAdd(objectBuilder);
                 if (entity == null)
                     throw new InvalidOperationException(
                         $"Failed to create character '{EntityDefinition.SubtypeName}'.");
 
                 entity.Name = $"SiNpc_{Archetype}_{EntityId}";
-                Sandbox.Game.Entities.MyEntities.Add(entity, insertIntoScene: true);
                 entity.Save = false;
                 if (entity.Render != null)
                 {
