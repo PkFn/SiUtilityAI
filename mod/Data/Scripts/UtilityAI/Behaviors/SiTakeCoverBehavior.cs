@@ -501,7 +501,7 @@ namespace Si.UtilityAI
                              + toThreat * _definition.BodyCoverForwardOffset;
             var muzzleOrigin = standPosition
                                + up * GetMuzzleUpOffset()
-                               + toThreat * GetMuzzleForwardOffset();
+                               + toThreat * GetCoverTestMuzzleForwardOffset();
 
             double bodyHitDistance;
             if (!TryGetBlockingHitDistance(bodyOrigin, aimPoint, context.Entity, threatEntity, out bodyHitDistance))
@@ -513,8 +513,16 @@ namespace Si.UtilityAI
             double muzzleHitDistance;
             if (TryGetBlockingHitDistance(muzzleOrigin, aimPoint, context.Entity, threatEntity, out muzzleHitDistance))
             {
-                SetRejectReason($"muzzle blocked stand={FormatVector(standPosition)}");
-                return false;
+                var muzzleThreatDistance = Vector3D.Distance(muzzleOrigin, aimPoint);
+                var normalizedMuzzleBlockage = muzzleThreatDistance > 0.001
+                    ? MathHelper.Clamp((float)(muzzleHitDistance / muzzleThreatDistance), 0, 1)
+                    : 1f;
+                if (normalizedMuzzleBlockage > _definition.MuzzleMaximumBlockage)
+                {
+                    SetRejectReason(
+                        $"muzzle blocked stand={FormatVector(standPosition)} hit={normalizedMuzzleBlockage:0.00} allowed={_definition.MuzzleMaximumBlockage:0.00}");
+                    return false;
+                }
             }
 
             var threatDistance = Vector3D.Distance(bodyOrigin, aimPoint);
@@ -579,6 +587,9 @@ namespace Si.UtilityAI
 
         private float GetMuzzleForwardOffset() =>
             _shootBehavior?.GetWeaponMuzzleForwardOffsetForCover() ?? 0.6f;
+
+        private float GetCoverTestMuzzleForwardOffset() =>
+            Math.Min(GetMuzzleForwardOffset(), _definition.BodyCoverForwardOffset);
 
         private float GetMuzzleUpOffset() =>
             _shootBehavior?.GetWeaponMuzzleUpOffsetForCover() ?? GetAimTargetHeight();
