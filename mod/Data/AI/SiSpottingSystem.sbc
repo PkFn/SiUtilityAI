@@ -14,7 +14,7 @@
     <ShotAwarenessDecayPerSecond>0.22</ShotAwarenessDecayPerSecond>
     <ShotAwarenessMaxDistance>140</ShotAwarenessMaxDistance>
     <ShotAwarenessDistanceExponent>1.2</ShotAwarenessDistanceExponent>
-    <NearbyBushScanRadius>3.5</NearbyBushScanRadius>
+    <NearbyBushScanRadius>50</NearbyBushScanRadius>
     <NearbyBushMinimumChanceMultiplier>0.45</NearbyBushMinimumChanceMultiplier>
     <NearbyBushDistanceExponent>1.5</NearbyBushDistanceExponent>
     <DarknessMinimumChanceMultiplier>0.35</DarknessMinimumChanceMultiplier>
