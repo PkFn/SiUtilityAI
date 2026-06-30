@@ -358,8 +358,8 @@ namespace Si.UtilityAI
             if (_coverPositions.Count == 0)
                 return false;
 
-            var bestTreeScore = double.MinValue;
-            var bestBushScore = double.MinValue;
+            var bestTreeDistanceSquared = double.MaxValue;
+            var bestBushDistanceSquared = double.MaxValue;
             var bestTreeCover = Vector3D.Zero;
             var bestBushCover = Vector3D.Zero;
             var bestTreeStand = Vector3D.Zero;
@@ -384,38 +384,38 @@ namespace Si.UtilityAI
                         effectiveThreat,
                         out var candidateStand,
                         out var isTree,
-                        out var coverScore))
+                        out var ignoredCoverScore))
                 {
                     SetRejectReason($"ray reject cover={FormatVector(candidate)}");
                     continue;
                 }
 
-                var score = ScoreCoverCandidate(context, session, candidate, candidateStand, coverScore);
+                var candidateDistanceSquared = Vector3D.DistanceSquared(searchOrigin, candidate);
                 if (isTree)
                 {
-                    if (score > bestTreeScore)
+                    if (candidateDistanceSquared < bestTreeDistanceSquared)
                     {
-                        bestTreeScore = score;
+                        bestTreeDistanceSquared = candidateDistanceSquared;
                         bestTreeCover = candidate;
                         bestTreeStand = candidateStand;
                     }
                 }
-                else if (score > bestBushScore)
+                else if (candidateDistanceSquared < bestBushDistanceSquared)
                 {
-                    bestBushScore = score;
+                    bestBushDistanceSquared = candidateDistanceSquared;
                     bestBushCover = candidate;
                     bestBushStand = candidateStand;
                 }
             }
 
-            if (bestTreeScore > double.MinValue)
+            if (bestTreeDistanceSquared < double.MaxValue)
             {
                 coverPosition = bestTreeCover;
                 standPosition = bestTreeStand;
                 return true;
             }
 
-            if (bestBushScore > double.MinValue)
+            if (bestBushDistanceSquared < double.MaxValue)
             {
                 coverPosition = bestBushCover;
                 standPosition = bestBushStand;
@@ -423,30 +423,6 @@ namespace Si.UtilityAI
             }
 
             return false;
-        }
-
-        private double ScoreCoverCandidate(
-            SiUtilityContext context,
-            SiNpcSessionComponent session,
-            in Vector3D coverPosition,
-            in Vector3D standPosition,
-            double coverScore)
-        {
-            var score = coverScore;
-            score -= Vector3D.DistanceSquared(context.Position, standPosition) * 0.02;
-
-            if (session.IsFollowingPlayer(context.Agent))
-            {
-                Vector3D leaderPosition;
-                if (session.TryGetLeaderPosition(context.Agent, out leaderPosition))
-                    score -= Vector3D.DistanceSquared(leaderPosition, standPosition) * _definition.LeaderDistanceWeight * 0.01;
-            }
-
-            if (_hasReservedCover
-                && Vector3D.DistanceSquared(_reservedCoverPosition, coverPosition) <= 0.01)
-                score += 0.15;
-
-            return score;
         }
 
         private bool EvaluateCoverStandingPoint(
@@ -525,29 +501,18 @@ namespace Si.UtilityAI
                 context.Entity,
                 threatEntity,
                 out bodyHitDistance);
-            if (!hasSolidBodyBlocker && bodyFoliageBlockage < _definition.BodyCoverMinimumBlockage)
+            if (!hasSolidBodyBlocker && bodyFoliageBlockage <= 0)
             {
                 SetRejectReason(
                     $"body open stand={FormatVector(standPosition)} foliage={bodyFoliageBlockage:0.00}");
                 return false;
             }
 
-            var muzzleFoliageBlockage = FoliageBlockage(muzzleOrigin, aimPoint);
             double muzzleHitDistance;
-            var normalizedMuzzleBlockage = muzzleFoliageBlockage;
             if (TryGetBlockingHitDistance(muzzleOrigin, aimPoint, context.Entity, threatEntity, out muzzleHitDistance))
             {
-                var muzzleThreatDistance = Vector3D.Distance(muzzleOrigin, aimPoint);
-                var solidMuzzleBlockage = muzzleThreatDistance > 0.001
-                    ? MathHelper.Clamp((float)(muzzleHitDistance / muzzleThreatDistance), 0, 1)
-                    : 1f;
-                normalizedMuzzleBlockage = Math.Max(normalizedMuzzleBlockage, solidMuzzleBlockage);
-            }
-
-            if (normalizedMuzzleBlockage > _definition.MuzzleMaximumBlockage)
-            {
                 SetRejectReason(
-                    $"muzzle blocked stand={FormatVector(standPosition)} hit={normalizedMuzzleBlockage:0.00} allowed={_definition.MuzzleMaximumBlockage:0.00}");
+                    $"muzzle blocked stand={FormatVector(standPosition)} hitDistance={muzzleHitDistance:0.00}");
                 return false;
             }
 
@@ -555,7 +520,7 @@ namespace Si.UtilityAI
                 ? MathHelper.Clamp((float)(1d - bodyHitDistance / bodyThreatDistance), 0, 1)
                 : 0f;
             var normalizedCover = Math.Max(solidBodyCover, bodyFoliageBlockage);
-            if (normalizedCover < _definition.BodyCoverMinimumBlockage)
+            if (normalizedCover <= 0)
             {
                 SetRejectReason($"cover too shallow stand={FormatVector(standPosition)} blockage={normalizedCover:0.00}");
                 return false;
