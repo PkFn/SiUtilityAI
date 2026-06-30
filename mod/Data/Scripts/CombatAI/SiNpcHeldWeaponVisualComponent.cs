@@ -47,6 +47,7 @@ namespace Si.UtilityAI
     [MyDefinitionRequired(typeof(SiNpcHeldWeaponVisualComponentDefinition))]
     public class SiNpcHeldWeaponVisualComponent : MyEntityComponent
     {
+        private const int MainHandSlotIndex = 2;
         private const int RetryDelayFrames = 16;
         private const int MaxAttempts = 20;
 
@@ -115,7 +116,7 @@ namespace Si.UtilityAI
                 return;
             }
 
-            if (!equipment.EquipItem(equipmentItem, -1))
+            if (!equipment.EquipItem(equipmentItem, MainHandSlotIndex))
             {
                 var activateHandler = equipment as IMyItemActivateHandler;
                 if (activateHandler == null || !activateHandler.CanHandle(item) || !activateHandler.Activate(Entity, inventory, item, true))
