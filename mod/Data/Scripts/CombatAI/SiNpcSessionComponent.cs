@@ -21,6 +21,7 @@ using VRage.ObjectBuilders.Components;
 using VRage.Session;
 using VRage.Utils;
 using VRageMath;
+using VRage.Logging;
 using VRageRender;
 
 namespace Si.UtilityAI
@@ -62,6 +63,9 @@ namespace Si.UtilityAI
         private bool _showTroopMarkers;
         private bool _showSquadChatter;
         private bool _utilityDecisionMakingEnabled = true;
+        private NamedLogger _log;
+        private bool _logInitialized;
+        private long _lastCoverCleanupLogTime = long.MinValue;
 
         public static SiNpcSessionComponent Instance => _instance;
         public SiNpcManager Npcs { get; private set; }
@@ -74,6 +78,7 @@ namespace Si.UtilityAI
         {
             base.OnLoad();
             _instance = this;
+            TryInitLog();
             Npcs = new SiNpcManager();
             Squads = new SiSquadBook();
             Spotting = new SiSpottingSystem(this);
@@ -1133,6 +1138,7 @@ namespace Si.UtilityAI
             if (_coverReservations.Count == 0 || Npcs == null)
                 return;
 
+            var cleanupStartedAt = DebugTimestampTicks();
             _staleCoverReservationIds.Clear();
             foreach (var reservation in _coverReservations)
             {
@@ -1152,7 +1158,43 @@ namespace Si.UtilityAI
 
             for (var i = 0; i < _staleCoverReservationIds.Count; i++)
                 _coverReservations.Remove(_staleCoverReservationIds[i]);
+            LogSlowCoverCleanup(DebugElapsedMilliseconds(cleanupStartedAt), _staleCoverReservationIds.Count);
             _staleCoverReservationIds.Clear();
+        }
+
+        private void TryInitLog()
+        {
+            if (_logInitialized || MySession.Static?.Log == null)
+                return;
+
+            _log = new NamedLogger(MySession.Static.Log, nameof(SiNpcSessionComponent));
+            _logInitialized = true;
+        }
+
+        private void LogSlowCoverCleanup(double elapsedMilliseconds, int removedReservations)
+        {
+            var now = CurrentTimeMilliseconds();
+            if (elapsedMilliseconds < 2 && _coverReservations.Count < 16 && removedReservations == 0)
+                return;
+            if (_lastCoverCleanupLogTime >= 0 && now - _lastCoverCleanupLogTime < 5000)
+                return;
+
+            _lastCoverCleanupLogTime = now;
+            TryInitLog();
+            if (!_logInitialized)
+                return;
+
+            _log.Warning($"[SiCover] entityId=0 name=Session definition=SiNpcSessionComponent debug cover-cleanup elapsedMs={elapsedMilliseconds:0.00} activeReservations={_coverReservations.Count} removedReservations={removedReservations} npcCount={Npcs?.Npcs?.Count ?? 0}"); // AGENT-DEBUG-LOG
+        }
+
+        private static long DebugTimestampTicks()
+        {
+            return DateTime.UtcNow.Ticks;
+        }
+
+        private static double DebugElapsedMilliseconds(long startTicks)
+        {
+            return (DateTime.UtcNow.Ticks - startTicks) / (double)TimeSpan.TicksPerMillisecond;
         }
 
         private int ApplyFollowOrder(

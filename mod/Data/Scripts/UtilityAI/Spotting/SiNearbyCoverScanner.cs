@@ -6,8 +6,22 @@ namespace Si.UtilityAI
 {
     internal sealed class SiNearbyCoverScanner
     {
+        internal struct ScanStats
+        {
+            public int TotalSectors;
+            public int IntersectingSectors;
+            public int FoliageEntries;
+            public int AcceptedCandidates;
+        }
+
         public void Scan(in Vector3D position, double radius, List<Vector3D> results)
         {
+            Scan(position, radius, results, out _);
+        }
+
+        public void Scan(in Vector3D position, double radius, List<Vector3D> results, out ScanStats stats)
+        {
+            stats = default(ScanStats);
             results?.Clear();
             if (results == null
                 || radius <= 0
@@ -16,19 +30,23 @@ namespace Si.UtilityAI
 
             var radiusSquared = radius * radius;
             var sectors = MyFoliageRaycastEnvironmentModule.FoliageSectors;
+            stats.TotalSectors = sectors.Count;
             for (var i = 0; i < sectors.Count; i++)
             {
                 var sector = sectors[i];
                 if (sector?.Foliage == null || !IntersectsSphere(sector.BoundingBox, position, radius))
                     continue;
 
+                stats.IntersectingSectors++;
                 foreach (var foliage in sector.Foliage)
                 {
+                    stats.FoliageEntries++;
                     var candidate = (Vector3D)foliage.Value;
                     if (Vector3D.DistanceSquared(position, candidate) > radiusSquared)
                         continue;
 
                     results.Add(candidate);
+                    stats.AcceptedCandidates++;
                 }
             }
         }

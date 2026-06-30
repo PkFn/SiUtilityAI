@@ -84,6 +84,8 @@ namespace Si.UtilityAI
     {
         private const long LogCooldownMilliseconds = 2000;
         private const long CoverSearchRetryMilliseconds = 1500;
+        private const long SlowCoverSearchLogCooldownMilliseconds = 5000;
+        private const double SlowCoverSearchMilliseconds = 5;
         private static readonly double[] SideOffsetSamples =
         {
             0,
@@ -108,6 +110,7 @@ namespace Si.UtilityAI
         private long _lastNoCoverLogTime = long.MinValue;
         private long _lastReservationFailLogTime = long.MinValue;
         private long _lastCoverSearchTime = -1;
+        private long _lastSlowCoverSearchLogTime = long.MinValue;
         private string _lastCoverRejectReason;
 
         public string BehaviorName => DefinitionId.ToString();
@@ -339,23 +342,44 @@ namespace Si.UtilityAI
             if (!session.TryGetLeaderPosition(context.Agent, out searchOrigin))
                 searchOrigin = context.Position;
 
+            var scanStartedAt = DebugTimestampTicks();
             _coverPositions.Clear();
-            _coverScanner.Scan(searchOrigin, _definition.SearchRadius, _coverPositions);
+            SiNearbyCoverScanner.ScanStats scanStats;
+            _coverScanner.Scan(searchOrigin, _definition.SearchRadius, _coverPositions, out scanStats);
+            var scanElapsedMilliseconds = DebugElapsedMilliseconds(scanStartedAt);
             if (_coverPositions.Count == 0)
+            {
+                LogSlowCoverSearch(
+                    context,
+                    searchOrigin,
+                    hasThreat,
+                    scanElapsedMilliseconds,
+                    0,
+                    0,
+                    0,
+                    0,
+                    false,
+                    scanStats);
                 return false;
+            }
 
+            var evaluateStartedAt = DebugTimestampTicks();
             var bestTreeDistanceSquared = double.MaxValue;
             var bestBushDistanceSquared = double.MaxValue;
             var bestTreeCover = Vector3D.Zero;
             var bestBushCover = Vector3D.Zero;
             var bestTreeStand = Vector3D.Zero;
             var bestBushStand = Vector3D.Zero;
+            var occupiedRejects = 0;
+            var standingPointRejects = 0;
+            var viableCandidates = 0;
 
             for (var i = 0; i < _coverPositions.Count; i++)
             {
                 var candidate = _coverPositions[i];
                 if (!session.IsCoverAvailable(context.Agent, candidate, _definition.CoverOccupancyRadius))
                 {
+                    occupiedRejects++;
                     SetRejectReason($"occupied cover={FormatVector(candidate)}");
                     continue;
                 }
@@ -372,10 +396,12 @@ namespace Si.UtilityAI
                         out var isTree,
                         out var ignoredCoverScore))
                 {
+                    standingPointRejects++;
                     SetRejectReason($"ray reject cover={FormatVector(candidate)}");
                     continue;
                 }
 
+                viableCandidates++;
                 var candidateDistanceSquared = Vector3D.DistanceSquared(searchOrigin, candidate);
                 if (isTree)
                 {
@@ -394,10 +420,22 @@ namespace Si.UtilityAI
                 }
             }
 
+            var evaluateElapsedMilliseconds = DebugElapsedMilliseconds(evaluateStartedAt);
             if (bestTreeDistanceSquared < double.MaxValue)
             {
                 coverPosition = bestTreeCover;
                 standPosition = bestTreeStand;
+                LogSlowCoverSearch(
+                    context,
+                    searchOrigin,
+                    hasThreat,
+                    scanElapsedMilliseconds,
+                    evaluateElapsedMilliseconds,
+                    occupiedRejects,
+                    standingPointRejects,
+                    viableCandidates,
+                    true,
+                    scanStats);
                 return true;
             }
 
@@ -405,9 +443,31 @@ namespace Si.UtilityAI
             {
                 coverPosition = bestBushCover;
                 standPosition = bestBushStand;
+                LogSlowCoverSearch(
+                    context,
+                    searchOrigin,
+                    hasThreat,
+                    scanElapsedMilliseconds,
+                    evaluateElapsedMilliseconds,
+                    occupiedRejects,
+                    standingPointRejects,
+                    viableCandidates,
+                    true,
+                    scanStats);
                 return true;
             }
 
+            LogSlowCoverSearch(
+                context,
+                searchOrigin,
+                hasThreat,
+                scanElapsedMilliseconds,
+                evaluateElapsedMilliseconds,
+                occupiedRejects,
+                standingPointRejects,
+                viableCandidates,
+                false,
+                scanStats);
             return false;
         }
 
@@ -628,6 +688,45 @@ namespace Si.UtilityAI
 
             _log.Warning(
                 $"[SiCover] entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} definition={DefinitionId.SubtypeName} {message}");
+        }
+
+        private void LogSlowCoverSearch(
+            SiUtilityContext context,
+            in Vector3D searchOrigin,
+            bool hasThreat,
+            double scanElapsedMilliseconds,
+            double evaluateElapsedMilliseconds,
+            int occupiedRejects,
+            int standingPointRejects,
+            int viableCandidates,
+            bool foundCover,
+            SiNearbyCoverScanner.ScanStats scanStats)
+        {
+            var totalElapsedMilliseconds = scanElapsedMilliseconds + evaluateElapsedMilliseconds;
+            var now = CurrentTimeMilliseconds();
+            if (totalElapsedMilliseconds < SlowCoverSearchMilliseconds
+                && (scanStats.AcceptedCandidates <= 24 || standingPointRejects <= 24))
+                return;
+            if (_lastSlowCoverSearchLogTime >= 0
+                && now - _lastSlowCoverSearchLogTime < SlowCoverSearchLogCooldownMilliseconds)
+                return;
+
+            _lastSlowCoverSearchLogTime = now;
+            TryInitLog();
+            if (!_logInitialized)
+                return;
+
+            _log.Warning($"[SiCover] entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} definition={DefinitionId.SubtypeName} debug slow-cover-search outcome={(foundCover ? "found" : "none")} totalMs={totalElapsedMilliseconds:0.00} scanMs={scanElapsedMilliseconds:0.00} evalMs={evaluateElapsedMilliseconds:0.00} hasThreat={hasThreat} searchOrigin={FormatVector(searchOrigin)} reserved={_hasReservedCover} scannedSectors={scanStats.TotalSectors} intersectingSectors={scanStats.IntersectingSectors} foliageEntries={scanStats.FoliageEntries} candidates={scanStats.AcceptedCandidates} viable={viableCandidates} occupiedRejects={occupiedRejects} standingRejects={standingPointRejects} lastReject={_lastCoverRejectReason ?? "none"} waypoint={FormatVector(context?.Waypoint ?? Vector3D.Zero)}"); // AGENT-DEBUG-LOG
+        }
+
+        private static long DebugTimestampTicks()
+        {
+            return DateTime.UtcNow.Ticks;
+        }
+
+        private static double DebugElapsedMilliseconds(long startTicks)
+        {
+            return (DateTime.UtcNow.Ticks - startTicks) / (double)TimeSpan.TicksPerMillisecond;
         }
 
         private static long CurrentTimeMilliseconds()
