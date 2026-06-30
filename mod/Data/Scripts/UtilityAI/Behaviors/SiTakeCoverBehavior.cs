@@ -113,13 +113,8 @@ namespace Si.UtilityAI
         private Vector3D _reservedCoverPosition;
         private Vector3D _reservedStandPosition;
         private bool _hasReservedCover;
-        private long _lastNoThreatLogTime = long.MinValue;
-        private long _lastCoverScanLogTime = long.MinValue;
         private long _lastNoCoverLogTime = long.MinValue;
         private long _lastReservationFailLogTime = long.MinValue;
-        private long _lastWaypointLogTime = long.MinValue;
-        private long _lastCoverRejectLogTime = long.MinValue;
-        private long _lastKeepCoverLogTime = long.MinValue;
         private long _lastCoverSearchTime = -1;
         private string _lastCoverRejectReason;
 
@@ -153,8 +148,6 @@ namespace Si.UtilityAI
             }
 
             var hasThreat = TryGetThreat(context, out var threatEntity, out var threatPosition);
-            if (!hasThreat)
-                LogWithCooldown(ref _lastNoThreatLogTime, $"[SiCover] no threat entity; hasReserved={_hasReservedCover} following={session.IsFollowingPlayer(context.Agent)}");
             if (!HasUsableCurrentCover(context, session, hasThreat, threatEntity, threatPosition))
                 return 1f;
 
@@ -234,9 +227,6 @@ namespace Si.UtilityAI
                         _reservedCoverPosition = coverPosition;
                         _reservedStandPosition = standPosition;
                         _hasReservedCover = true;
-                        LogWithCooldown(
-                            ref _lastWaypointLogTime,
-                            $"[SiCover] reserved new cover cover={FormatVector(coverPosition)} stand={FormatVector(standPosition)}");
                     }
                     else
                         LogWithCooldown(ref _lastReservationFailLogTime, $"[SiCover] reservation failed cover={FormatVector(coverPosition)}");
@@ -245,9 +235,6 @@ namespace Si.UtilityAI
                 {
                     session.TryReserveCover(context.Agent, _reservedCoverPosition, _definition.CoverOccupancyRadius);
                     _reservedStandPosition = standPosition;
-                    LogWithCooldown(
-                        ref _lastKeepCoverLogTime,
-                        $"[SiCover] keeping cover cover={FormatVector(_reservedCoverPosition)} refreshedStand={FormatVector(standPosition)}");
                 }
             }
             else if (wantsSwitch)
@@ -264,12 +251,7 @@ namespace Si.UtilityAI
             if (!context.HasWaypoint
                 || Vector3D.DistanceSquared(context.Waypoint, _reservedStandPosition)
                    > _definition.WaypointRefreshDistance * _definition.WaypointRefreshDistance)
-            {
                 context.TrySetWaypoint(_reservedStandPosition);
-                LogWithCooldown(
-                    ref _lastWaypointLogTime,
-                    $"[SiCover] waypoint set stand={FormatVector(_reservedStandPosition)} current={FormatVector(context.Position)}");
-            }
         }
 
         private bool HasUsableCurrentCover(
@@ -372,9 +354,6 @@ namespace Si.UtilityAI
 
             _coverPositions.Clear();
             _coverScanner.Scan(searchOrigin, _definition.SearchRadius, _coverPositions);
-            LogWithCooldown(
-                ref _lastCoverScanLogTime,
-                $"[SiCover] scan count={_coverPositions.Count} origin={FormatVector(searchOrigin)} current={FormatVector(context.Position)} radius={_definition.SearchRadius:0.0}");
             if (_coverPositions.Count == 0)
                 return false;
 
@@ -638,10 +617,7 @@ namespace Si.UtilityAI
         private void ReleaseCover(SiNpcSessionComponent session, SiUtilityContext context)
         {
             if (_hasReservedCover)
-            {
                 session.ReleaseCover(context.Agent.EntityId);
-                LogWithCooldown(ref _lastKeepCoverLogTime, $"[SiCover] released cover cover={FormatVector(_reservedCoverPosition)}");
-            }
             _hasReservedCover = false;
             _reservedCoverPosition = Vector3D.Zero;
             _reservedStandPosition = Vector3D.Zero;
@@ -650,7 +626,6 @@ namespace Si.UtilityAI
         private void SetRejectReason(string reason)
         {
             _lastCoverRejectReason = reason;
-            LogWithCooldown(ref _lastCoverRejectLogTime, $"[SiCover] reject {reason}");
         }
 
         private void TryInitLog()
@@ -678,17 +653,7 @@ namespace Si.UtilityAI
             if (!_logInitialized)
                 return;
 
-            _log.Warning(
-                $"[SiCover] entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} stance={SiNpcSessionComponent.Instance?.GetCombatStance(ResolveNpc())} {message}");
-        }
-
-        private SiNpc ResolveNpc()
-        {
-            var session = SiNpcSessionComponent.Instance;
-            SiNpc npc;
-            return session?.Npcs != null && session.Npcs.Npcs.TryGetValue(Entity?.EntityId ?? 0, out npc)
-                ? npc
-                : null;
+            _log.Warning($"[SiCover] entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} {message}");
         }
 
         private static long CurrentTimeMilliseconds()
