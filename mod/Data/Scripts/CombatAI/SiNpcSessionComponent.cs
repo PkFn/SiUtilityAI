@@ -762,6 +762,25 @@ namespace Si.UtilityAI
                 false);
         }
 
+        internal void ReportNpcFiredShot(long entityId)
+        {
+            if (!IsAuthoritative || entityId == 0 || Squads == null)
+                return;
+
+            SiAssignedNpc assignment;
+            if (!Squads.TryGetAssignment(entityId, out assignment))
+                return;
+
+            var state = GetOrCreateCombatState(assignment.Leader);
+            state.LastEnemySpottedTime = CurrentTimeMilliseconds();
+            SetCombatStance(
+                assignment.Leader,
+                assignment.LeaderName,
+                SiSquadCombatStance.Combat,
+                SiSquadCombatTransitionReason.OpeningFire,
+                false);
+        }
+
         internal void ReportNpcShotAt(long entityId)
         {
             if (!IsAuthoritative || entityId == 0 || Squads == null)
@@ -1464,6 +1483,8 @@ namespace Si.UtilityAI
                 case SiSquadCombatStance.Combat:
                     switch (reason)
                     {
+                        case SiSquadCombatTransitionReason.OpeningFire:
+                            return "Engaging, combat stance.";
                         case SiSquadCombatTransitionReason.TakingFire:
                             return "Taking fire, combat stance.";
                         case SiSquadCombatTransitionReason.EnemySpotted:
@@ -2166,6 +2187,7 @@ namespace Si.UtilityAI
     internal enum SiSquadCombatTransitionReason
     {
         PlayerOrder,
+        OpeningFire,
         EnemySpotted,
         TakingFire,
         AreaClear,

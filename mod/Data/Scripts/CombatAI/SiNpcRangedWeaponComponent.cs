@@ -404,6 +404,7 @@ namespace Si.UtilityAI
 
             var shotFeedback = ConsumeShot();
             _fireCooldown = shotFeedback.CooldownMilliseconds;
+            SiNpcSessionComponent.Instance?.ReportNpcFiredShot(context.EntityId);
             SiNpcSessionComponent.Instance?.Spotting?.ReportShot(context.EntityId, context.Entity);
             PlayShotFeedback(
                 context.EntityId,
