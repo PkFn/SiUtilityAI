@@ -121,7 +121,6 @@ namespace Si.UtilityAI
         private long _lastCoverRejectLogTime = long.MinValue;
         private long _lastKeepCoverLogTime = long.MinValue;
         private long _lastCoverSearchTime = -1;
-        private bool _leaderSwitchSearchArmed = true;
         private string _lastCoverRejectReason;
 
         public string BehaviorName => DefinitionId.ToString();
@@ -330,19 +329,15 @@ namespace Si.UtilityAI
 
         private bool ShouldSearchForCover(bool forceRefresh, bool hasUsableCurrentCover, bool wantsLeaderSwitch)
         {
-            if (!wantsLeaderSwitch)
-                _leaderSwitchSearchArmed = true;
-
             if (forceRefresh)
                 return MarkCoverSearchAttempt();
 
             if (!_hasReservedCover || !hasUsableCurrentCover)
                 return IsCoverSearchDue() && MarkCoverSearchAttempt();
 
-            if (!wantsLeaderSwitch || !_leaderSwitchSearchArmed || !IsCoverSearchDue())
+            if (!wantsLeaderSwitch || !IsCoverSearchDue())
                 return false;
 
-            _leaderSwitchSearchArmed = false;
             return MarkCoverSearchAttempt();
         }
 
@@ -646,7 +641,6 @@ namespace Si.UtilityAI
             _hasReservedCover = false;
             _reservedCoverPosition = Vector3D.Zero;
             _reservedStandPosition = Vector3D.Zero;
-            _leaderSwitchSearchArmed = true;
         }
 
         private void SetRejectReason(string reason)
