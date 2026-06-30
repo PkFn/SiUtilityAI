@@ -710,6 +710,14 @@ namespace Si.UtilityAI
             if (previous == stance)
                 return;
 
+            if (stance == SiSquadCombatStance.Combat)
+            {
+                var cleared = ClearSquadWaypoints(leader);
+                LogCombatState(
+                    leader,
+                    $"[SiCombat] cleared stale waypoints leader={FormatLeader(leader, state.LeaderName)} count={cleared}");
+            }
+
             if (speakAsPlayerOrder)
                 SpeakSquadBehaviorChange(leader, PlayerOrderCombatStanceReport(stance), true);
             else
@@ -1276,6 +1284,36 @@ namespace Si.UtilityAI
             var cleared = 0;
             foreach (var npc in Squads.GetLeaderNpcs(Npcs, leaderIdentityId))
             {
+                var mover = npc as ISiWaypointMover;
+                if (mover != null && !mover.HasWaypoint)
+                {
+                    cleared++;
+                    continue;
+                }
+
+                if (Npcs.TryClearWaypoint(npc.EntityId))
+                    cleared++;
+            }
+
+            return cleared;
+        }
+
+        private int ClearSquadWaypoints(SiSquadLeaderKey leader)
+        {
+            if (Npcs == null || Squads == null)
+                return 0;
+
+            var cleared = 0;
+            foreach (var npc in Npcs.Npcs.Values)
+            {
+                if (npc == null)
+                    continue;
+
+                SiAssignedNpc assignment;
+                if (!Squads.TryGetAssignment(npc.EntityId, out assignment)
+                    || !assignment.Leader.Equals(leader))
+                    continue;
+
                 var mover = npc as ISiWaypointMover;
                 if (mover != null && !mover.HasWaypoint)
                 {
