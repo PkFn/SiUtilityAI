@@ -40,7 +40,6 @@ namespace Si.UtilityAI
         private const long CoverSearchCacheLifetimeMilliseconds = 750;
         private const double CoverScanCachePositionQuantization = 6.0;
         private const double CoverSearchCachePositionQuantization = 8.0;
-        private const double CoverSearchCacheThreatPositionQuantization = 12.0;
         private const double CombatStanceNearbyEnemyDistance = 80;
         private static readonly Vector2 SpottingTextAnchor = new Vector2(-0.98f, -0.92f);
         private const string SpeakChannelName = "Speak";
@@ -362,8 +361,7 @@ namespace Si.UtilityAI
                 threatPosition,
                 threatEntityId,
                 behaviorDefinitionId,
-                CoverSearchCachePositionQuantization,
-                CoverSearchCacheThreatPositionQuantization);
+                CoverSearchCachePositionQuantization);
             SiCoverSearchCacheEntry cached;
             if (!_coverSearchCache.TryGetValue(key, out cached))
                 return false;
@@ -397,8 +395,7 @@ namespace Si.UtilityAI
                 threatPosition,
                 threatEntityId,
                 behaviorDefinitionId,
-                CoverSearchCachePositionQuantization,
-                CoverSearchCacheThreatPositionQuantization);
+                CoverSearchCachePositionQuantization);
             _coverSearchCache[key] = entry;
         }
 
@@ -2532,14 +2529,14 @@ namespace Si.UtilityAI
 
     internal struct SiCoverSearchCacheKey : IEquatable<SiCoverSearchCacheKey>
     {
+        private const double ThreatDirectionQuantization = 0.35;
         private readonly int _originX;
         private readonly int _originY;
         private readonly int _originZ;
         private readonly int _radius;
-        private readonly int _threatX;
-        private readonly int _threatY;
-        private readonly int _threatZ;
-        private readonly long _threatEntityId;
+        private readonly int _directionX;
+        private readonly int _directionY;
+        private readonly int _directionZ;
         private readonly MyDefinitionId _behaviorDefinitionId;
 
         public SiCoverSearchCacheKey(
@@ -2548,26 +2545,16 @@ namespace Si.UtilityAI
             in Vector3D threatPosition,
             long threatEntityId,
             MyDefinitionId behaviorDefinitionId,
-            double quantization,
-            double threatQuantization)
+            double quantization)
         {
             _originX = Quantize(searchOrigin.X, quantization);
             _originY = Quantize(searchOrigin.Y, quantization);
             _originZ = Quantize(searchOrigin.Z, quantization);
             _radius = Quantize(searchRadius, 0.25);
-            _threatEntityId = threatEntityId;
-            if (threatEntityId != 0)
-            {
-                _threatX = 0;
-                _threatY = 0;
-                _threatZ = 0;
-            }
-            else
-            {
-                _threatX = Quantize(threatPosition.X, threatQuantization);
-                _threatY = Quantize(threatPosition.Y, threatQuantization);
-                _threatZ = Quantize(threatPosition.Z, threatQuantization);
-            }
+            var direction = ResolveThreatDirection(searchOrigin, threatPosition, threatEntityId);
+            _directionX = Quantize(direction.X, ThreatDirectionQuantization);
+            _directionY = Quantize(direction.Y, ThreatDirectionQuantization);
+            _directionZ = Quantize(direction.Z, ThreatDirectionQuantization);
             _behaviorDefinitionId = behaviorDefinitionId;
         }
 
@@ -2577,10 +2564,9 @@ namespace Si.UtilityAI
                    && _originY == other._originY
                    && _originZ == other._originZ
                    && _radius == other._radius
-                   && _threatX == other._threatX
-                   && _threatY == other._threatY
-                   && _threatZ == other._threatZ
-                   && _threatEntityId == other._threatEntityId
+                   && _directionX == other._directionX
+                   && _directionY == other._directionY
+                   && _directionZ == other._directionZ
                    && _behaviorDefinitionId.Equals(other._behaviorDefinitionId);
         }
 
@@ -2598,13 +2584,27 @@ namespace Si.UtilityAI
                 hash = hash * 31 + _originY;
                 hash = hash * 31 + _originZ;
                 hash = hash * 31 + _radius;
-                hash = hash * 31 + _threatX;
-                hash = hash * 31 + _threatY;
-                hash = hash * 31 + _threatZ;
-                hash = hash * 31 + _threatEntityId.GetHashCode();
+                hash = hash * 31 + _directionX;
+                hash = hash * 31 + _directionY;
+                hash = hash * 31 + _directionZ;
                 hash = hash * 31 + _behaviorDefinitionId.GetHashCode();
                 return hash;
             }
+        }
+
+        private static Vector3D ResolveThreatDirection(
+            in Vector3D searchOrigin,
+            in Vector3D threatPosition,
+            long threatEntityId)
+        {
+            var delta = threatPosition - searchOrigin;
+            if (delta.LengthSquared() > 0.0001)
+                return Vector3D.Normalize(delta);
+
+            if (threatEntityId != 0)
+                return Vector3D.Forward;
+
+            return Vector3D.Zero;
         }
 
         private static int Quantize(double value, double step)
