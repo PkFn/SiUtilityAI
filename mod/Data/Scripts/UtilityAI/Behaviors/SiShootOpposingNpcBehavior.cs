@@ -211,6 +211,7 @@ namespace Si.UtilityAI
         private static readonly MyStringHash HostileRelationship = MyStringHash.GetOrCompute("War");
 
         private SiShootOpposingNpcBehaviorDefinition _definition;
+        private SiTakeCoverBehaviorComponent _takeCoverBehavior;
         private ShootTarget _target;
         private long _lastEngageSpeechTime = -1;
         private long _lastSpotSpeechTime = -1;
@@ -225,6 +226,12 @@ namespace Si.UtilityAI
             base.Init(definition);
             _definition = (SiShootOpposingNpcBehaviorDefinition)definition;
             _definition.ResolveBalance();
+        }
+
+        public override void OnAddedToContainer()
+        {
+            base.OnAddedToContainer();
+            _takeCoverBehavior = Entity?.Components?.Get<SiTakeCoverBehaviorComponent>();
         }
 
         float ISiUtilityBehavior.Evaluate(SiUtilityContext context)
@@ -273,6 +280,9 @@ namespace Si.UtilityAI
                 || !weapon.IsOperational
                 || session?.GetEngagementStance(context.Agent) == SiSquadEngagementStance.HoldFire
                 || !IsValidTarget(context.Agent, _target))
+                return;
+
+            if (_takeCoverBehavior?.IsRunningToCover(context) ?? false)
                 return;
 
             var targetEntity = _target.Entity;

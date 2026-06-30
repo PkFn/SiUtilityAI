@@ -183,6 +183,15 @@ namespace Si.UtilityAI
                 ReleaseCover(session, context);
         }
 
+        internal bool IsRunningToCover(SiUtilityContext context)
+        {
+            if (context?.Agent == null || !_hasReservedCover)
+                return false;
+
+            return Vector3D.DistanceSquared(context.Position, _reservedStandPosition)
+                   > _definition.CoverArrivalDistance * _definition.CoverArrivalDistance;
+        }
+
         private void MaintainCover(SiUtilityContext context, bool forceRefresh)
         {
             var session = SiNpcSessionComponent.Instance;
