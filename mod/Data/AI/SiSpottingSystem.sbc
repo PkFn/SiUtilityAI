@@ -10,8 +10,8 @@
     <StillnessChanceMultiplier>0.75</StillnessChanceMultiplier>
     <RecentShotMilliseconds>1800</RecentShotMilliseconds>
     <NotFiringChanceMultiplier>0.55</NotFiringChanceMultiplier>
-    <ShotAwarenessPerShot>0.28</ShotAwarenessPerShot>
-    <ShotAwarenessDecayPerSecond>0.22</ShotAwarenessDecayPerSecond>
+    <ShotAwarenessPerShot>1.00</ShotAwarenessPerShot>
+    <ShotAwarenessDecayPerSecond>0.01</ShotAwarenessDecayPerSecond>
     <ShotAwarenessMaxDistance>140</ShotAwarenessMaxDistance>
     <ShotAwarenessDistanceExponent>1.2</ShotAwarenessDistanceExponent>
     <NearbyBushScanRadius>50</NearbyBushScanRadius>
