@@ -84,7 +84,7 @@ namespace Si.UtilityAI
     {
         private const long LogCooldownMilliseconds = 2000;
         private const long CoverSearchRetryMilliseconds = 1500;
-        private const long InitialCoverSearchSpreadMilliseconds = 500;
+        private const long InitialCoverSearchSpreadMilliseconds = CoverSearchRetryMilliseconds;
         private const long SlowCoverSearchLogCooldownMilliseconds = 5000;
         private const double SlowCoverSearchMilliseconds = 5;
         private static readonly double[] SideOffsetSamples =
@@ -368,27 +368,91 @@ namespace Si.UtilityAI
             if (!session.TryGetLeaderPosition(context.Agent, out searchOrigin))
                 searchOrigin = context.Position;
 
+            var cacheState = "none";
             var scanStartedAt = DebugTimestampTicks();
-            _coverPositions.Clear();
-            SiNearbyCoverScanner.ScanStats scanStats;
-            _coverScanner.Scan(searchOrigin, _definition.SearchRadius, _coverPositions, out scanStats);
-            var scanElapsedMilliseconds = DebugElapsedMilliseconds(scanStartedAt);
-            if (_coverPositions.Count == 0)
+            SiCoverSearchCacheEntry cachedEvaluation = null;
+            if (hasThreat)
             {
-                LogSlowCoverSearch(
+                var threatEntityId = threatEntity?.EntityId ?? 0;
+                if (session.TryGetCachedCoverSearch(
+                        searchOrigin,
+                        _definition.SearchRadius,
+                        threatPosition,
+                        threatEntityId,
+                        DefinitionId,
+                        out cachedEvaluation))
+                    cacheState = "hit";
+            }
+
+            SiNearbyCoverScanner.ScanStats scanStats = default(SiNearbyCoverScanner.ScanStats);
+            var standingPointRejects = 0;
+            var viableCandidates = 0;
+            List<SiCoverSearchCandidate> evaluatedCandidates;
+            if (cachedEvaluation != null)
+            {
+                scanStats.TotalSectors = cachedEvaluation.ScannedSectors;
+                scanStats.IntersectingSectors = cachedEvaluation.IntersectingSectors;
+                scanStats.FoliageEntries = cachedEvaluation.FoliageEntries;
+                scanStats.AcceptedCandidates = cachedEvaluation.CandidateCount;
+                standingPointRejects = cachedEvaluation.StandingRejects;
+                viableCandidates = cachedEvaluation.ViableCount;
+                _coverPositions.Clear();
+                evaluatedCandidates = cachedEvaluation.Candidates;
+            }
+            else
+            {
+                _coverPositions.Clear();
+                _coverScanner.Scan(searchOrigin, _definition.SearchRadius, _coverPositions, out scanStats);
+                if (_coverPositions.Count == 0)
+                {
+                    LogSlowCoverSearch(
+                        context,
+                        searchOrigin,
+                        hasThreat,
+                        DebugElapsedMilliseconds(scanStartedAt),
+                        0,
+                        0,
+                        0,
+                        0,
+                        false,
+                        scanStats,
+                        cacheState);
+                    return false;
+                }
+
+                evaluatedCandidates = BuildEvaluatedCandidates(
                     context,
                     searchOrigin,
                     hasThreat,
-                    scanElapsedMilliseconds,
-                    0,
-                    0,
-                    0,
-                    0,
-                    false,
-                    scanStats);
-                return false;
+                    threatEntity,
+                    threatPosition,
+                    scanStats,
+                    out standingPointRejects,
+                    out viableCandidates);
+                if (hasThreat)
+                {
+                    cacheState = "miss";
+                    var cacheEntry = new SiCoverSearchCacheEntry
+                    {
+                        ScannedSectors = scanStats.TotalSectors,
+                        IntersectingSectors = scanStats.IntersectingSectors,
+                        FoliageEntries = scanStats.FoliageEntries,
+                        CandidateCount = scanStats.AcceptedCandidates,
+                        StandingRejects = standingPointRejects,
+                        ViableCount = viableCandidates,
+                    };
+                    cacheEntry.Candidates.AddRange(evaluatedCandidates);
+                    session.StoreCachedCoverSearch(
+                        searchOrigin,
+                        _definition.SearchRadius,
+                        threatPosition,
+                        threatEntity?.EntityId ?? 0,
+                        DefinitionId,
+                        cacheEntry);
+                }
             }
 
+            var scanElapsedMilliseconds = DebugElapsedMilliseconds(scanStartedAt);
             var evaluateStartedAt = DebugTimestampTicks();
             var bestTreeDistanceSquared = double.MaxValue;
             var bestBushDistanceSquared = double.MaxValue;
@@ -397,52 +461,31 @@ namespace Si.UtilityAI
             var bestTreeStand = Vector3D.Zero;
             var bestBushStand = Vector3D.Zero;
             var occupiedRejects = 0;
-            var standingPointRejects = 0;
-            var viableCandidates = 0;
 
-            for (var i = 0; i < _coverPositions.Count; i++)
+            for (var i = 0; i < evaluatedCandidates.Count; i++)
             {
-                var candidate = _coverPositions[i];
-                if (!session.IsCoverAvailable(context.Agent, candidate, _definition.CoverOccupancyRadius))
+                var candidate = evaluatedCandidates[i];
+                if (!session.IsCoverAvailable(context.Agent, candidate.CoverPosition, _definition.CoverOccupancyRadius))
                 {
                     occupiedRejects++;
-                    SetRejectReason($"occupied cover={FormatVector(candidate)}");
+                    SetRejectReason($"occupied cover={FormatVector(candidate.CoverPosition)}");
                     continue;
                 }
 
-                var effectiveThreat = hasThreat
-                    ? threatPosition
-                    : GuessThreatPosition(context, candidate);
-                if (!EvaluateCoverStandingPoint(
-                        context,
-                        candidate,
-                        threatEntity,
-                        effectiveThreat,
-                        out var candidateStand,
-                        out var isTree,
-                        out var ignoredCoverScore))
+                if (candidate.IsTree)
                 {
-                    standingPointRejects++;
-                    SetRejectReason($"ray reject cover={FormatVector(candidate)}");
-                    continue;
-                }
-
-                viableCandidates++;
-                var candidateDistanceSquared = Vector3D.DistanceSquared(searchOrigin, candidate);
-                if (isTree)
-                {
-                    if (candidateDistanceSquared < bestTreeDistanceSquared)
+                    if (candidate.DistanceSquared < bestTreeDistanceSquared)
                     {
-                        bestTreeDistanceSquared = candidateDistanceSquared;
-                        bestTreeCover = candidate;
-                        bestTreeStand = candidateStand;
+                        bestTreeDistanceSquared = candidate.DistanceSquared;
+                        bestTreeCover = candidate.CoverPosition;
+                        bestTreeStand = candidate.StandPosition;
                     }
                 }
-                else if (candidateDistanceSquared < bestBushDistanceSquared)
+                else if (candidate.DistanceSquared < bestBushDistanceSquared)
                 {
-                    bestBushDistanceSquared = candidateDistanceSquared;
-                    bestBushCover = candidate;
-                    bestBushStand = candidateStand;
+                    bestBushDistanceSquared = candidate.DistanceSquared;
+                    bestBushCover = candidate.CoverPosition;
+                    bestBushStand = candidate.StandPosition;
                 }
             }
 
@@ -461,7 +504,8 @@ namespace Si.UtilityAI
                     standingPointRejects,
                     viableCandidates,
                     true,
-                    scanStats);
+                    scanStats,
+                    cacheState);
                 return true;
             }
 
@@ -479,7 +523,8 @@ namespace Si.UtilityAI
                     standingPointRejects,
                     viableCandidates,
                     true,
-                    scanStats);
+                    scanStats,
+                    cacheState);
                 return true;
             }
 
@@ -493,8 +538,54 @@ namespace Si.UtilityAI
                 standingPointRejects,
                 viableCandidates,
                 false,
-                scanStats);
+                scanStats,
+                cacheState);
             return false;
+        }
+
+        private List<SiCoverSearchCandidate> BuildEvaluatedCandidates(
+            SiUtilityContext context,
+            in Vector3D searchOrigin,
+            bool hasThreat,
+            MyEntity threatEntity,
+            in Vector3D threatPosition,
+            SiNearbyCoverScanner.ScanStats scanStats,
+            out int standingPointRejects,
+            out int viableCandidates)
+        {
+            var results = new List<SiCoverSearchCandidate>(scanStats.AcceptedCandidates);
+            standingPointRejects = 0;
+            viableCandidates = 0;
+
+            for (var i = 0; i < _coverPositions.Count; i++)
+            {
+                var candidate = _coverPositions[i];
+                var effectiveThreat = hasThreat
+                    ? threatPosition
+                    : GuessThreatPosition(context, candidate);
+                if (!EvaluateCoverStandingPoint(
+                        context,
+                        candidate,
+                        threatEntity,
+                        effectiveThreat,
+                        out var candidateStand,
+                        out var isTree,
+                        out var ignoredCoverScore))
+                {
+                    standingPointRejects++;
+                    SetRejectReason($"ray reject cover={FormatVector(candidate)}");
+                    continue;
+                }
+
+                viableCandidates++;
+                results.Add(new SiCoverSearchCandidate(
+                    candidate,
+                    candidateStand,
+                    isTree,
+                    Vector3D.DistanceSquared(searchOrigin, candidate)));
+            }
+
+            return results;
         }
 
         private bool EvaluateCoverStandingPoint(
@@ -732,7 +823,8 @@ namespace Si.UtilityAI
             int standingPointRejects,
             int viableCandidates,
             bool foundCover,
-            SiNearbyCoverScanner.ScanStats scanStats)
+            SiNearbyCoverScanner.ScanStats scanStats,
+            string cacheState)
         {
             var totalElapsedMilliseconds = scanElapsedMilliseconds + evaluateElapsedMilliseconds;
             var now = CurrentTimeMilliseconds();
@@ -748,7 +840,7 @@ namespace Si.UtilityAI
             if (!_logInitialized)
                 return;
 
-            _log.Warning($"[SiCover] entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} definition={DefinitionId.SubtypeName} debug slow-cover-search outcome={(foundCover ? "found" : "none")} totalMs={totalElapsedMilliseconds:0.00} scanMs={scanElapsedMilliseconds:0.00} evalMs={evaluateElapsedMilliseconds:0.00} hasThreat={hasThreat} searchOrigin={FormatVector(searchOrigin)} reserved={_hasReservedCover} scannedSectors={scanStats.TotalSectors} intersectingSectors={scanStats.IntersectingSectors} foliageEntries={scanStats.FoliageEntries} candidates={scanStats.AcceptedCandidates} viable={viableCandidates} occupiedRejects={occupiedRejects} standingRejects={standingPointRejects} lastReject={_lastCoverRejectReason ?? "none"} waypoint={FormatVector(context?.Waypoint ?? Vector3D.Zero)}"); // AGENT-DEBUG-LOG
+            _log.Warning($"[SiCover] entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} definition={DefinitionId.SubtypeName} debug slow-cover-search outcome={(foundCover ? "found" : "none")} cache={cacheState} totalMs={totalElapsedMilliseconds:0.00} scanMs={scanElapsedMilliseconds:0.00} evalMs={evaluateElapsedMilliseconds:0.00} hasThreat={hasThreat} searchOrigin={FormatVector(searchOrigin)} reserved={_hasReservedCover} scannedSectors={scanStats.TotalSectors} intersectingSectors={scanStats.IntersectingSectors} foliageEntries={scanStats.FoliageEntries} candidates={scanStats.AcceptedCandidates} viable={viableCandidates} occupiedRejects={occupiedRejects} standingRejects={standingPointRejects} lastReject={_lastCoverRejectReason ?? "none"} waypoint={FormatVector(context?.Waypoint ?? Vector3D.Zero)}"); // AGENT-DEBUG-LOG
         }
 
         private static long DebugTimestampTicks()
