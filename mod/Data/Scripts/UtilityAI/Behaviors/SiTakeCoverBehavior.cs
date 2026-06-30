@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Xml.Serialization;
 using Equinox76561198048419394.Core.Util;
+using Medieval.WorldEnvironment.Modules;
 using Sandbox.ModAPI;
 using VRage.Components;
 using VRage.Game;
@@ -514,33 +515,46 @@ namespace Si.UtilityAI
             var muzzleOrigin = standPosition
                                + up * GetMuzzleUpOffset()
                                + toThreat * GetCoverTestMuzzleForwardOffset();
+            var bodyThreatDistance = Vector3D.Distance(bodyOrigin, aimPoint);
+            var bodyFoliageBlockage = FoliageBlockage(bodyOrigin, aimPoint);
 
             double bodyHitDistance;
-            if (!TryGetBlockingHitDistance(bodyOrigin, aimPoint, context.Entity, threatEntity, out bodyHitDistance))
+            var hasSolidBodyBlocker = TryGetBlockingHitDistance(
+                bodyOrigin,
+                aimPoint,
+                context.Entity,
+                threatEntity,
+                out bodyHitDistance);
+            if (!hasSolidBodyBlocker && bodyFoliageBlockage < _definition.BodyCoverMinimumBlockage)
             {
-                SetRejectReason($"body open stand={FormatVector(standPosition)}");
+                SetRejectReason(
+                    $"body open stand={FormatVector(standPosition)} foliage={bodyFoliageBlockage:0.00}");
                 return false;
             }
 
+            var muzzleFoliageBlockage = FoliageBlockage(muzzleOrigin, aimPoint);
             double muzzleHitDistance;
+            var normalizedMuzzleBlockage = muzzleFoliageBlockage;
             if (TryGetBlockingHitDistance(muzzleOrigin, aimPoint, context.Entity, threatEntity, out muzzleHitDistance))
             {
                 var muzzleThreatDistance = Vector3D.Distance(muzzleOrigin, aimPoint);
-                var normalizedMuzzleBlockage = muzzleThreatDistance > 0.001
+                var solidMuzzleBlockage = muzzleThreatDistance > 0.001
                     ? MathHelper.Clamp((float)(muzzleHitDistance / muzzleThreatDistance), 0, 1)
                     : 1f;
-                if (normalizedMuzzleBlockage > _definition.MuzzleMaximumBlockage)
-                {
-                    SetRejectReason(
-                        $"muzzle blocked stand={FormatVector(standPosition)} hit={normalizedMuzzleBlockage:0.00} allowed={_definition.MuzzleMaximumBlockage:0.00}");
-                    return false;
-                }
+                normalizedMuzzleBlockage = Math.Max(normalizedMuzzleBlockage, solidMuzzleBlockage);
             }
 
-            var threatDistance = Vector3D.Distance(bodyOrigin, aimPoint);
-            var normalizedCover = threatDistance > 0.001
-                ? MathHelper.Clamp((float)(1d - bodyHitDistance / threatDistance), 0, 1)
+            if (normalizedMuzzleBlockage > _definition.MuzzleMaximumBlockage)
+            {
+                SetRejectReason(
+                    $"muzzle blocked stand={FormatVector(standPosition)} hit={normalizedMuzzleBlockage:0.00} allowed={_definition.MuzzleMaximumBlockage:0.00}");
+                return false;
+            }
+
+            var solidBodyCover = hasSolidBodyBlocker && bodyThreatDistance > 0.001
+                ? MathHelper.Clamp((float)(1d - bodyHitDistance / bodyThreatDistance), 0, 1)
                 : 0f;
+            var normalizedCover = Math.Max(solidBodyCover, bodyFoliageBlockage);
             if (normalizedCover < _definition.BodyCoverMinimumBlockage)
             {
                 SetRejectReason($"cover too shallow stand={FormatVector(standPosition)} blockage={normalizedCover:0.00}");
@@ -592,6 +606,14 @@ namespace Si.UtilityAI
 
             distance = Vector3D.Distance(start, hit.Position);
             return true;
+        }
+
+        private static float FoliageBlockage(in Vector3D start, in Vector3D end)
+        {
+            return MathHelper.Clamp(
+                MyFoliageRaycastEnvironmentModule.Intersect((Vector3)start, (Vector3)end),
+                0,
+                1);
         }
 
         private float GetAimTargetHeight() =>

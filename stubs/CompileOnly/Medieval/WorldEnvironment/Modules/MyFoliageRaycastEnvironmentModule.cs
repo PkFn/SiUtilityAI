@@ -6,6 +6,7 @@ namespace Medieval.WorldEnvironment.Modules
     public static class MyFoliageRaycastEnvironmentModule
     {
         public static List<FoliageSector> FoliageSectors;
+        public static float Intersect(Vector3 lineStart, Vector3 lineEnd) => 0;
 
         public class FoliageSector
         {
