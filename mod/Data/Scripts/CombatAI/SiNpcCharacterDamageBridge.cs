@@ -74,6 +74,7 @@ namespace Si.UtilityAI
         private void OnDamageTaken(MyDamageInformation damageInformation)
         {
             Log($"OnDamageTaken amount={damageInformation.Amount:0.###} type={damageInformation.Type.String} authoritative={IsAuthoritative()}.");
+            ApplyAlreadyDeadGuardrails("OnDamageTaken");
             if (!IsAuthoritative())
             {
                 SiNpcSessionComponent.ReportNpcDamageBridgeHit(Entity?.EntityId ?? 0, damageInformation);
@@ -92,6 +93,7 @@ namespace Si.UtilityAI
                 return;
 
             Log($"ApplyReplicatedDamage amount={damageInformation.Amount:0.###} type={damageInformation.Type.String}.");
+            ApplyAlreadyDeadGuardrails("ApplyReplicatedDamage");
             if (!QueueDamageApplication(damageInformation))
                 return;
 
@@ -146,6 +148,11 @@ namespace Si.UtilityAI
             MyEntityStat health;
             if (!TryResolveHealthStat(out health) || health.Current <= 0)
             {
+                if (health != null && health.Current <= DeathThreshold)
+                {
+                    LogDeathState($"QueueDamageApplication observed dead-or-dying health during abort. currentHealth={health.Current:0.###}");
+                    ApplyDeathGuardrails();
+                }
                 Log($"QueueDamageApplication aborted; healthResolved={health != null} currentHealth={(health != null ? health.Current.ToString("0.###") : "null")}.");
                 return false;
             }
@@ -166,6 +173,16 @@ namespace Si.UtilityAI
 
             var stats = Entity?.Components.Get<MyEntityStatComponent>();
             return stats != null && stats.TryGetStat(HealthStat, out health) && health != null;
+        }
+
+        private void ApplyAlreadyDeadGuardrails(string source)
+        {
+            MyEntityStat health;
+            if (!TryResolveHealthStat(out health) || health == null || health.Current > DeathThreshold)
+                return;
+
+            LogDeathState($"{source} observed health already at or below death threshold. currentHealth={health.Current:0.###}");
+            ApplyDeathGuardrails();
         }
 
         private void ApplyDeathGuardrails()
