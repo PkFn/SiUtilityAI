@@ -36,8 +36,11 @@ namespace Si.UtilityAI
         private const string SquadCommand = "/si-squad";
         private const double SpawnDistance = 2.5;
         private const long CombatStanceCooldownMilliseconds = 60000;
+        private const long CoverScanCacheLifetimeMilliseconds = 1000;
         private const long CoverSearchCacheLifetimeMilliseconds = 750;
-        private const double CoverSearchCachePositionQuantization = 2.0;
+        private const double CoverScanCachePositionQuantization = 6.0;
+        private const double CoverSearchCachePositionQuantization = 8.0;
+        private const double CoverSearchCacheThreatPositionQuantization = 12.0;
         private const double CombatStanceNearbyEnemyDistance = 80;
         private static readonly Vector2 SpottingTextAnchor = new Vector2(-0.98f, -0.92f);
         private const string SpeakChannelName = "Speak";
@@ -56,8 +59,12 @@ namespace Si.UtilityAI
             new Dictionary<long, SiMotionState>();
         private readonly Dictionary<long, SiCoverReservation> _coverReservations =
             new Dictionary<long, SiCoverReservation>();
+        private readonly Dictionary<SiCoverScanCacheKey, SiCoverScanCacheEntry> _coverScanCache =
+            new Dictionary<SiCoverScanCacheKey, SiCoverScanCacheEntry>();
         private readonly Dictionary<SiCoverSearchCacheKey, SiCoverSearchCacheEntry> _coverSearchCache =
             new Dictionary<SiCoverSearchCacheKey, SiCoverSearchCacheEntry>();
+        private readonly List<SiCoverScanCacheKey> _expiredCoverScanCacheKeys =
+            new List<SiCoverScanCacheKey>();
         private readonly List<SiCoverSearchCacheKey> _expiredCoverSearchCacheKeys =
             new List<SiCoverSearchCacheKey>();
         private readonly List<long> _staleCoverReservationIds = new List<long>();
@@ -133,7 +140,9 @@ namespace Si.UtilityAI
             _leaderMotionStates.Clear();
             _npcMotionStates.Clear();
             _coverReservations.Clear();
+            _coverScanCache.Clear();
             _coverSearchCache.Clear();
+            _expiredCoverScanCacheKeys.Clear();
             _expiredCoverSearchCacheKeys.Clear();
             _staleCoverReservationIds.Clear();
             Spotting?.Clear();
@@ -155,6 +164,7 @@ namespace Si.UtilityAI
                 UpdateTrackedMotionStates();
                 UpdateSquadOrders();
                 UpdateCombatStances();
+                CleanupExpiredCoverScanCache();
                 CleanupExpiredCoverSearchCache();
                 CleanupCoverReservations();
             }
@@ -352,7 +362,8 @@ namespace Si.UtilityAI
                 threatPosition,
                 threatEntityId,
                 behaviorDefinitionId,
-                CoverSearchCachePositionQuantization);
+                CoverSearchCachePositionQuantization,
+                CoverSearchCacheThreatPositionQuantization);
             SiCoverSearchCacheEntry cached;
             if (!_coverSearchCache.TryGetValue(key, out cached))
                 return false;
@@ -386,8 +397,54 @@ namespace Si.UtilityAI
                 threatPosition,
                 threatEntityId,
                 behaviorDefinitionId,
-                CoverSearchCachePositionQuantization);
+                CoverSearchCachePositionQuantization,
+                CoverSearchCacheThreatPositionQuantization);
             _coverSearchCache[key] = entry;
+        }
+
+        internal bool TryGetCachedCoverScan(
+            in Vector3D searchOrigin,
+            double searchRadius,
+            MyDefinitionId behaviorDefinitionId,
+            out SiCoverScanCacheEntry entry)
+        {
+            entry = null;
+            var key = new SiCoverScanCacheKey(
+                searchOrigin,
+                searchRadius,
+                behaviorDefinitionId,
+                CoverScanCachePositionQuantization);
+            SiCoverScanCacheEntry cached;
+            if (!_coverScanCache.TryGetValue(key, out cached))
+                return false;
+
+            var now = CurrentTimeMilliseconds();
+            if (cached == null || cached.ExpiresAtMilliseconds < now)
+            {
+                _coverScanCache.Remove(key);
+                return false;
+            }
+
+            entry = cached;
+            return true;
+        }
+
+        internal void StoreCachedCoverScan(
+            in Vector3D searchOrigin,
+            double searchRadius,
+            MyDefinitionId behaviorDefinitionId,
+            SiCoverScanCacheEntry entry)
+        {
+            if (entry == null)
+                return;
+
+            entry.ExpiresAtMilliseconds = CurrentTimeMilliseconds() + CoverScanCacheLifetimeMilliseconds;
+            var key = new SiCoverScanCacheKey(
+                searchOrigin,
+                searchRadius,
+                behaviorDefinitionId,
+                CoverScanCachePositionQuantization);
+            _coverScanCache[key] = entry;
         }
 
         public void Draw()
@@ -1273,6 +1330,22 @@ namespace Si.UtilityAI
             for (var i = 0; i < _expiredCoverSearchCacheKeys.Count; i++)
                 _coverSearchCache.Remove(_expiredCoverSearchCacheKeys[i]);
             _expiredCoverSearchCacheKeys.Clear();
+        }
+
+        private void CleanupExpiredCoverScanCache()
+        {
+            if (_coverScanCache.Count == 0)
+                return;
+
+            var now = CurrentTimeMilliseconds();
+            _expiredCoverScanCacheKeys.Clear();
+            foreach (var entry in _coverScanCache)
+                if (entry.Value == null || entry.Value.ExpiresAtMilliseconds < now)
+                    _expiredCoverScanCacheKeys.Add(entry.Key);
+
+            for (var i = 0; i < _expiredCoverScanCacheKeys.Count; i++)
+                _coverScanCache.Remove(_expiredCoverScanCacheKeys[i]);
+            _expiredCoverScanCacheKeys.Clear();
         }
 
         private int ApplyFollowOrder(
@@ -2427,6 +2500,16 @@ namespace Si.UtilityAI
         public int ViableCount;
     }
 
+    internal sealed class SiCoverScanCacheEntry
+    {
+        public long ExpiresAtMilliseconds;
+        public readonly List<Vector3D> CoverPositions = new List<Vector3D>();
+        public int ScannedSectors;
+        public int IntersectingSectors;
+        public int FoliageEntries;
+        public int CandidateCount;
+    }
+
     internal struct SiCoverSearchCandidate
     {
         public SiCoverSearchCandidate(
@@ -2465,16 +2548,26 @@ namespace Si.UtilityAI
             in Vector3D threatPosition,
             long threatEntityId,
             MyDefinitionId behaviorDefinitionId,
-            double quantization)
+            double quantization,
+            double threatQuantization)
         {
             _originX = Quantize(searchOrigin.X, quantization);
             _originY = Quantize(searchOrigin.Y, quantization);
             _originZ = Quantize(searchOrigin.Z, quantization);
             _radius = Quantize(searchRadius, 0.25);
-            _threatX = Quantize(threatPosition.X, quantization);
-            _threatY = Quantize(threatPosition.Y, quantization);
-            _threatZ = Quantize(threatPosition.Z, quantization);
             _threatEntityId = threatEntityId;
+            if (threatEntityId != 0)
+            {
+                _threatX = 0;
+                _threatY = 0;
+                _threatZ = 0;
+            }
+            else
+            {
+                _threatX = Quantize(threatPosition.X, threatQuantization);
+                _threatY = Quantize(threatPosition.Y, threatQuantization);
+                _threatZ = Quantize(threatPosition.Z, threatQuantization);
+            }
             _behaviorDefinitionId = behaviorDefinitionId;
         }
 
@@ -2509,6 +2602,64 @@ namespace Si.UtilityAI
                 hash = hash * 31 + _threatY;
                 hash = hash * 31 + _threatZ;
                 hash = hash * 31 + _threatEntityId.GetHashCode();
+                hash = hash * 31 + _behaviorDefinitionId.GetHashCode();
+                return hash;
+            }
+        }
+
+        private static int Quantize(double value, double step)
+        {
+            if (step <= 0)
+                return 0;
+
+            return (int)Math.Round(value / step);
+        }
+    }
+
+    internal struct SiCoverScanCacheKey : IEquatable<SiCoverScanCacheKey>
+    {
+        private readonly int _originX;
+        private readonly int _originY;
+        private readonly int _originZ;
+        private readonly int _radius;
+        private readonly MyDefinitionId _behaviorDefinitionId;
+
+        public SiCoverScanCacheKey(
+            in Vector3D searchOrigin,
+            double searchRadius,
+            MyDefinitionId behaviorDefinitionId,
+            double quantization)
+        {
+            _originX = Quantize(searchOrigin.X, quantization);
+            _originY = Quantize(searchOrigin.Y, quantization);
+            _originZ = Quantize(searchOrigin.Z, quantization);
+            _radius = Quantize(searchRadius, 0.25);
+            _behaviorDefinitionId = behaviorDefinitionId;
+        }
+
+        public bool Equals(SiCoverScanCacheKey other)
+        {
+            return _originX == other._originX
+                   && _originY == other._originY
+                   && _originZ == other._originZ
+                   && _radius == other._radius
+                   && _behaviorDefinitionId.Equals(other._behaviorDefinitionId);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is SiCoverScanCacheKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = 17;
+                hash = hash * 31 + _originX;
+                hash = hash * 31 + _originY;
+                hash = hash * 31 + _originZ;
+                hash = hash * 31 + _radius;
                 hash = hash * 31 + _behaviorDefinitionId.GetHashCode();
                 return hash;
             }
