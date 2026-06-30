@@ -1,6 +1,7 @@
 using System.Xml.Serialization;
 using Equinox76561198048419394.Core.Util;
-using Sandbox.Game.EntityComponents.Character;
+using Medieval.Constants;
+using Sandbox.Entities.Components;
 using Sandbox.ModAPI;
 using VRage.Components;
 using VRage.Definitions.Inventory;
@@ -46,9 +47,11 @@ namespace Si.UtilityAI
     [MyDefinitionRequired(typeof(SiNpcHeldWeaponVisualComponentDefinition))]
     public class SiNpcHeldWeaponVisualComponent : MyEntityComponent
     {
-        private static readonly MyStringHash InternalInventory = MyStringHash.GetOrCompute("Internal");
+        private const int RetryDelayFrames = 16;
+        private const int MaxAttempts = 20;
 
         private SiNpcHeldWeaponVisualComponentDefinition _definition;
+        private int _attempts;
 
         public override bool IsSerialized => false;
 
@@ -65,7 +68,8 @@ namespace Si.UtilityAI
             if (MyAPIGateway.Multiplayer != null && !MyAPIGateway.Multiplayer.IsServer)
                 return;
 
-            AddScheduledCallback(EnsureHeldWeaponVisual, 20);
+            _attempts = 0;
+            AddScheduledCallback(EnsureHeldWeaponVisual, RetryDelayFrames);
         }
 
         [Update(false)]
@@ -74,10 +78,13 @@ namespace Si.UtilityAI
             if (Entity == null || Entity.Closed || Entity.MarkedForClose || !_definition.HeldItem.HasValue)
                 return;
 
-            var handItems = Entity.Components.Get<MyCharacterHandItemsComponent>();
-            var inventory = Entity.Components.Get<MyInventoryBase>(InternalInventory);
-            if (handItems == null || inventory == null)
+            var equipment = Entity.Components.Get<MyEntityEquipmentComponent>();
+            var inventory = Entity.Components.Get<MyInventoryBase>(MyCharacterConstants.MainInventory);
+            if (equipment == null || inventory == null)
+            {
+                Retry();
                 return;
+            }
 
             var heldItemId = (MyDefinitionId)_definition.HeldItem.Value;
             if (!MyDefinitionManager.TryGet(heldItemId, out MyInventoryItemDefinition itemDefinition) || itemDefinition == null)
@@ -88,22 +95,38 @@ namespace Si.UtilityAI
             }
 
             var item = inventory.FindItem(heldItemId);
-            if (item == null && !inventory.AddItems(heldItemId, 1))
+            if (item == null && !inventory.AddItems(heldItemId, 1, MyInventoryBase.NewItemParams.ForcedInsertion))
                 return;
 
             item = inventory.FindItem(heldItemId);
             if (item == null)
+            {
+                Retry();
+                return;
+            }
+
+            if (equipment.IsEquipped(heldItemId))
                 return;
 
-            var activeMainHand = handItems.MainHand;
-            if (activeMainHand != null && activeMainHand.DefinitionId == heldItemId)
+            var equipmentItem = item as Sandbox.Game.Inventory.MyEquipmentItem;
+            if (equipmentItem == null)
+            {
+                Retry();
                 return;
+            }
 
-            var activateHandler = handItems as IMyItemActivateHandler;
-            if (activateHandler == null || !activateHandler.CanHandle(item))
-                return;
+            if (!equipment.EquipItem(equipmentItem, -1))
+            {
+                var activateHandler = equipment as IMyItemActivateHandler;
+                if (activateHandler == null || !activateHandler.CanHandle(item) || !activateHandler.Activate(Entity, inventory, item, true))
+                    Retry();
+            }
+        }
 
-            activateHandler.Activate(Entity, inventory, item, true);
+        private void Retry()
+        {
+            if (++_attempts < MaxAttempts)
+                AddScheduledCallback(EnsureHeldWeaponVisual, RetryDelayFrames);
         }
     }
 }
