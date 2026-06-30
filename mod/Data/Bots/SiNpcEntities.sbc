@@ -142,41 +142,97 @@
   <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Rifle_Uniform" />
     <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_US_Olive" />
+    <DefaultHelmet>PAX_Helmet_M1_Green</DefaultHelmet>
+    <Helmets>
+      <Helmet>PAX_Helmet_M1_Green</Helmet>
+    </Helmets>
+    <UniformMatch>
+      <Uniform>Uniform_US_Olive_upper_cm</Uniform>
+    </UniformMatch>
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_German_Rifle_Uniform" />
     <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_German_Feldgrau" />
+    <DefaultHelmet>PAX_Helmet_Stahlhelm_Feldgrau</DefaultHelmet>
+    <Helmets>
+      <Helmet>PAX_Helmet_Stahlhelm_Feldgrau</Helmet>
+    </Helmets>
+    <UniformMatch>
+      <Uniform>Uniform_German_Feldgrau_upper_cm</Uniform>
+    </UniformMatch>
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Rifle_Uniform" />
     <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_Soviet_Khaki" />
+    <DefaultHelmet>PAX_Helmet_Soviet_Green</DefaultHelmet>
+    <Helmets>
+      <Helmet>PAX_Helmet_Soviet_Green</Helmet>
+    </Helmets>
+    <UniformMatch>
+      <Uniform>Uniform_Soviet_Khaki_upper_cm</Uniform>
+    </UniformMatch>
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiEnemyTrooper_German_Rifle_Uniform" />
     <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_German_Feldgrau" />
+    <DefaultHelmet>PAX_Helmet_Stahlhelm_Feldgrau</DefaultHelmet>
+    <Helmets>
+      <Helmet>PAX_Helmet_Stahlhelm_Feldgrau</Helmet>
+    </Helmets>
+    <UniformMatch>
+      <Uniform>Uniform_German_Feldgrau_upper_cm</Uniform>
+    </UniformMatch>
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Smg_Uniform" />
     <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_US_Olive" />
+    <DefaultHelmet>PAX_Helmet_M1_Green</DefaultHelmet>
+    <Helmets>
+      <Helmet>PAX_Helmet_M1_Green</Helmet>
+    </Helmets>
+    <UniformMatch>
+      <Uniform>Uniform_US_Olive_upper_cm</Uniform>
+    </UniformMatch>
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_German_Smg_Uniform" />
     <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_German_Feldgrau" />
+    <DefaultHelmet>PAX_Helmet_Stahlhelm_Feldgrau</DefaultHelmet>
+    <Helmets>
+      <Helmet>PAX_Helmet_Stahlhelm_Feldgrau</Helmet>
+    </Helmets>
+    <UniformMatch>
+      <Uniform>Uniform_German_Feldgrau_upper_cm</Uniform>
+    </UniformMatch>
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Smg_Uniform" />
     <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_Soviet_Khaki" />
+    <DefaultHelmet>PAX_Helmet_Soviet_Green</DefaultHelmet>
+    <Helmets>
+      <Helmet>PAX_Helmet_Soviet_Green</Helmet>
+    </Helmets>
+    <UniformMatch>
+      <Uniform>Uniform_Soviet_Khaki_upper_cm</Uniform>
+    </UniformMatch>
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiEnemyTrooper_German_Smg_Uniform" />
     <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_German_Feldgrau" />
+    <DefaultHelmet>PAX_Helmet_Stahlhelm_Feldgrau</DefaultHelmet>
+    <Helmets>
+      <Helmet>PAX_Helmet_Stahlhelm_Feldgrau</Helmet>
+    </Helmets>
+    <UniformMatch>
+      <Uniform>Uniform_German_Feldgrau_upper_cm</Uniform>
+    </UniformMatch>
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcArchetypeComponentDefinition">
