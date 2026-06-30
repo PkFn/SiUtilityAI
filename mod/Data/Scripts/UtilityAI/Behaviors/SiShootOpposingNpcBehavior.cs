@@ -535,6 +535,43 @@ namespace Si.UtilityAI
             return true;
         }
 
+        internal bool TryGetCurrentThreat(
+            SiUtilityContext context,
+            out MyEntity targetEntity,
+            out double distance)
+        {
+            targetEntity = null;
+            distance = 0;
+            if (context?.Agent == null)
+                return false;
+
+            if (IsValidTarget(context.Agent, _target))
+            {
+                targetEntity = _target.Entity;
+                distance = Vector3D.Distance(
+                    context.Position,
+                    targetEntity.WorldMatrix.Translation);
+                return true;
+            }
+
+            var target = FindBestTarget(context, out distance);
+            if (target?.Entity == null)
+                return false;
+
+            _target = target;
+            targetEntity = target.Entity;
+            return true;
+        }
+
+        internal float GetWeaponAimHeightForCover() =>
+            GetWeaponAimHeight();
+
+        internal float GetWeaponMuzzleForwardOffsetForCover() =>
+            GetWeapon()?.Definition?.MuzzleForwardOffset ?? 0;
+
+        internal float GetWeaponMuzzleUpOffsetForCover() =>
+            GetWeapon()?.Definition?.MuzzleUpOffset ?? GetWeaponAimHeight();
+
         private bool IsOpposing(SiNpc self, SiNpc candidate, SiSquadBook squads, SiSquadEngagementStance stance)
         {
             if (stance == SiSquadEngagementStance.HoldFire)

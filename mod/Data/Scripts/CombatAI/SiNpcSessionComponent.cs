@@ -51,6 +51,9 @@ namespace Si.UtilityAI
             new Dictionary<long, SiMotionState>();
         private readonly Dictionary<long, SiMotionState> _npcMotionStates =
             new Dictionary<long, SiMotionState>();
+        private readonly Dictionary<long, SiCoverReservation> _coverReservations =
+            new Dictionary<long, SiCoverReservation>();
+        private readonly List<long> _staleCoverReservationIds = new List<long>();
         private List<MyObjectBuilder_SiNpcSessionComponent.SavedNpc> _savedNpcs;
         private List<MyObjectBuilder_SiNpcSessionComponent.SquadOrder> _savedSquadOrders;
 
@@ -118,6 +121,8 @@ namespace Si.UtilityAI
             _squadCombatStates.Clear();
             _leaderMotionStates.Clear();
             _npcMotionStates.Clear();
+            _coverReservations.Clear();
+            _staleCoverReservationIds.Clear();
             Spotting?.Clear();
             Spotting = null;
             _savedNpcs = null;
@@ -137,6 +142,7 @@ namespace Si.UtilityAI
                 UpdateTrackedMotionStates();
                 UpdateSquadOrders();
                 UpdateCombatStances();
+                CleanupCoverReservations();
             }
             Npcs?.Update(elapsedMilliseconds);
             if (IsAuthoritative)
@@ -224,6 +230,98 @@ namespace Si.UtilityAI
 
         private SiSquadCombatStance GetCombatStance(SiSquadLeaderKey leader) =>
             GetOrCreateCombatState(leader).Stance;
+
+        internal bool IsFollowingPlayer(SiNpc npc)
+        {
+            if (npc == null || Squads == null)
+                return false;
+
+            SiAssignedNpc assignment;
+            if (!Squads.TryGetAssignment(npc.EntityId, out assignment)
+                || assignment.Leader.Kind != SiSquadLeaderKind.Player)
+                return false;
+
+            SiSquadCommandState state;
+            return _squadOrders.TryGetValue(assignment.Leader.Id, out state)
+                   && state.Mode == SiSquadOrderMode.Follow;
+        }
+
+        internal bool TryGetLeaderPosition(SiNpc npc, out Vector3D position)
+        {
+            position = Vector3D.Zero;
+            if (npc == null || Squads == null)
+                return false;
+
+            SiAssignedNpc assignment;
+            if (!Squads.TryGetAssignment(npc.EntityId, out assignment))
+                return false;
+
+            if (assignment.Leader.Kind == SiSquadLeaderKind.Player)
+            {
+                MatrixD leaderTransform;
+                if (!TryGetLeaderTransform(assignment.Leader.Id, out leaderTransform))
+                    return false;
+
+                position = leaderTransform.Translation;
+                return true;
+            }
+
+            SiNpc leaderNpc;
+            if (Npcs == null
+                || !Npcs.Npcs.TryGetValue(assignment.Leader.Id, out leaderNpc)
+                || leaderNpc?.Entity == null)
+                return false;
+
+            position = leaderNpc.Entity.WorldMatrix.Translation;
+            return true;
+        }
+
+        internal bool TryGetLeaderDistance(SiNpc npc, out double distance)
+        {
+            distance = 0;
+            Vector3D leaderPosition;
+            if (npc?.Entity == null || !TryGetLeaderPosition(npc, out leaderPosition))
+                return false;
+
+            distance = Vector3D.Distance(npc.Entity.WorldMatrix.Translation, leaderPosition);
+            return true;
+        }
+
+        internal bool IsCoverAvailable(SiNpc requester, in Vector3D coverPosition, double radius)
+        {
+            if (requester == null)
+                return false;
+
+            foreach (var reservation in _coverReservations)
+            {
+                if (reservation.Key == requester.EntityId)
+                    continue;
+
+                var claimed = reservation.Value;
+                var threshold = Math.Max(radius, claimed.Radius);
+                if (Vector3D.DistanceSquared(claimed.Position, coverPosition) <= threshold * threshold)
+                    return false;
+            }
+
+            return true;
+        }
+
+        internal bool TryReserveCover(SiNpc requester, in Vector3D coverPosition, double radius)
+        {
+            if (requester == null)
+                return false;
+            if (!IsCoverAvailable(requester, coverPosition, radius))
+                return false;
+
+            _coverReservations[requester.EntityId] = new SiCoverReservation(coverPosition, radius);
+            return true;
+        }
+
+        internal void ReleaseCover(long entityId)
+        {
+            if (entityId != 0)
+                _coverReservations.Remove(entityId);
+        }
 
         public void Draw()
         {
@@ -970,10 +1068,39 @@ namespace Si.UtilityAI
                 var state = entry.Value;
                 if (state.Mode != SiSquadOrderMode.Follow)
                     continue;
+                if (GetCombatStance(PlayerLeaderKey(entry.Key)) == SiSquadCombatStance.Combat)
+                    continue;
 
                 string failure;
                 ApplyFollowOrder(entry.Key, state, false, out failure);
             }
+        }
+
+        private void CleanupCoverReservations()
+        {
+            if (_coverReservations.Count == 0 || Npcs == null)
+                return;
+
+            _staleCoverReservationIds.Clear();
+            foreach (var reservation in _coverReservations)
+            {
+                SiNpc npc;
+                if (!Npcs.Npcs.TryGetValue(reservation.Key, out npc)
+                    || npc?.Entity == null
+                    || npc.Entity.Closed
+                    || npc.Entity.MarkedForClose
+                    || npc.IsDead
+                    || GetCombatStance(npc) != SiSquadCombatStance.Combat)
+                {
+                    _staleCoverReservationIds.Add(reservation.Key);
+                    continue;
+                }
+
+            }
+
+            for (var i = 0; i < _staleCoverReservationIds.Count; i++)
+                _coverReservations.Remove(_staleCoverReservationIds[i]);
+            _staleCoverReservationIds.Clear();
         }
 
         private int ApplyFollowOrder(
@@ -2065,6 +2192,18 @@ namespace Si.UtilityAI
         public bool HasPosition { get; set; }
         public Vector3D Position { get; set; }
         public Vector3D Direction { get; set; }
+    }
+
+    internal struct SiCoverReservation
+    {
+        public SiCoverReservation(in Vector3D position, double radius)
+        {
+            Position = position;
+            Radius = radius;
+        }
+
+        public Vector3D Position { get; }
+        public double Radius { get; }
     }
 
     internal struct SiFollowAnchor

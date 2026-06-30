@@ -27,6 +27,7 @@
     <Component Type="DeathComponent" Subtype="Medieval_male_noApron" />
     <Component Type="EntityFXComponent" Subtype="Medieval_male" />
     <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
+    <Component Type="SiTakeCoverBehavior" Subtype="SiTrooperTakeCover" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_ContainerDefinition" Copy="Append">

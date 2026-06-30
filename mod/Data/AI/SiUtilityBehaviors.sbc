@@ -20,6 +20,25 @@
     <DistanceExponent>1.5</DistanceExponent>
   </Definition>
 
+  <Definition xsi:type="MyObjectBuilder_SiTakeCoverBehaviorDefinition">
+    <Id Type="MyObjectBuilder_SiTakeCoverBehavior" Subtype="SiTrooperTakeCover" />
+    <SearchRadius>28</SearchRadius>
+    <WaypointRefreshDistance>0.5</WaypointRefreshDistance>
+    <CoverOccupancyRadius>1.4</CoverOccupancyRadius>
+    <CoverArrivalDistance>1.2</CoverArrivalDistance>
+    <MinimumCoverOffset>0.35</MinimumCoverOffset>
+    <PreferredTreeOffset>0.85</PreferredTreeOffset>
+    <MaximumCoverOffset>1.35</MaximumCoverOffset>
+    <CoverOffsetStep>0.1</CoverOffsetStep>
+    <BodyCoverAimHeight>0.95</BodyCoverAimHeight>
+    <BodyCoverForwardOffset>0.15</BodyCoverForwardOffset>
+    <BodyCoverMinimumBlockage>0.35</BodyCoverMinimumBlockage>
+    <MuzzleMaximumBlockage>0.1</MuzzleMaximumBlockage>
+    <SwitchDistanceFromLeader>8</SwitchDistanceFromLeader>
+    <FullSwitchDistanceFromLeader>18</FullSwitchDistanceFromLeader>
+    <LeaderDistanceWeight>1</LeaderDistanceWeight>
+  </Definition>
+
   <!-- Shared decision policy for all rifle troopers so no faction/model has hidden gameplay advantage. -->
   <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition">
     <Id Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />
