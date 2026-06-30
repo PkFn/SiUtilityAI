@@ -512,7 +512,9 @@ namespace Si.UtilityAI
                 if (distanceSquared > bestDistanceSquared)
                     continue;
                 var distance = Math.Sqrt(distanceSquared);
-                ObserveTarget(context, target, distance);
+                var observation = ObserveTarget(context, target, distance);
+                if (!observation.IsSpotted)
+                    continue;
 
                 best = target;
                 bestDistanceSquared = distanceSquared;
@@ -536,7 +538,9 @@ namespace Si.UtilityAI
                     if (distanceSquared > bestDistanceSquared)
                         continue;
                     var distance = Math.Sqrt(distanceSquared);
-                    ObserveTarget(context, target, distance);
+                    var observation = ObserveTarget(context, target, distance);
+                    if (!observation.IsSpotted)
+                        continue;
 
                     best = target;
                     bestDistanceSquared = distanceSquared;
