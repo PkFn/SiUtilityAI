@@ -2,6 +2,7 @@ using System;
 using System.Xml.Serialization;
 using Sandbox.Game.Entities.Entity.Stats;
 using Sandbox.Game.EntityComponents.Character;
+using Sandbox.Entities.Components;
 using Sandbox.ModAPI;
 using VRage.Components.Interfaces;
 using VRage.Game.Components;
@@ -26,9 +27,11 @@ namespace Si.UtilityAI
     public class SiNpcCharacterDamageBridgeComponent : MyEntityComponent
     {
         private static readonly MyStringHash HealthStat = MyStringHash.GetOrCompute("Health");
+        private const float DeathThreshold = 0.001f;
 
         private MyCharacterDamageComponent _damage;
         private float? _pendingExpectedHealth;
+        private bool _deathGuardrailsApplied;
 
         public override bool IsSerialized => false;
 
@@ -60,6 +63,7 @@ namespace Si.UtilityAI
 
             _damage = null;
             _pendingExpectedHealth = null;
+            _deathGuardrailsApplied = false;
         }
 
         private void OnDamageTaken(MyDamageInformation damageInformation)
@@ -99,13 +103,16 @@ namespace Si.UtilityAI
 
             _pendingExpectedHealth = null;
 
-            if (health.Current <= expectedHealth.Value + 0.001f)
+            if (health.Current <= expectedHealth.Value + DeathThreshold)
                 return;
 
             // These NPCs already treat a zeroed health stat as dead in the mod's
             // own lifecycle. Avoid forcing the vanilla lethal DoDamage path
             // because it currently crashes when the equipped visual hand item is
             // torn down during death.
+            if (expectedHealth.Value <= DeathThreshold)
+                ApplyDeathGuardrails();
+
             health.Current = expectedHealth.Value;
         }
 
@@ -134,6 +141,18 @@ namespace Si.UtilityAI
 
             var stats = Entity?.Components.Get<MyEntityStatComponent>();
             return stats != null && stats.TryGetStat(HealthStat, out health) && health != null;
+        }
+
+        private void ApplyDeathGuardrails()
+        {
+            if (_deathGuardrailsApplied || Entity?.Components == null)
+                return;
+
+            _deathGuardrailsApplied = true;
+
+            var handItems = Entity.Components.Get<MyCharacterHandItemsComponent>();
+            if (handItems != null)
+                Entity.Components.Remove(handItems);
         }
 
         private static bool IsAuthoritative()
