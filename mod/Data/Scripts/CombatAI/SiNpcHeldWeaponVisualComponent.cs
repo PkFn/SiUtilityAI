@@ -2,6 +2,7 @@ using System.Xml.Serialization;
 using Equinox76561198048419394.Core.Util;
 using Medieval.Constants;
 using Sandbox.Entities.Components;
+using Sandbox.Game.Inventory;
 using Sandbox.ModAPI;
 using VRage.Components;
 using VRage.Definitions.Inventory;
@@ -9,10 +10,12 @@ using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.Definitions;
 using VRage.Game.Entity;
+using VRage.Logging;
 using VRage.Game.ObjectBuilders.ComponentSystem;
 using VRage.Inventory;
 using VRage.Network;
 using VRage.ObjectBuilders;
+using VRage.Session;
 using VRage.Utils;
 
 namespace Si.UtilityAI
@@ -47,12 +50,18 @@ namespace Si.UtilityAI
     [MyDefinitionRequired(typeof(SiNpcHeldWeaponVisualComponentDefinition))]
     public class SiNpcHeldWeaponVisualComponent : MyEntityComponent
     {
+        private static readonly MyStringHash MainHandSlot = MyStringHash.GetOrCompute("MainHand");
+        private static readonly MyStringHash OffHandSlot = MyStringHash.GetOrCompute("OffHand");
+        private static readonly MyStringHash GhostHandSlot = MyStringHash.GetOrCompute("GhostHand");
+
         private const int MainHandSlotIndex = 2;
         private const int RetryDelayFrames = 16;
         private const int MaxAttempts = 20;
 
         private SiNpcHeldWeaponVisualComponentDefinition _definition;
         private int _attempts;
+        private NamedLogger _log;
+        private bool _logInitialized;
 
         public override bool IsSerialized => false;
 
@@ -70,6 +79,7 @@ namespace Si.UtilityAI
                 return;
 
             _attempts = 0;
+            Log("OnAddedToScene; scheduling initial held-weapon check.");
             AddScheduledCallback(EnsureHeldWeaponVisual, RetryDelayFrames);
         }
 
@@ -83,6 +93,7 @@ namespace Si.UtilityAI
             var inventory = Entity.Components.Get<MyInventoryBase>(MyCharacterConstants.MainInventory);
             if (equipment == null || inventory == null)
             {
+                Log($"Missing components; equipment={equipment != null}, inventory={inventory != null}.");
                 Retry();
                 return;
             }
@@ -91,43 +102,97 @@ namespace Si.UtilityAI
             if (!MyDefinitionManager.TryGet(heldItemId, out MyInventoryItemDefinition itemDefinition) || itemDefinition == null)
             {
                 if (!EquiDefinitions.TryGetItemDefinition(heldItemId.SubtypeName, out itemDefinition) || itemDefinition == null)
+                {
+                    Log($"Failed to resolve held item definition {heldItemId.TypeId}/{heldItemId.SubtypeName}.");
                     return;
+                }
+
                 heldItemId = itemDefinition.Id;
+                Log($"Resolved held item via fuzzy lookup to {heldItemId.TypeId}/{heldItemId.SubtypeName}.");
             }
 
             var item = inventory.FindItem(heldItemId);
-            if (item == null && !inventory.AddItems(heldItemId, 1, MyInventoryBase.NewItemParams.ForcedInsertion))
-                return;
+            if (item == null)
+            {
+                var added = inventory.AddItems(heldItemId, 1, MyInventoryBase.NewItemParams.ForcedInsertion);
+                Log($"Item absent in inventory; add attempted for {heldItemId.SubtypeName}, success={added}, itemCount={inventory.ItemCount}.");
+                if (!added)
+                    return;
+            }
 
             item = inventory.FindItem(heldItemId);
             if (item == null)
             {
+                Log($"Inventory still does not contain {heldItemId.SubtypeName} after add attempt.");
                 Retry();
                 return;
             }
 
             if (equipment.IsEquipped(heldItemId))
+            {
+                Log($"Item {heldItemId.SubtypeName} already equipped. Slots: {DescribeSlots(equipment)}");
                 return;
+            }
 
-            var equipmentItem = item as Sandbox.Game.Inventory.MyEquipmentItem;
+            var equipmentItem = item as MyEquipmentItem;
             if (equipmentItem == null)
             {
+                Log($"Inventory item {heldItemId.SubtypeName} is not a MyEquipmentItem. Runtime type={item.GetType().FullName}.");
                 Retry();
                 return;
             }
 
-            if (!equipment.EquipItem(equipmentItem, MainHandSlotIndex))
+            var equippedToMainHand = equipment.EquipItem(equipmentItem, MainHandSlotIndex);
+            Log($"EquipItem({heldItemId.SubtypeName}, MainHandSlotIndex={MainHandSlotIndex}) => {equippedToMainHand}. Slots after call: {DescribeSlots(equipment)}");
+            if (!equippedToMainHand)
             {
                 var activateHandler = equipment as IMyItemActivateHandler;
-                if (activateHandler == null || !activateHandler.CanHandle(item) || !activateHandler.Activate(Entity, inventory, item, true))
+                var canHandle = activateHandler != null && activateHandler.CanHandle(item);
+                var activated = canHandle && activateHandler.Activate(Entity, inventory, item, true);
+                Log($"Fallback activate path for {heldItemId.SubtypeName}: handler={activateHandler != null}, canHandle={canHandle}, activated={activated}. Slots after fallback: {DescribeSlots(equipment)}");
+                if (!activated)
                     Retry();
             }
         }
 
         private void Retry()
         {
-            if (++_attempts < MaxAttempts)
+            _attempts++;
+            if (_attempts < MaxAttempts)
+            {
+                Log($"Retrying later; attempt={_attempts}/{MaxAttempts}.");
                 AddScheduledCallback(EnsureHeldWeaponVisual, RetryDelayFrames);
+            }
+            else
+            {
+                Log($"Giving up after {MaxAttempts} attempts.");
+            }
+        }
+
+        private string DescribeSlots(MyEntityEquipmentComponent equipment)
+        {
+            return $"Main={DescribeSlot(equipment, MainHandSlot)}, Off={DescribeSlot(equipment, OffHandSlot)}, Ghost={DescribeSlot(equipment, GhostHandSlot)}";
+        }
+
+        private static string DescribeSlot(MyEntityEquipmentComponent equipment, MyStringHash slot)
+        {
+            var item = equipment.GetItemForSlot(slot);
+            return item == null ? "empty" : $"{item.DefinitionId.SubtypeName}@{slot.String}";
+        }
+
+        private void Log(string message)
+        {
+            var heldSubtype = _definition != null && _definition.HeldItem.HasValue
+                ? _definition.HeldItem.Value.SubtypeName
+                : "null";
+            if (!_logInitialized && MySession.Static?.Log != null)
+            {
+                _log = new NamedLogger(MySession.Static.Log, nameof(SiNpcHeldWeaponVisualComponent));
+                _logInitialized = true;
+            }
+
+            if (_logInitialized)
+                _log.Warning($"[SiNpcHeldWeaponVisual] entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} held={heldSubtype} {message}");
         }
     }
 }
