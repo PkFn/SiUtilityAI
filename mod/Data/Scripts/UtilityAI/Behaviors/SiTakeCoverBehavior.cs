@@ -91,6 +91,7 @@ namespace Si.UtilityAI
     public class SiTakeCoverBehaviorComponent : MyEntityComponent, ISiUtilityBehavior
     {
         private const long LogCooldownMilliseconds = 2000;
+        private const long CoverSearchRetryMilliseconds = 1500;
         private static readonly double[] SideOffsetSamples =
         {
             0,
@@ -119,6 +120,8 @@ namespace Si.UtilityAI
         private long _lastWaypointLogTime = long.MinValue;
         private long _lastCoverRejectLogTime = long.MinValue;
         private long _lastKeepCoverLogTime = long.MinValue;
+        private long _lastCoverSearchTime = -1;
+        private bool _leaderSwitchSearchArmed = true;
         private string _lastCoverRejectReason;
 
         public string BehaviorName => DefinitionId.ToString();
@@ -209,9 +212,9 @@ namespace Si.UtilityAI
             }
 
             var hasThreat = TryGetThreat(context, out var threatEntity, out var threatPosition);
-            var wantsSwitch = forceRefresh
-                              || !HasUsableCurrentCover(context, session, hasThreat, threatEntity, threatPosition)
-                              || WantsLeaderCatchup(context, session);
+            var hasUsableCurrentCover = HasUsableCurrentCover(context, session, hasThreat, threatEntity, threatPosition);
+            var wantsLeaderSwitch = WantsLeaderCatchup(context, session);
+            var wantsSwitch = ShouldSearchForCover(forceRefresh, hasUsableCurrentCover, wantsLeaderSwitch);
 
             if (wantsSwitch
                 && FindBestCover(
@@ -323,6 +326,37 @@ namespace Si.UtilityAI
             double leaderDistance;
             return session.TryGetLeaderDistance(context.Agent, out leaderDistance)
                    && leaderDistance > _definition.SwitchDistanceFromLeader;
+        }
+
+        private bool ShouldSearchForCover(bool forceRefresh, bool hasUsableCurrentCover, bool wantsLeaderSwitch)
+        {
+            if (!wantsLeaderSwitch)
+                _leaderSwitchSearchArmed = true;
+
+            if (forceRefresh)
+                return MarkCoverSearchAttempt();
+
+            if (!_hasReservedCover || !hasUsableCurrentCover)
+                return IsCoverSearchDue() && MarkCoverSearchAttempt();
+
+            if (!wantsLeaderSwitch || !_leaderSwitchSearchArmed || !IsCoverSearchDue())
+                return false;
+
+            _leaderSwitchSearchArmed = false;
+            return MarkCoverSearchAttempt();
+        }
+
+        private bool IsCoverSearchDue()
+        {
+            var now = CurrentTimeMilliseconds();
+            return _lastCoverSearchTime < 0
+                   || now - _lastCoverSearchTime >= CoverSearchRetryMilliseconds;
+        }
+
+        private bool MarkCoverSearchAttempt()
+        {
+            _lastCoverSearchTime = CurrentTimeMilliseconds();
+            return true;
         }
 
         private bool FindBestCover(
@@ -612,6 +646,7 @@ namespace Si.UtilityAI
             _hasReservedCover = false;
             _reservedCoverPosition = Vector3D.Zero;
             _reservedStandPosition = Vector3D.Zero;
+            _leaderSwitchSearchArmed = true;
         }
 
         private void SetRejectReason(string reason)
