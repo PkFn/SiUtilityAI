@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Xml.Serialization;
 using Equinox76561198048419394.Core.Util;
 using Medieval.Constants;
@@ -53,6 +54,7 @@ namespace Si.UtilityAI
         private static readonly MyStringHash MainHandSlot = MyStringHash.GetOrCompute("MainHand");
         private static readonly MyStringHash OffHandSlot = MyStringHash.GetOrCompute("OffHand");
         private static readonly MyStringHash GhostHandSlot = MyStringHash.GetOrCompute("GhostHand");
+        private static readonly MyStringHash InternalInventory = MyStringHash.GetOrCompute("Internal");
 
         private const int MainHandSlotIndex = 2;
         private const int RetryDelayFrames = 16;
@@ -62,6 +64,7 @@ namespace Si.UtilityAI
         private int _attempts;
         private NamedLogger _log;
         private bool _logInitialized;
+        private bool _loggedComponentDump;
 
         public override bool IsSerialized => false;
 
@@ -90,10 +93,10 @@ namespace Si.UtilityAI
                 return;
 
             var equipment = Entity.Components.Get<MyEntityEquipmentComponent>();
-            var inventory = Entity.Components.Get<MyInventoryBase>(MyCharacterConstants.MainInventory);
+            var inventory = FindInventory(out var inventorySource);
             if (equipment == null || inventory == null)
             {
-                Log($"Missing components; equipment={equipment != null}, inventory={inventory != null}.");
+                LogMissingComponents(equipment != null, inventory != null, inventorySource);
                 Retry();
                 return;
             }
@@ -178,6 +181,40 @@ namespace Si.UtilityAI
         {
             var item = equipment.GetItemForSlot(slot);
             return item == null ? "empty" : $"{item.DefinitionId.SubtypeName}@{slot.String}";
+        }
+
+        private MyInventoryBase FindInventory(out string source)
+        {
+            var inventory = Entity.Components.Get<MyInventoryBase>(MyCharacterConstants.MainInventory);
+            if (inventory != null)
+            {
+                source = MyCharacterConstants.MainInventory.String;
+                return inventory;
+            }
+
+            inventory = Entity.Components.Get<MyInventoryBase>(InternalInventory);
+            if (inventory != null)
+            {
+                source = InternalInventory.String;
+                return inventory;
+            }
+
+            source = "none";
+            return null;
+        }
+
+        private void LogMissingComponents(bool hasEquipment, bool hasInventory, string inventorySource)
+        {
+            var message = $"Missing components; equipment={hasEquipment}, inventory={hasInventory}, inventoryLookup={inventorySource}.";
+            if (_loggedComponentDump)
+            {
+                Log(message);
+                return;
+            }
+
+            _loggedComponentDump = true;
+            var componentSummary = string.Join(", ", Entity.Components.GetComponents<MyEntityComponent>().Select(x => x.GetType().Name));
+            Log($"{message} Present components: [{componentSummary}]");
         }
 
         private void Log(string message)
