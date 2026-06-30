@@ -366,11 +366,15 @@ namespace Si.UtilityAI
             coverPosition = Vector3D.Zero;
             standPosition = Vector3D.Zero;
 
+            Vector3D searchOrigin;
+            if (!session.TryGetLeaderPosition(context.Agent, out searchOrigin))
+                searchOrigin = context.Position;
+
             _coverPositions.Clear();
-            _coverScanner.Scan(context.Position, _definition.SearchRadius, _coverPositions);
+            _coverScanner.Scan(searchOrigin, _definition.SearchRadius, _coverPositions);
             LogWithCooldown(
                 ref _lastCoverScanLogTime,
-                $"[SiCover] scan count={_coverPositions.Count} pos={FormatVector(context.Position)} radius={_definition.SearchRadius:0.0}");
+                $"[SiCover] scan count={_coverPositions.Count} origin={FormatVector(searchOrigin)} current={FormatVector(context.Position)} radius={_definition.SearchRadius:0.0}");
             if (_coverPositions.Count == 0)
                 return false;
 
