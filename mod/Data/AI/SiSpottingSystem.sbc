@@ -2,7 +2,7 @@
 <Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <Definition xsi:type="MyObjectBuilder_SiSpottingSystemDefinition">
     <Id Type="MyObjectBuilder_SiSpottingSystemDefinition" Subtype="SiDefaultSpottingSystem" />
-    <Constant>1</Constant>
+    <Constant>0.5</Constant>
     <SpottingReevaluationIntervalMilliseconds>250</SpottingReevaluationIntervalMilliseconds>
     <SpottingTrackingTimeoutMilliseconds>2000</SpottingTrackingTimeoutMilliseconds>
     <HearingGuaranteedRadius>4</HearingGuaranteedRadius>
