@@ -32,11 +32,8 @@
     <CoverOffsetStep>0.1</CoverOffsetStep>
     <BodyCoverAimHeight>0.95</BodyCoverAimHeight>
     <BodyCoverForwardOffset>0.15</BodyCoverForwardOffset>
-    <BodyCoverMinimumBlockage>0.35</BodyCoverMinimumBlockage>
-    <MuzzleMaximumBlockage>0.1</MuzzleMaximumBlockage>
     <SwitchDistanceFromLeader>8</SwitchDistanceFromLeader>
     <FullSwitchDistanceFromLeader>18</FullSwitchDistanceFromLeader>
-    <LeaderDistanceWeight>1</LeaderDistanceWeight>
   </Definition>
 
   <!-- Shared decision policy for all rifle troopers so no faction/model has hidden gameplay advantage. -->

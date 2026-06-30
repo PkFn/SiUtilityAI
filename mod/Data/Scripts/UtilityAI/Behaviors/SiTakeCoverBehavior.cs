@@ -39,11 +39,8 @@ namespace Si.UtilityAI
         public float CoverOffsetStep;
         public float BodyCoverAimHeight;
         public float BodyCoverForwardOffset;
-        public float BodyCoverMinimumBlockage;
-        public float MuzzleMaximumBlockage;
         public float SwitchDistanceFromLeader;
         public float FullSwitchDistanceFromLeader;
-        public float LeaderDistanceWeight;
     }
 
     [MyDefinitionType(typeof(MyObjectBuilder_SiTakeCoverBehaviorDefinition))]
@@ -59,11 +56,8 @@ namespace Si.UtilityAI
         public float CoverOffsetStep { get; private set; }
         public float BodyCoverAimHeight { get; private set; }
         public float BodyCoverForwardOffset { get; private set; }
-        public float BodyCoverMinimumBlockage { get; private set; }
-        public float MuzzleMaximumBlockage { get; private set; }
         public float SwitchDistanceFromLeader { get; private set; }
         public float FullSwitchDistanceFromLeader { get; private set; }
-        public float LeaderDistanceWeight { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
         {
@@ -79,11 +73,8 @@ namespace Si.UtilityAI
             CoverOffsetStep = Math.Max(0.05f, ob.CoverOffsetStep);
             BodyCoverAimHeight = Math.Max(0, ob.BodyCoverAimHeight);
             BodyCoverForwardOffset = Math.Max(0, ob.BodyCoverForwardOffset);
-            BodyCoverMinimumBlockage = MathHelper.Clamp(ob.BodyCoverMinimumBlockage, 0, 1);
-            MuzzleMaximumBlockage = MathHelper.Clamp(ob.MuzzleMaximumBlockage, 0, 1);
             SwitchDistanceFromLeader = Math.Max(0, ob.SwitchDistanceFromLeader);
             FullSwitchDistanceFromLeader = Math.Max(SwitchDistanceFromLeader, ob.FullSwitchDistanceFromLeader);
-            LeaderDistanceWeight = Math.Max(0, ob.LeaderDistanceWeight);
         }
     }
 
