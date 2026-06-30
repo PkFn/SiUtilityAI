@@ -108,7 +108,6 @@ namespace Si.UtilityAI
         private long _lastNoCoverLogTime = long.MinValue;
         private long _lastReservationFailLogTime = long.MinValue;
         private long _lastCoverSearchTime = -1;
-        private long _lastCoverScanTraceLogTime = long.MinValue;
         private string _lastCoverRejectReason;
 
         public string BehaviorName => DefinitionId.ToString();
@@ -198,10 +197,7 @@ namespace Si.UtilityAI
 
             var hasThreat = TryGetThreat(context, out var threatEntity, out var threatPosition);
             var hasUsableCurrentCover = HasUsableCurrentCover(context, session, hasThreat, threatEntity, threatPosition);
-            var wantsLeaderSwitch = WantsLeaderCatchup(context, session);
-            var leaderDistance = GetLeaderDistance(context, session);
-            var wantsSwitch = ShouldSearchForCover(forceRefresh, hasUsableCurrentCover, wantsLeaderSwitch);
-            var searchReason = DescribeCoverSearchReason(forceRefresh, hasUsableCurrentCover, wantsLeaderSwitch);
+            var wantsSwitch = ShouldSearchForCover(forceRefresh, hasUsableCurrentCover);
 
             if (wantsSwitch
                 && FindBestCover(
@@ -210,8 +206,6 @@ namespace Si.UtilityAI
                     hasThreat,
                     threatEntity,
                     threatPosition,
-                    searchReason,
-                    leaderDistance,
                     out var coverPosition,
                     out var standPosition))
             {
@@ -236,17 +230,6 @@ namespace Si.UtilityAI
             }
             else if (wantsSwitch)
             {
-                LogCoverScanTrace(
-                    searchReason,
-                    leaderDistance,
-                    hasThreat,
-                    false,
-                    Vector3D.Zero,
-                    Vector3D.Zero,
-                    0,
-                    0,
-                    _coverPositions.Count,
-                    _lastCoverRejectReason ?? "none");
                 LogWithCooldown(
                     ref _lastNoCoverLogTime,
                     $"[SiCover] no valid cover found scanned={_coverPositions.Count} lastReject={_lastCoverRejectReason ?? "none"}");
@@ -307,17 +290,7 @@ namespace Si.UtilityAI
             return true;
         }
 
-        private bool WantsLeaderCatchup(SiUtilityContext context, SiNpcSessionComponent session)
-        {
-            if (!_hasReservedCover || !session.IsFollowingPlayer(context.Agent))
-                return false;
-
-            double leaderDistance;
-            return session.TryGetLeaderDistance(context.Agent, out leaderDistance)
-                   && leaderDistance > _definition.SwitchDistanceFromLeader;
-        }
-
-        private bool ShouldSearchForCover(bool forceRefresh, bool hasUsableCurrentCover, bool wantsLeaderSwitch)
+        private bool ShouldSearchForCover(bool forceRefresh, bool hasUsableCurrentCover)
         {
             if (forceRefresh)
                 return MarkCoverSearchAttempt();
@@ -325,10 +298,7 @@ namespace Si.UtilityAI
             if (!_hasReservedCover || !hasUsableCurrentCover)
                 return IsCoverSearchDue() && MarkCoverSearchAttempt();
 
-            if (!wantsLeaderSwitch || !IsCoverSearchDue())
-                return false;
-
-            return MarkCoverSearchAttempt();
+            return false;
         }
 
         private bool IsCoverSearchDue()
@@ -344,38 +314,12 @@ namespace Si.UtilityAI
             return true;
         }
 
-        private double? GetLeaderDistance(SiUtilityContext context, SiNpcSessionComponent session)
-        {
-            if (!session.IsFollowingPlayer(context.Agent))
-                return null;
-
-            double leaderDistance;
-            return session.TryGetLeaderDistance(context.Agent, out leaderDistance)
-                ? (double?)leaderDistance
-                : null;
-        }
-
-        private string DescribeCoverSearchReason(bool forceRefresh, bool hasUsableCurrentCover, bool wantsLeaderSwitch)
-        {
-            if (forceRefresh)
-                return "force refresh";
-            if (!_hasReservedCover)
-                return "no reserved cover";
-            if (!hasUsableCurrentCover)
-                return "reserved cover unusable";
-            if (wantsLeaderSwitch)
-                return "leader catchup";
-            return "unspecified";
-        }
-
         private bool FindBestCover(
             SiUtilityContext context,
             SiNpcSessionComponent session,
             bool hasThreat,
             MyEntity threatEntity,
             in Vector3D threatPosition,
-            string searchReason,
-            double? leaderDistance,
             out Vector3D coverPosition,
             out Vector3D standPosition)
         {
@@ -389,20 +333,7 @@ namespace Si.UtilityAI
             _coverPositions.Clear();
             _coverScanner.Scan(searchOrigin, _definition.SearchRadius, _coverPositions);
             if (_coverPositions.Count == 0)
-            {
-                LogCoverScanTrace(
-                    searchReason,
-                    leaderDistance,
-                    hasThreat,
-                    false,
-                    searchOrigin,
-                    Vector3D.Zero,
-                    0,
-                    0,
-                    0,
-                    "scanner returned 0");
                 return false;
-            }
 
             var bestTreeDistanceSquared = double.MaxValue;
             var bestBushDistanceSquared = double.MaxValue;
@@ -410,15 +341,12 @@ namespace Si.UtilityAI
             var bestBushCover = Vector3D.Zero;
             var bestTreeStand = Vector3D.Zero;
             var bestBushStand = Vector3D.Zero;
-            var occupiedRejects = 0;
-            var rayRejects = 0;
 
             for (var i = 0; i < _coverPositions.Count; i++)
             {
                 var candidate = _coverPositions[i];
                 if (!session.IsCoverAvailable(context.Agent, candidate, _definition.CoverOccupancyRadius))
                 {
-                    occupiedRejects++;
                     SetRejectReason($"occupied cover={FormatVector(candidate)}");
                     continue;
                 }
@@ -435,7 +363,6 @@ namespace Si.UtilityAI
                         out var isTree,
                         out var ignoredCoverScore))
                 {
-                    rayRejects++;
                     SetRejectReason($"ray reject cover={FormatVector(candidate)}");
                     continue;
                 }
@@ -462,17 +389,6 @@ namespace Si.UtilityAI
             {
                 coverPosition = bestTreeCover;
                 standPosition = bestTreeStand;
-                LogCoverScanTrace(
-                    searchReason,
-                    leaderDistance,
-                    hasThreat,
-                    true,
-                    searchOrigin,
-                    coverPosition,
-                    occupiedRejects,
-                    rayRejects,
-                    _coverPositions.Count,
-                    "tree");
                 return true;
             }
 
@@ -480,31 +396,9 @@ namespace Si.UtilityAI
             {
                 coverPosition = bestBushCover;
                 standPosition = bestBushStand;
-                LogCoverScanTrace(
-                    searchReason,
-                    leaderDistance,
-                    hasThreat,
-                    true,
-                    searchOrigin,
-                    coverPosition,
-                    occupiedRejects,
-                    rayRejects,
-                    _coverPositions.Count,
-                    "bush");
                 return true;
             }
 
-            LogCoverScanTrace(
-                searchReason,
-                leaderDistance,
-                hasThreat,
-                false,
-                searchOrigin,
-                Vector3D.Zero,
-                occupiedRejects,
-                rayRejects,
-                _coverPositions.Count,
-                _lastCoverRejectReason ?? "none");
             return false;
         }
 
@@ -696,35 +590,6 @@ namespace Si.UtilityAI
         private void SetRejectReason(string reason)
         {
             _lastCoverRejectReason = reason;
-        }
-
-        private void LogCoverScanTrace(
-            string reason,
-            double? leaderDistance,
-            bool hasThreat,
-            bool foundCover,
-            in Vector3D searchOrigin,
-            in Vector3D chosenCover,
-            int occupiedRejects,
-            int rayRejects,
-            int scannedCount,
-            string outcome)
-        {
-            var now = CurrentTimeMilliseconds();
-            var sinceLastTrace = _lastCoverScanTraceLogTime >= 0
-                ? now - _lastCoverScanTraceLogTime
-                : -1;
-            _lastCoverScanTraceLogTime = now;
-
-            var sinceLastSearch = _lastCoverSearchTime >= 0
-                ? now - _lastCoverSearchTime
-                : -1;
-
-            Log(
-                $"[SiCoverTrace] reason={reason} found={foundCover} scanned={scannedCount} occupiedRejects={occupiedRejects} rayRejects={rayRejects} " +
-                $"hasReserved={_hasReservedCover} hasThreat={hasThreat} leaderDistance={(leaderDistance.HasValue ? leaderDistance.Value.ToString("0.0") : "n/a")} " +
-                $"sinceLastSearchMs={sinceLastSearch} sinceLastTraceMs={sinceLastTrace} searchOrigin={FormatVector(searchOrigin)} " +
-                $"cover={(foundCover ? FormatVector(chosenCover) : "none")} outcome={outcome}");
         }
 
         private void TryInitLog()
