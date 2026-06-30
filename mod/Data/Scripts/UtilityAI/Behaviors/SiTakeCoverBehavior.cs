@@ -603,7 +603,7 @@ namespace Si.UtilityAI
         private void LogWithCooldown(ref long lastLogTime, string message)
         {
             var now = CurrentTimeMilliseconds();
-            if (now - lastLogTime < LogCooldownMilliseconds)
+            if (lastLogTime >= 0 && now - lastLogTime < LogCooldownMilliseconds)
                 return;
 
             lastLogTime = now;
