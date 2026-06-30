@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Xml.Serialization;
+using Equinox76561198048419394.Core.Util;
 using Sandbox.ModAPI;
 using VRage.Components;
 using VRage.Game;
@@ -9,7 +10,9 @@ using VRage.Game.Components;
 using VRage.Game.Definitions;
 using VRage.Game.Entity;
 using VRage.Game.ObjectBuilders.ComponentSystem;
+using VRage.Logging;
 using VRage.ObjectBuilders;
+using VRage.Session;
 using VRageMath;
 
 namespace Si.UtilityAI
@@ -117,6 +120,10 @@ namespace Si.UtilityAI
         private long _decisionCountdown;
         private long _startupDelayCountdown;
         private bool _decisionMakingEnabled = true;
+        private NamedLogger _log;
+        private bool _logInitialized;
+        private bool _loggedBindSummary;
+        private string _lastLoggedActiveBehavior;
 
         public string ActiveBehaviorName => _activeBehavior?.BehaviorName;
         public float ActiveBehaviorScore { get; private set; }
@@ -132,10 +139,13 @@ namespace Si.UtilityAI
         internal void Bind(SiNpc agent)
         {
             Unbind();
+            TryInitLog();
             _context = new SiUtilityContext(agent);
             _behaviors.Clear();
             foreach (var behavior in Entity.Components.GetComponents<ISiUtilityBehavior>())
                 _behaviors.Add(behavior);
+
+            LogBindSummary();
 
             _decisionCountdown = 0;
             _startupDelayCountdown = _definition.StartupDelayMilliseconds;
@@ -244,6 +254,7 @@ namespace Si.UtilityAI
                 _activeBehavior?.End(_context);
                 _activeBehavior = best;
                 _activeBehavior?.Begin(_context);
+                LogBehaviorChange(best, bestScore);
             }
 
             ActiveBehaviorScore = bestScore;
@@ -280,6 +291,65 @@ namespace Si.UtilityAI
             if (_context != null && _activeBehavior != null && IsAuthoritative)
                 _activeBehavior.End(_context);
             _activeBehavior = null;
+        }
+
+        private void TryInitLog()
+        {
+            if (_logInitialized || MySession.Static?.Log == null)
+                return;
+
+            _log = new NamedLogger(MySession.Static.Log, nameof(SiUtilityBrainComponent));
+            _logInitialized = true;
+        }
+
+        private void LogBindSummary()
+        {
+            if (_loggedBindSummary)
+                return;
+
+            _loggedBindSummary = true;
+            Log(
+                $"[SiBrain] bind behaviors={DescribeBehaviors()} components={DescribeComponents()} entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"}");
+        }
+
+        private void LogBehaviorChange(ISiUtilityBehavior behavior, float score)
+        {
+            var next = behavior?.BehaviorName ?? "<none>";
+            if (string.Equals(_lastLoggedActiveBehavior, next, StringComparison.Ordinal))
+                return;
+
+            _lastLoggedActiveBehavior = next;
+            Log($"[SiBrain] active={next} score={score:0.00}");
+        }
+
+        private string DescribeBehaviors()
+        {
+            if (_behaviors.Count == 0)
+                return "<none>";
+
+            var names = new string[_behaviors.Count];
+            for (var i = 0; i < _behaviors.Count; i++)
+                names[i] = _behaviors[i]?.BehaviorName ?? "null";
+            return string.Join(", ", names);
+        }
+
+        private string DescribeComponents()
+        {
+            var all = Entity?.Components?.GetComponents<MyEntityComponent>();
+            if (all == null)
+                return "<none>";
+
+            var names = new List<string>();
+            foreach (var component in all)
+                names.Add(component?.GetType().Name ?? "null");
+            return names.Count > 0 ? string.Join(", ", names) : "<none>";
+        }
+
+        private void Log(string message)
+        {
+            TryInitLog();
+            if (_logInitialized)
+                _log.Warning(message);
         }
 
         private static bool IsAuthoritative =>
