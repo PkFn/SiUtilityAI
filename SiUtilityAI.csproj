@@ -25,6 +25,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Remove="ref_vanilla_content\**" />
+    <EmbeddedResource Remove="ref_workshop\**" />
+    <None Remove="ref_vanilla_content\**" />
+    <None Remove="ref_workshop\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="MedievalEngineers.Game">
       <HintPath>$(GameBinPath)\MedievalEngineers.Game.dll</HintPath>
       <Private>false</Private>
