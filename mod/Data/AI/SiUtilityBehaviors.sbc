@@ -33,7 +33,7 @@
     <BodyCoverAimHeight>0.95</BodyCoverAimHeight>
     <BodyCoverForwardOffset>0.15</BodyCoverForwardOffset>
     <SwitchDistanceFromLeader>8</SwitchDistanceFromLeader>
-    <FullSwitchDistanceFromLeader>18</FullSwitchDistanceFromLeader>
+    <FullSwitchDistanceFromLeader>50</FullSwitchDistanceFromLeader>
   </Definition>
 
   <!-- Shared decision policy for all rifle troopers so no faction/model has hidden gameplay advantage. -->
