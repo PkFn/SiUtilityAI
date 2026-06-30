@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Xml.Serialization;
-using Equinox76561198048419394.Core.Util;
 using Medieval.GameSystems.Factions;
 using Sandbox.Definitions.Chat;
 using Sandbox.Game.GameSystems.Chat;
@@ -19,7 +18,6 @@ using VRage.Game.Entity.EntityComponents;
 using VRage.Network;
 using VRage.ObjectBuilders;
 using VRage.ObjectBuilders.Components;
-using VRage.Logging;
 using VRage.Session;
 using VRage.Utils;
 using VRageMath;
@@ -37,7 +35,6 @@ namespace Si.UtilityAI
         private const string SquadCommand = "/si-squad";
         private const double SpawnDistance = 2.5;
         private const long CombatStanceCooldownMilliseconds = 60000;
-        private const long CombatDebugLogCooldownMilliseconds = 2000;
         private const double CombatStanceNearbyEnemyDistance = 80;
         private static readonly Vector2 SpottingTextAnchor = new Vector2(-0.98f, -0.92f);
         private const string SpeakChannelName = "Speak";
@@ -57,17 +54,11 @@ namespace Si.UtilityAI
         private readonly Dictionary<long, SiCoverReservation> _coverReservations =
             new Dictionary<long, SiCoverReservation>();
         private readonly List<long> _staleCoverReservationIds = new List<long>();
-        private readonly Dictionary<SiSquadLeaderKey, long> _lastCombatStateLogTimes =
-            new Dictionary<SiSquadLeaderKey, long>();
-        private readonly Dictionary<SiSquadLeaderKey, long> _lastFollowStateLogTimes =
-            new Dictionary<SiSquadLeaderKey, long>();
         private List<MyObjectBuilder_SiNpcSessionComponent.SavedNpc> _savedNpcs;
         private List<MyObjectBuilder_SiNpcSessionComponent.SquadOrder> _savedSquadOrders;
 
         [Automatic]
         private readonly MyChatSystem _chat = null;
-        private NamedLogger _log;
-        private bool _logInitialized;
         private bool _showTroopMarkers;
         private bool _showSquadChatter;
         private bool _utilityDecisionMakingEnabled = true;
@@ -642,12 +633,6 @@ namespace Si.UtilityAI
                 if (HasSpottedEnemyNearby(leader))
                     continue;
 
-                LogCombatState(
-                    leader,
-                    $"[SiCombat] auto-downgrade leader={FormatLeader(leader, state.LeaderName)} "
-                    + $"lastShotAt={FormatElapsed(now, state.LastShotAtTime)} "
-                    + $"lastSpotted={FormatElapsed(now, state.LastEnemySpottedTime)} "
-                    + $"lastStanceChange={FormatElapsed(now, state.LastStanceChangeTime)}");
                 SetCombatStance(
                     leader,
                     state.LeaderName,
@@ -671,12 +656,7 @@ namespace Si.UtilityAI
                 if (!Squads.TryGetAssignment(npc.EntityId, out assignment) || !assignment.Leader.Equals(leader))
                     continue;
                 if (Spotting.HasSpottedTargetNearby(npc.EntityId, CombatStanceNearbyEnemyDistance))
-                {
-                    LogCombatState(
-                        leader,
-                        $"[SiCombat] nearby-contact leader={FormatLeader(leader, null)} npc={DescribeNpc(npc)} radius={CombatStanceNearbyEnemyDistance:0.0}");
                     return true;
-                }
             }
 
             return false;
@@ -699,24 +679,11 @@ namespace Si.UtilityAI
             if (stance == SiSquadCombatStance.Combat && reason == SiSquadCombatTransitionReason.PlayerOrder)
                 state.LastEnemySpottedTime = state.LastStanceChangeTime;
 
-            LogCombatState(
-                leader,
-                $"[SiCombat] stance request leader={FormatLeader(leader, state.LeaderName)} "
-                + $"previous={CombatStanceName(previous)} next={CombatStanceName(stance)} "
-                + $"reason={reason} speakAsPlayerOrder={speakAsPlayerOrder} unchanged={previous == stance} "
-                + $"lastShotAt={FormatElapsed(state.LastStanceChangeTime, state.LastShotAtTime)} "
-                + $"lastSpotted={FormatElapsed(state.LastStanceChangeTime, state.LastEnemySpottedTime)}");
-
             if (previous == stance)
                 return;
 
             if (stance == SiSquadCombatStance.Combat)
-            {
-                var cleared = ClearSquadWaypoints(leader);
-                LogCombatState(
-                    leader,
-                    $"[SiCombat] cleared stale waypoints leader={FormatLeader(leader, state.LeaderName)} count={cleared}");
-            }
+                ClearSquadWaypoints(leader);
 
             if (speakAsPlayerOrder)
                 SpeakSquadBehaviorChange(leader, PlayerOrderCombatStanceReport(stance), true);
@@ -792,9 +759,6 @@ namespace Si.UtilityAI
 
             var state = GetOrCreateCombatState(assignment.Leader);
             state.LastEnemySpottedTime = CurrentTimeMilliseconds();
-            LogCombatState(
-                assignment.Leader,
-                $"[SiCombat] report spotted leader={FormatLeader(assignment.Leader, assignment.LeaderName)} observer={observerEntityId} target={targetEntityId}");
             SetCombatStance(
                 assignment.Leader,
                 assignment.LeaderName,
@@ -814,9 +778,6 @@ namespace Si.UtilityAI
 
             var state = GetOrCreateCombatState(assignment.Leader);
             state.LastEnemySpottedTime = CurrentTimeMilliseconds();
-            LogCombatState(
-                assignment.Leader,
-                $"[SiCombat] report fired leader={FormatLeader(assignment.Leader, assignment.LeaderName)} npc={entityId}");
             SetCombatStance(
                 assignment.Leader,
                 assignment.LeaderName,
@@ -836,9 +797,6 @@ namespace Si.UtilityAI
 
             var state = GetOrCreateCombatState(assignment.Leader);
             state.LastShotAtTime = CurrentTimeMilliseconds();
-            LogCombatState(
-                assignment.Leader,
-                $"[SiCombat] report shot-at leader={FormatLeader(assignment.Leader, assignment.LeaderName)} npc={entityId}");
             SetCombatStance(
                 assignment.Leader,
                 assignment.LeaderName,
@@ -1137,13 +1095,7 @@ namespace Si.UtilityAI
                 var leader = PlayerLeaderKey(entry.Key);
                 var combatStance = GetCombatStance(leader);
                 if (combatStance == SiSquadCombatStance.Combat)
-                {
-                    LogFollowState(
-                        leader,
-                        $"[SiCombat] follow-order skipped leader={FormatLeader(leader, null)} "
-                        + $"mode={OrderName(state.Mode)} formation={FormationName(state.Formation)} combat={CombatStanceName(combatStance)}");
                     continue;
-                }
 
                 string failure;
                 ApplyFollowOrder(entry.Key, state, false, out failure);
@@ -1238,11 +1190,6 @@ namespace Si.UtilityAI
                         issued++;
                 }
             }
-
-            LogFollowState(
-                PlayerLeaderKey(leaderIdentityId),
-                $"[SiCombat] follow-order applied leader={FormatLeader(PlayerLeaderKey(leaderIdentityId), null)} "
-                + $"formation={FormationName(state.Formation)} issued={issued}/{troops.Count} reportFailures={reportFailures}");
 
             return issued;
         }
@@ -1602,69 +1549,6 @@ namespace Si.UtilityAI
                 SiSquadLeaderKind.Player,
                 identityId,
                 SiSquadBook.ArmyForPlayerIdentity(identityId));
-
-        private void TryInitLog()
-        {
-            if (_logInitialized || MySession.Static?.Log == null)
-                return;
-
-            _log = new NamedLogger(MySession.Static.Log, nameof(SiNpcSessionComponent));
-            _logInitialized = true;
-        }
-
-        private void Log(string message)
-        {
-            TryInitLog();
-            if (!_logInitialized)
-                return;
-
-            _log.Warning(message);
-        }
-
-        private void LogCombatState(SiSquadLeaderKey leader, string message)
-        {
-            var now = CurrentTimeMilliseconds();
-            long lastLogTime;
-            if (_lastCombatStateLogTimes.TryGetValue(leader, out lastLogTime)
-                && now - lastLogTime < CombatDebugLogCooldownMilliseconds)
-                return;
-
-            _lastCombatStateLogTimes[leader] = now;
-            Log(message);
-        }
-
-        private void LogFollowState(SiSquadLeaderKey leader, string message)
-        {
-            var now = CurrentTimeMilliseconds();
-            long lastLogTime;
-            if (_lastFollowStateLogTimes.TryGetValue(leader, out lastLogTime)
-                && now - lastLogTime < CombatDebugLogCooldownMilliseconds)
-                return;
-
-            _lastFollowStateLogTimes[leader] = now;
-            Log(message);
-        }
-
-        private static string FormatLeader(SiSquadLeaderKey leader, string leaderName)
-        {
-            var name = string.IsNullOrWhiteSpace(leaderName) ? "unknown" : leaderName;
-            return $"{leader.Kind}:{leader.Id}:{name}";
-        }
-
-        private static string DescribeNpc(SiNpc npc) =>
-            npc?.Entity == null
-                ? "null"
-                : $"{npc.EntityId}:{npc.Entity.Name ?? "null"}";
-
-        private static string FormatElapsed(long now, long timestamp)
-        {
-            if (timestamp <= long.MinValue / 2)
-                return "never";
-            if (timestamp < 0)
-                return "n/a";
-
-            return $"{Math.Max(0, now - timestamp)}ms";
-        }
 
         private static long CurrentTimeMilliseconds()
         {

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Xml.Serialization;
-using Equinox76561198048419394.Core.Util;
 using Sandbox.ModAPI;
 using VRage.Components;
 using VRage.Game;
@@ -11,8 +10,6 @@ using VRage.Game.Definitions;
 using VRage.Game.Entity;
 using VRage.Game.ObjectBuilders.ComponentSystem;
 using VRage.ObjectBuilders;
-using VRage.Logging;
-using VRage.Session;
 using VRageMath;
 
 namespace Si.UtilityAI
@@ -112,7 +109,6 @@ namespace Si.UtilityAI
     [MyDefinitionRequired(typeof(SiUtilityBrainComponentDefinition))]
     public class SiUtilityBrainComponent : MyEntityComponent
     {
-        private const long DebugLogCooldownMilliseconds = 2000;
         private readonly List<ISiUtilityBehavior> _behaviors = new List<ISiUtilityBehavior>();
 
         private SiUtilityBrainComponentDefinition _definition;
@@ -121,9 +117,6 @@ namespace Si.UtilityAI
         private long _decisionCountdown;
         private long _startupDelayCountdown;
         private bool _decisionMakingEnabled = true;
-        private NamedLogger _log;
-        private bool _logInitialized;
-        private long _lastCombatFollowLogTime = long.MinValue;
         public string ActiveBehaviorName => _activeBehavior?.BehaviorName;
         public float ActiveBehaviorScore { get; private set; }
 
@@ -133,12 +126,6 @@ namespace Si.UtilityAI
         {
             base.Init(definition);
             _definition = (SiUtilityBrainComponentDefinition)definition;
-        }
-
-        public override void OnAddedToContainer()
-        {
-            base.OnAddedToContainer();
-            TryInitLog();
         }
 
         internal void Bind(SiNpc agent)
@@ -253,26 +240,12 @@ namespace Si.UtilityAI
 
             if (!ReferenceEquals(best, _activeBehavior))
             {
-                Log(
-                    $"[SiBrain] switch entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} "
-                    + $"from={BehaviorNameOrNone(_activeBehavior)}({ActiveBehaviorScore:0.00}) "
-                    + $"to={BehaviorNameOrNone(best)}({bestScore:0.00}) "
-                    + $"combat={CombatStanceName()} following={IsFollowingPlayer()}");
                 _activeBehavior?.End(_context);
                 _activeBehavior = best;
                 _activeBehavior?.Begin(_context);
             }
 
             ActiveBehaviorScore = bestScore;
-            if (_activeBehavior != null
-                && IsCombatFollowMismatch())
-            {
-                LogWithCooldown(
-                    ref _lastCombatFollowLogTime,
-                    $"[SiBrain] combat-follow mismatch entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} "
-                    + $"active={BehaviorNameOrNone(_activeBehavior)} score={ActiveBehaviorScore:0.00} "
-                    + $"combat={CombatStanceName()} following={IsFollowingPlayer()}");
-            }
         }
 
         private bool IsBetterCandidate(
@@ -306,72 +279,6 @@ namespace Si.UtilityAI
             if (_context != null && _activeBehavior != null && IsAuthoritative)
                 _activeBehavior.End(_context);
             _activeBehavior = null;
-        }
-
-        private bool IsCombatFollowMismatch()
-        {
-            if (_context?.Agent == null || _activeBehavior == null)
-                return false;
-
-            var session = SiNpcSessionComponent.Instance;
-            return session != null
-                   && session.GetCombatStance(_context.Agent) == SiSquadCombatStance.Combat
-                   && session.IsFollowingPlayer(_context.Agent)
-                   && _activeBehavior is SiFollowNearbyPlayerBehaviorComponent;
-        }
-
-        private bool IsFollowingPlayer()
-        {
-            var session = SiNpcSessionComponent.Instance;
-            return _context?.Agent != null && session != null && session.IsFollowingPlayer(_context.Agent);
-        }
-
-        private string CombatStanceName()
-        {
-            var session = SiNpcSessionComponent.Instance;
-            if (_context?.Agent == null || session == null)
-                return "Unknown";
-
-            return session.GetCombatStance(_context.Agent).ToString();
-        }
-
-        private void TryInitLog()
-        {
-            if (_logInitialized || MySession.Static?.Log == null)
-                return;
-
-            _log = new NamedLogger(MySession.Static.Log, nameof(SiUtilityBrainComponent));
-            _logInitialized = true;
-        }
-
-        private void LogWithCooldown(ref long lastLogTime, string message)
-        {
-            var now = CurrentTimeMilliseconds();
-            if (lastLogTime >= 0 && now - lastLogTime < DebugLogCooldownMilliseconds)
-                return;
-
-            lastLogTime = now;
-            Log(message);
-        }
-
-        private void Log(string message)
-        {
-            TryInitLog();
-            if (!_logInitialized)
-                return;
-
-            _log.Warning(message);
-        }
-
-        private static string BehaviorNameOrNone(ISiUtilityBehavior behavior) =>
-            behavior?.BehaviorName ?? "none";
-
-        private static long CurrentTimeMilliseconds()
-        {
-            var session = MyAPIGateway.Session;
-            return session != null
-                ? (long)session.ElapsedPlayTime.TotalMilliseconds
-                : 0;
         }
 
         private static bool IsAuthoritative =>
