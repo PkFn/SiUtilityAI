@@ -2,7 +2,7 @@
 <Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <Definition xsi:type="MyObjectBuilder_SiSpottingSystemDefinition">
     <Id Type="MyObjectBuilder_SiSpottingSystemDefinition" Subtype="SiDefaultSpottingSystem" />
-    <Constant>0.5</Constant>
+    <Constant>1.0</Constant>
     <SpottingReevaluationIntervalMilliseconds>250</SpottingReevaluationIntervalMilliseconds>
     <SpottingTrackingTimeoutMilliseconds>2000</SpottingTrackingTimeoutMilliseconds>
     <HearingGuaranteedRadius>4</HearingGuaranteedRadius>
@@ -14,7 +14,7 @@
     <ShotAwarenessDecayPerSecond>0.01</ShotAwarenessDecayPerSecond>
     <ShotAwarenessMaxDistance>140</ShotAwarenessMaxDistance>
     <ShotAwarenessDistanceExponent>1.2</ShotAwarenessDistanceExponent>
-    <NearbyBushScanRadius>25</NearbyBushScanRadius>
+    <NearbyBushScanRadius>3</NearbyBushScanRadius>
     <NearbyBushMinimumChanceMultiplier>0.45</NearbyBushMinimumChanceMultiplier>
     <NearbyBushDistanceExponent>1.5</NearbyBushDistanceExponent>
     <DarknessMinimumChanceMultiplier>0.35</DarknessMinimumChanceMultiplier>
