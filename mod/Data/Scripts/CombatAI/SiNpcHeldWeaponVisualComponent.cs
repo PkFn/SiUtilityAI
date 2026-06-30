@@ -55,6 +55,11 @@ namespace Si.UtilityAI
         private static readonly MyStringHash OffHandSlot = MyStringHash.GetOrCompute("OffHand");
         private static readonly MyStringHash GhostHandSlot = MyStringHash.GetOrCompute("GhostHand");
         private static readonly MyStringHash InternalInventory = MyStringHash.GetOrCompute("Internal");
+        private static readonly MyStringHash[] InventoryNames =
+        {
+            MyCharacterConstants.MainInventory,
+            InternalInventory,
+        };
 
         private const int MainHandSlotIndex = 2;
         private const int RetryDelayFrames = 16;
@@ -82,7 +87,6 @@ namespace Si.UtilityAI
                 return;
 
             _attempts = 0;
-            Log("OnAddedToScene; scheduling initial held-weapon check.");
             AddScheduledCallback(EnsureHeldWeaponVisual, RetryDelayFrames);
         }
 
@@ -92,48 +96,21 @@ namespace Si.UtilityAI
             if (Entity == null || Entity.Closed || Entity.MarkedForClose || !_definition.HeldItem.HasValue)
                 return;
 
-            var equipment = Entity.Components.Get<MyEntityEquipmentComponent>();
-            var inventory = FindInventory(out var inventorySource);
-            if (equipment == null || inventory == null)
+            if (!TryGetEquipmentContext(out var equipment, out var inventory, out var inventorySource))
             {
-                LogMissingComponents(equipment != null, inventory != null, inventorySource);
                 Retry();
                 return;
             }
 
-            var heldItemId = (MyDefinitionId)_definition.HeldItem.Value;
-            if (!MyDefinitionManager.TryGet(heldItemId, out MyInventoryItemDefinition itemDefinition) || itemDefinition == null)
-            {
-                if (!EquiDefinitions.TryGetItemDefinition(heldItemId.SubtypeName, out itemDefinition) || itemDefinition == null)
-                {
-                    Log($"Failed to resolve held item definition {heldItemId.TypeId}/{heldItemId.SubtypeName}.");
-                    return;
-                }
-
-                heldItemId = itemDefinition.Id;
-                Log($"Resolved held item via fuzzy lookup to {heldItemId.TypeId}/{heldItemId.SubtypeName}.");
-            }
-
-            var item = inventory.FindItem(heldItemId);
-            if (item == null)
-            {
-                var added = inventory.AddItems(heldItemId, 1, MyInventoryBase.NewItemParams.ForcedInsertion);
-                Log($"Item absent in inventory; add attempted for {heldItemId.SubtypeName}, success={added}, itemCount={inventory.ItemCount}.");
-                if (!added)
-                    return;
-            }
-
-            item = inventory.FindItem(heldItemId);
-            if (item == null)
-            {
-                Log($"Inventory still does not contain {heldItemId.SubtypeName} after add attempt.");
-                Retry();
+            if (!TryResolveHeldItem(out var heldItemId))
                 return;
-            }
 
             if (equipment.IsEquipped(heldItemId))
+                return;
+
+            if (!TryEnsureItemInInventory(inventory, heldItemId, out var item))
             {
-                Log($"Item {heldItemId.SubtypeName} already equipped. Slots: {DescribeSlots(equipment)}");
+                Retry();
                 return;
             }
 
@@ -145,17 +122,64 @@ namespace Si.UtilityAI
                 return;
             }
 
-            var equippedToMainHand = equipment.EquipItem(equipmentItem, MainHandSlotIndex);
-            Log($"EquipItem({heldItemId.SubtypeName}, MainHandSlotIndex={MainHandSlotIndex}) => {equippedToMainHand}. Slots after call: {DescribeSlots(equipment)}");
-            if (!equippedToMainHand)
+            if (equipment.EquipItem(equipmentItem, MainHandSlotIndex))
+                return;
+
+            var activateHandler = equipment as IMyItemActivateHandler;
+            var canHandle = activateHandler != null && activateHandler.CanHandle(item);
+            var activated = canHandle && activateHandler.Activate(Entity, inventory, item, true);
+            if (activated)
+                return;
+
+            Log($"Failed to equip {heldItemId.SubtypeName}. handler={activateHandler != null}, canHandle={canHandle}. Slots: {DescribeSlots(equipment)}");
+            Retry();
+        }
+
+        private bool TryGetEquipmentContext(out MyEntityEquipmentComponent equipment, out MyInventoryBase inventory, out string inventorySource)
+        {
+            equipment = Entity.Components.Get<MyEntityEquipmentComponent>();
+            inventory = FindInventory(out inventorySource);
+            if (equipment != null && inventory != null)
+                return true;
+
+            LogMissingComponents(equipment != null, inventory != null, inventorySource);
+            return false;
+        }
+
+        private bool TryResolveHeldItem(out MyDefinitionId heldItemId)
+        {
+            heldItemId = (MyDefinitionId)_definition.HeldItem.Value;
+            if (MyDefinitionManager.TryGet(heldItemId, out MyInventoryItemDefinition itemDefinition) && itemDefinition != null)
+                return true;
+
+            if (EquiDefinitions.TryGetItemDefinition(heldItemId.SubtypeName, out itemDefinition) && itemDefinition != null)
             {
-                var activateHandler = equipment as IMyItemActivateHandler;
-                var canHandle = activateHandler != null && activateHandler.CanHandle(item);
-                var activated = canHandle && activateHandler.Activate(Entity, inventory, item, true);
-                Log($"Fallback activate path for {heldItemId.SubtypeName}: handler={activateHandler != null}, canHandle={canHandle}, activated={activated}. Slots after fallback: {DescribeSlots(equipment)}");
-                if (!activated)
-                    Retry();
+                heldItemId = itemDefinition.Id;
+                return true;
             }
+
+            Log($"Failed to resolve held item definition {heldItemId.TypeId}/{heldItemId.SubtypeName}.");
+            return false;
+        }
+
+        private bool TryEnsureItemInInventory(MyInventoryBase inventory, MyDefinitionId heldItemId, out MyInventoryItem item)
+        {
+            item = inventory.FindItem(heldItemId);
+            if (item != null)
+                return true;
+
+            if (!inventory.AddItems(heldItemId, 1, MyInventoryBase.NewItemParams.ForcedInsertion))
+            {
+                Log($"Failed to add {heldItemId.SubtypeName} to inventory.");
+                return false;
+            }
+
+            item = inventory.FindItem(heldItemId);
+            if (item != null)
+                return true;
+
+            Log($"Inventory still does not contain {heldItemId.SubtypeName} after add attempt.");
+            return false;
         }
 
         private void Retry()
@@ -163,7 +187,6 @@ namespace Si.UtilityAI
             _attempts++;
             if (_attempts < MaxAttempts)
             {
-                Log($"Retrying later; attempt={_attempts}/{MaxAttempts}.");
                 AddScheduledCallback(EnsureHeldWeaponVisual, RetryDelayFrames);
             }
             else
@@ -185,18 +208,14 @@ namespace Si.UtilityAI
 
         private MyInventoryBase FindInventory(out string source)
         {
-            var inventory = Entity.Components.Get<MyInventoryBase>(MyCharacterConstants.MainInventory);
-            if (inventory != null)
+            foreach (var inventoryName in InventoryNames)
             {
-                source = MyCharacterConstants.MainInventory.String;
-                return inventory;
-            }
-
-            inventory = Entity.Components.Get<MyInventoryBase>(InternalInventory);
-            if (inventory != null)
-            {
-                source = InternalInventory.String;
-                return inventory;
+                var inventory = Entity.Components.Get<MyInventoryBase>(inventoryName);
+                if (inventory != null)
+                {
+                    source = inventoryName.String;
+                    return inventory;
+                }
             }
 
             source = "none";

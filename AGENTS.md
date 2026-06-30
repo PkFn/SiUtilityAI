@@ -56,6 +56,14 @@
 - If an API is still unclear, inspect the referenced game DLLs from `SiUtilityAI.csproj` `<HintPath>` values. Use metadata/decompiler tools or IDE navigation against those DLLs instead of guessing signatures.
 - Prefer examples from `ref_equi_core/` when several sources disagree.
 
+## Runtime Debugging
+
+- When an in-game issue is silent or only reproducible inside Medieval Engineers, prefer adding temporary runtime logging over guessing.
+- Use `NamedLogger(MySession.Static.Log, nameof(YourComponentType))` and emit a short, grep-friendly prefix such as `[YourSystem]` in each message so the user can filter `C:\Users\SicH\AppData\Roaming\MedievalEngineers\MedievalEngineers.log`.
+- Include the entity id, entity name, key definition subtype, and the exact branch outcome being tested. One good log line with concrete state is better than many vague ones.
+- For wiring problems, log the component or inventory lookup results directly. If useful, dump the runtime component type list once on first failure instead of spamming it every retry.
+- After the issue is understood or fixed, remove or reduce verbose success-path logging and keep only the diagnostics that are likely to help with future regressions.
+
 ## Verification
 
 - Build `SiUtilityAI.sln` as the primary verification step after changes. From the repository root, run `dotnet build .\SiUtilityAI.sln --no-restore --nologo --verbosity:minimal "-consoleloggerparameters:ErrorsOnly;Summary"`; if restore inputs are missing or stale, run the same command once without `--no-restore`.

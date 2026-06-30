@@ -26,13 +26,9 @@ namespace Si.UtilityAI
     public class SiNpcCharacterDamageBridgeComponent : MyEntityComponent
     {
         private static readonly MyStringHash HealthStat = MyStringHash.GetOrCompute("Health");
-        private const float MinimumDeathDamage = 0.001f;
 
         private MyCharacterDamageComponent _damage;
         private float? _pendingExpectedHealth;
-        private MyDamageInformation _pendingDamageInformation;
-        private bool _hasPendingDamageInformation;
-        private bool _suppressBridgeDamage;
 
         public override bool IsSerialized => false;
 
@@ -64,15 +60,10 @@ namespace Si.UtilityAI
 
             _damage = null;
             _pendingExpectedHealth = null;
-            _hasPendingDamageInformation = false;
-            _suppressBridgeDamage = false;
         }
 
         private void OnDamageTaken(MyDamageInformation damageInformation)
         {
-            if (_suppressBridgeDamage)
-                return;
-
             if (!IsAuthoritative())
             {
                 SiNpcSessionComponent.ReportNpcDamageBridgeHit(Entity?.EntityId ?? 0, damageInformation);
@@ -106,35 +97,16 @@ namespace Si.UtilityAI
             if (!TryResolveHealthStat(out health))
                 return;
 
-            var pendingDamageInformation = _pendingDamageInformation;
-            var hasPendingDamageInformation = _hasPendingDamageInformation;
             _pendingExpectedHealth = null;
-            _hasPendingDamageInformation = false;
 
             if (health.Current <= expectedHealth.Value + 0.001f)
                 return;
 
+            // These NPCs already treat a zeroed health stat as dead in the mod's
+            // own lifecycle. Avoid forcing the vanilla lethal DoDamage path
+            // because it currently crashes when the equipped visual hand item is
+            // torn down during death.
             health.Current = expectedHealth.Value;
-
-            if (expectedHealth.Value <= 0.001f && _damage != null)
-            {
-                var finalDamage = hasPendingDamageInformation
-                    ? pendingDamageInformation
-                    : new MyDamageInformation(MinimumDeathDamage, HealthStat);
-
-                if (finalDamage.Amount < MinimumDeathDamage)
-                    finalDamage = new MyDamageInformation(MinimumDeathDamage, finalDamage.Type);
-
-                _suppressBridgeDamage = true;
-                try
-                {
-                    _damage.DoDamage(finalDamage);
-                }
-                finally
-                {
-                    _suppressBridgeDamage = false;
-                }
-            }
         }
 
         private bool QueueDamageApplication(MyDamageInformation damageInformation)
@@ -151,8 +123,6 @@ namespace Si.UtilityAI
             if (!_pendingExpectedHealth.HasValue || expectedHealth < _pendingExpectedHealth.Value)
             {
                 _pendingExpectedHealth = expectedHealth;
-                _pendingDamageInformation = damageInformation;
-                _hasPendingDamageInformation = true;
             }
 
             return true;
