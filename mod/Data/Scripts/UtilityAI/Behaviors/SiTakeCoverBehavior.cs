@@ -84,6 +84,7 @@ namespace Si.UtilityAI
     {
         private const long LogCooldownMilliseconds = 2000;
         private const long CoverSearchRetryMilliseconds = 1500;
+        private const long InitialCoverSearchSpreadMilliseconds = 500;
         private const long SlowCoverSearchLogCooldownMilliseconds = 5000;
         private const double SlowCoverSearchMilliseconds = 5;
         private static readonly double[] SideOffsetSamples =
@@ -110,6 +111,7 @@ namespace Si.UtilityAI
         private long _lastNoCoverLogTime = long.MinValue;
         private long _lastReservationFailLogTime = long.MinValue;
         private long _lastCoverSearchTime = -1;
+        private long _nextCoverSearchAllowedTime = -1;
         private long _lastSlowCoverSearchLogTime = long.MinValue;
         private string _lastCoverRejectReason;
 
@@ -139,6 +141,7 @@ namespace Si.UtilityAI
             if (session.GetCombatStance(context.Agent) != SiSquadCombatStance.Combat)
             {
                 ReleaseCover(session, context);
+                ResetCoverSearchSchedule();
                 return 0;
             }
 
@@ -183,7 +186,10 @@ namespace Si.UtilityAI
                 return;
 
             if (session.GetCombatStance(context.Agent) != SiSquadCombatStance.Combat)
+            {
                 ReleaseCover(session, context);
+                ResetCoverSearchSchedule();
+            }
         }
 
         internal bool IsRunningToCover(SiUtilityContext context)
@@ -204,6 +210,7 @@ namespace Si.UtilityAI
             if (session.GetCombatStance(context.Agent) != SiSquadCombatStance.Combat)
             {
                 ReleaseCover(session, context);
+                ResetCoverSearchSchedule();
                 return;
             }
 
@@ -304,8 +311,11 @@ namespace Si.UtilityAI
 
         private bool ShouldSearchForCover(bool forceRefresh, bool hasUsableCurrentCover)
         {
+            if (_nextCoverSearchAllowedTime < 0)
+                InitializeCoverSearchSchedule();
+
             if (forceRefresh)
-                return MarkCoverSearchAttempt();
+                return IsCoverSearchDue() && MarkCoverSearchAttempt();
 
             if (!_hasReservedCover || !hasUsableCurrentCover)
                 return IsCoverSearchDue() && MarkCoverSearchAttempt();
@@ -316,14 +326,30 @@ namespace Si.UtilityAI
         private bool IsCoverSearchDue()
         {
             var now = CurrentTimeMilliseconds();
-            return _lastCoverSearchTime < 0
-                   || now - _lastCoverSearchTime >= CoverSearchRetryMilliseconds;
+            return now >= _nextCoverSearchAllowedTime;
         }
 
         private bool MarkCoverSearchAttempt()
         {
-            _lastCoverSearchTime = CurrentTimeMilliseconds();
+            var now = CurrentTimeMilliseconds();
+            _lastCoverSearchTime = now;
+            _nextCoverSearchAllowedTime = now + CoverSearchRetryMilliseconds;
             return true;
+        }
+
+        private void InitializeCoverSearchSchedule()
+        {
+            var now = CurrentTimeMilliseconds();
+            _nextCoverSearchAllowedTime = now + ResolveInitialCoverSearchDelayMilliseconds();
+        }
+
+        private long ResolveInitialCoverSearchDelayMilliseconds()
+        {
+            var entityId = Entity?.EntityId ?? 0;
+            if (InitialCoverSearchSpreadMilliseconds <= 0 || entityId == 0)
+                return 0;
+
+            return Math.Abs(entityId % (InitialCoverSearchSpreadMilliseconds + 1));
         }
 
         private bool FindBestCover(
@@ -654,6 +680,12 @@ namespace Si.UtilityAI
             _hasReservedCover = false;
             _reservedCoverPosition = Vector3D.Zero;
             _reservedStandPosition = Vector3D.Zero;
+        }
+
+        private void ResetCoverSearchSchedule()
+        {
+            _lastCoverSearchTime = -1;
+            _nextCoverSearchAllowedTime = -1;
         }
 
         private void SetRejectReason(string reason)
