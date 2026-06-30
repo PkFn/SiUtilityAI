@@ -34,7 +34,7 @@ namespace Si.UtilityAI
         private const string EnemyCommand = "/si-enemy";
         private const string SquadCommand = "/si-squad";
         private const double SpawnDistance = 2.5;
-        private const long CombatStanceCooldownMilliseconds = 20000;
+        private const long CombatStanceCooldownMilliseconds = 60000;
         private const double CombatStanceNearbyEnemyDistance = 80;
         private static readonly Vector2 SpottingTextAnchor = new Vector2(-0.98f, -0.92f);
         private const string SpeakChannelName = "Speak";
