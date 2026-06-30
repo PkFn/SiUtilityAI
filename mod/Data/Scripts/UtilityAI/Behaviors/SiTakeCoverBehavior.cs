@@ -91,6 +91,16 @@ namespace Si.UtilityAI
     public class SiTakeCoverBehaviorComponent : MyEntityComponent, ISiUtilityBehavior
     {
         private const long LogCooldownMilliseconds = 2000;
+        private static readonly double[] SideOffsetSamples =
+        {
+            0,
+            0.35,
+            -0.35,
+            0.7,
+            -0.7,
+            1.0,
+            -1.0,
+        };
 
         private readonly List<Vector3D> _coverPositions = new List<Vector3D>();
         private readonly SiNearbyCoverScanner _coverScanner = new SiNearbyCoverScanner();
@@ -447,18 +457,26 @@ namespace Si.UtilityAI
                 SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(
                     context.Position - coverPosition,
                     Vector3D.CalculatePerpendicularVector(up)));
+            var side = SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(
+                Vector3D.Cross(awayFromThreat, up),
+                Vector3D.CalculatePerpendicularVector(awayFromThreat));
 
             for (var offset = _definition.MaximumCoverOffset; offset >= _definition.MinimumCoverOffset; offset -= _definition.CoverOffsetStep)
             {
-                var standPosition = coverPosition + awayFromThreat * offset;
-                if (!TryScoreStandingPoint(context, standPosition, threatEntity, threatPosition, up, out var score))
-                    continue;
-
-                if (score > bestScore)
+                for (var sampleIndex = 0; sampleIndex < SideOffsetSamples.Length; sampleIndex++)
                 {
-                    bestScore = score;
-                    bestStandPosition = standPosition;
-                    isTree = offset >= _definition.PreferredTreeOffset;
+                    var standPosition = coverPosition
+                                        + awayFromThreat * offset
+                                        + side * SideOffsetSamples[sampleIndex];
+                    if (!TryScoreStandingPoint(context, standPosition, threatEntity, threatPosition, up, out var score))
+                        continue;
+
+                    if (score > bestScore)
+                    {
+                        bestScore = score;
+                        bestStandPosition = standPosition;
+                        isTree = offset >= _definition.PreferredTreeOffset;
+                    }
                 }
             }
 
