@@ -1,5 +1,6 @@
 using System;
 using System.Xml.Serialization;
+using Equinox76561198048419394.Core.Util;
 using Medieval.GameSystems.Factions;
 using Sandbox.Game.Players;
 using Sandbox.ModAPI;
@@ -9,8 +10,10 @@ using VRage.Game.Components;
 using VRage.Game.Definitions;
 using VRage.Game.Entity;
 using VRage.Game.ObjectBuilders.ComponentSystem;
+using VRage.Logging;
 using VRage.ModAPI;
 using VRage.ObjectBuilders;
+using VRage.Session;
 using VRage.Utils;
 using VRageMath;
 
@@ -201,6 +204,7 @@ namespace Si.UtilityAI
     [MyDefinitionRequired(typeof(SiShootOpposingNpcBehaviorDefinition))]
     public class SiShootOpposingNpcBehaviorComponent : MyEntityComponent, ISiUtilityBehavior
     {
+        private const long LogCooldownMilliseconds = 2000;
         private static readonly MyStringHash HostileRelationship = MyStringHash.GetOrCompute("War");
 
         private SiShootOpposingNpcBehaviorDefinition _definition;
@@ -208,6 +212,16 @@ namespace Si.UtilityAI
         private long _lastEngageSpeechTime = -1;
         private long _lastSpotSpeechTime = -1;
         private long _lastSpottedTargetId;
+        private NamedLogger _log;
+        private bool _logInitialized;
+        private long _lastNoWeaponLogTime = long.MinValue;
+        private long _lastNoTargetLogTime = long.MinValue;
+        private long _lastHoldFireLogTime = long.MinValue;
+        private long _lastInvalidTargetLogTime = long.MinValue;
+        private long _lastLineOfSightBlockedLogTime = long.MinValue;
+        private long _lastTryFireFailedLogTime = long.MinValue;
+        private long _lastEvaluateTargetLogTime = long.MinValue;
+        private long _lastSpottingLogTime = long.MinValue;
 
         public string BehaviorName => DefinitionId.ToString();
 
@@ -220,11 +234,20 @@ namespace Si.UtilityAI
             _definition.ResolveBalance();
         }
 
+        public override void OnAddedToContainer()
+        {
+            base.OnAddedToContainer();
+            TryInitLog();
+        }
+
         float ISiUtilityBehavior.Evaluate(SiUtilityContext context)
         {
             var weapon = GetWeapon();
             if (weapon == null || !weapon.IsOperational)
             {
+                LogWithCooldown(
+                    ref _lastNoWeaponLogTime,
+                    $"[SiShoot] evaluate skipped weapon={(weapon == null ? "missing" : "not-operational")} target={DescribeTarget(_target)}");
                 _target = null;
                 return 0;
             }
@@ -233,11 +256,12 @@ namespace Si.UtilityAI
             _target = target;
             if (target == null)
             {
+                LogWithCooldown(ref _lastNoTargetLogTime, "[SiShoot] evaluate found no valid opposing target");
                 _lastSpottedTargetId = 0;
                 return 0;
             }
 
-            TryReportSpotting(context, target, distance);
+            var observation = TryReportSpotting(context, target, distance);
 
             var normalizedDistance = _definition.SearchRadius > 0
                 ? MathHelper.Clamp(1f - (float)(distance / _definition.SearchRadius), 0, 1)
@@ -245,6 +269,9 @@ namespace Si.UtilityAI
             var score = _definition.BaseScore
                         + _definition.DistanceScore
                         * (float)Math.Pow(normalizedDistance, _definition.DistanceExponent);
+            LogWithCooldown(
+                ref _lastEvaluateTargetLogTime,
+                $"[SiShoot] evaluate target={DescribeTarget(target)} distance={distance:0.0} score={score:0.00} spotted={observation.IsSpotted} spotting={observation.SpottingSum:0.00}/{observation.SpottingThreshold:0.00}");
             return score;
         }
 
@@ -266,7 +293,21 @@ namespace Si.UtilityAI
                 || !weapon.IsOperational
                 || session?.GetEngagementStance(context.Agent) == SiSquadEngagementStance.HoldFire
                 || !IsValidTarget(context.Agent, _target))
+            {
+                if (weapon == null || !weapon.IsOperational)
+                    LogWithCooldown(
+                        ref _lastNoWeaponLogTime,
+                        $"[SiShoot] tick blocked weapon={(weapon == null ? "missing" : "not-operational")} target={DescribeTarget(_target)}");
+                else if (session?.GetEngagementStance(context.Agent) == SiSquadEngagementStance.HoldFire)
+                    LogWithCooldown(
+                        ref _lastHoldFireLogTime,
+                        $"[SiShoot] tick blocked by hold-fire stance target={DescribeTarget(_target)}");
+                else
+                    LogWithCooldown(
+                        ref _lastInvalidTargetLogTime,
+                        $"[SiShoot] tick blocked invalid target target={DescribeTarget(_target)}");
                 return;
+            }
 
             var targetEntity = _target.Entity;
             if (_definition.RotateToTarget)
@@ -275,9 +316,18 @@ namespace Si.UtilityAI
             weapon.Advance(elapsedMilliseconds);
 
             if (_definition.RequireLineOfSight && !HasLineOfSight(context.Entity, targetEntity, weapon.Definition.AimTargetHeight))
+            {
+                LogWithCooldown(
+                    ref _lastLineOfSightBlockedLogTime,
+                    $"[SiShoot] tick blocked no-line-of-sight target={DescribeTarget(_target)} distance={DistanceToTarget(context.Entity, targetEntity):0.0}");
                 return;
+            }
 
-            weapon.TryFire(context, targetEntity, _target.Velocity);
+            var fired = weapon.TryFire(context, targetEntity, _target.Velocity);
+            if (!fired)
+                LogWithCooldown(
+                    ref _lastTryFireFailedLogTime,
+                    $"[SiShoot] tick failed TryFire target={DescribeTarget(_target)} distance={DistanceToTarget(context.Entity, targetEntity):0.0} targetVelocity={FormatVector(_target.Velocity)}");
         }
 
         void ISiUtilityBehavior.End(SiUtilityContext context)
@@ -290,22 +340,29 @@ namespace Si.UtilityAI
         private SiNpcRangedWeaponComponent GetWeapon() =>
             Entity?.Components?.Get<SiNpcRangedWeaponComponent>();
 
-        private void TryReportSpotting(SiUtilityContext context, ShootTarget target, double distance)
+        private SiSpottingObservation TryReportSpotting(SiUtilityContext context, ShootTarget target, double distance)
         {
             var observation = ObserveTarget(context, target, distance);
             if (target == null || !observation.IsSpotted)
-                return;
+                return observation;
 
             if (_lastSpottedTargetId == target.EntityId
                 && !IsSpeechDue(_lastSpotSpeechTime, _definition.SpotSpeechCooldownMilliseconds))
-                return;
+                return observation;
 
             if (TrySpeakWithCooldown(
                     context,
                     CreateSpottingReport(context, target, distance),
                     ref _lastSpotSpeechTime,
                     _definition.SpotSpeechCooldownMilliseconds))
+            {
                 _lastSpottedTargetId = target.EntityId;
+                LogWithCooldown(
+                    ref _lastSpottingLogTime,
+                    $"[SiShoot] spotted target={DescribeTarget(target)} distance={distance:0.0} spotting={observation.SpottingSum:0.00}/{observation.SpottingThreshold:0.00}");
+            }
+
+            return observation;
         }
 
         private SiSpottingObservation ObserveTarget(
@@ -820,6 +877,54 @@ namespace Si.UtilityAI
                 ? value / Math.Sqrt(lengthSquared)
                 : fallback;
         }
+
+        private void TryInitLog()
+        {
+            if (_logInitialized || MySession.Static?.Log == null)
+                return;
+
+            _log = new NamedLogger(MySession.Static.Log, nameof(SiShootOpposingNpcBehaviorComponent));
+            _logInitialized = true;
+        }
+
+        private void LogWithCooldown(ref long lastLogTime, string message)
+        {
+            var now = CurrentTimeMilliseconds();
+            if (lastLogTime >= 0 && now - lastLogTime < LogCooldownMilliseconds)
+                return;
+
+            lastLogTime = now;
+            Log(message);
+        }
+
+        private void Log(string message)
+        {
+            TryInitLog();
+            if (!_logInitialized)
+                return;
+
+            _log.Warning(
+                $"[SiShoot] entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} {message}");
+        }
+
+        private static string DescribeTarget(ShootTarget target)
+        {
+            var entity = target?.Entity;
+            return entity == null
+                ? "none"
+                : $"{entity.EntityId}:{entity.Name ?? "null"}";
+        }
+
+        private static double DistanceToTarget(MyEntity self, MyEntity target)
+        {
+            if (self == null || target == null)
+                return 0;
+
+            return Vector3D.Distance(self.WorldMatrix.Translation, target.WorldMatrix.Translation);
+        }
+
+        private static string FormatVector(in Vector3D value) =>
+            $"{value.X:0.0},{value.Y:0.0},{value.Z:0.0}";
 
         private sealed class ShootTarget
         {
