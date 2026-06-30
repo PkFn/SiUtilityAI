@@ -10,16 +10,18 @@
 - The game supports both `.cs` C# scripts and `.sbc` XML entity/definition files.
 
 ## Linked Dependencies
-- Dependencies are usually a soft-linked Steam Workshop folder. Do not modify their files.
-- Content re-usage permission is granted for linked mods.
-- `ref_equi_core/` extends the game API and is the preferred reference for mod folder structure and style because it was written by an actual game developer team member.
-- `ref_equi_rail_core` adds the rails - flexible blocks that create colliders on their own.
-- `ref_pax_core/` adds many industrial blocks.
+- Content re-usage permission is granted for vanilla content and the content made by PAX / Xaerthus / Equinox. Feel free to re-use the code.
+- `ref_workshop` has all game mods. Each one has XML `metadata.mod` with `<ModId></ModId>` line. Below are key mods:
+- `equinoxcore` extends the game API and is the preferred reference for mod folder structure and style because it was written by an actual game developer team member.
+- `railsystemcore` adds the rails - flexible blocks that create colliders on their own.
+- `pax scripts` adds core scripts for many industrial blocks.
+- `rifledefenders` adds static defenders.
+- `modern small arms` adds player held guns.
+- `watercore` adds content using PAX Core.
+
+## Shared content
 - `ref_si_core/` is a soft link to another Visual Studio project and is editable. It is the shared core for reusable code across the user's mods. It's the only mod you can modify.
 - If a change reveals reusable code that belongs in shared infrastructure, it is acceptable to add or update code in `ref_si_core/`, following its existing structure and style.
-- `ref_pax_defenders/` adds static defenders.
-- `ref_modern_smallarms/` adds player held guns.
-- `ref_pax_water_core/` adds content using PAX Core.
 
 ## Linked Vanilla Game Content
 - `ref_vanilla_content/` leads to vanilla game content folder (no scripts).
