@@ -130,7 +130,9 @@ namespace Si.UtilityAI
             if (state.NextEvaluationTime <= 0 || CurrentTimeMilliseconds() >= state.NextEvaluationTime)
                 Evaluate(state, observer, target, CurrentTimeMilliseconds(), distance);
 
-            return new SiSpottingObservation(state.IsSpotted, state.SpottingSum, state.SpottingThreshold);
+            var sharedSpottingSum = GetSharedSpottingSum(observer, target, state.SpottingSum);
+            var isSpotted = sharedSpottingSum >= state.SpottingThreshold;
+            return new SiSpottingObservation(isSpotted, sharedSpottingSum, state.SpottingThreshold);
         }
 
         public void ReportShot(long shooterEntityId, MyEntity shooter)
@@ -456,6 +458,35 @@ namespace Si.UtilityAI
         private static int EvaluationInterval(SpottingState state)
         {
             return Math.Max(50, state?.System?.Definition?.SpottingReevaluationIntervalMilliseconds ?? 250);
+        }
+
+        private float GetSharedSpottingSum(SiNpc observer, MyEntity target, float localSpottingSum)
+        {
+            if (observer == null || target == null || _session?.Squads == null)
+                return MathHelper.Clamp(localSpottingSum, 0, 1);
+
+            SiAssignedNpc assignment;
+            if (!_session.Squads.TryGetAssignment(observer.EntityId, out assignment))
+                return MathHelper.Clamp(localSpottingSum, 0, 1);
+
+            var bestSpottingSum = localSpottingSum;
+            foreach (var pair in _observations)
+            {
+                var state = pair.Value;
+                if (state == null
+                    || state.TargetId != target.EntityId
+                    || state.ObserverId == observer.EntityId)
+                    continue;
+
+                SiAssignedNpc otherAssignment;
+                if (!_session.Squads.TryGetAssignment(state.ObserverId, out otherAssignment)
+                    || !otherAssignment.Leader.Equals(assignment.Leader))
+                    continue;
+
+                bestSpottingSum = Math.Max(bestSpottingSum, state.SpottingSum);
+            }
+
+            return MathHelper.Clamp(bestSpottingSum, 0, 1);
         }
 
         private int TrackingTimeoutMilliseconds()

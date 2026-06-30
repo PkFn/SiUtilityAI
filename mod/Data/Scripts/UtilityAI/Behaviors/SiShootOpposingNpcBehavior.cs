@@ -42,6 +42,7 @@ namespace Si.UtilityAI
         public int EngageSpeechCooldownMilliseconds;
         public string SpotTargetName;
         public int SpotSpeechCooldownMilliseconds;
+        public float DetectionAccuracyWorseningMultiplier;
 
         [XmlArrayItem("Archetype")]
         public string[] TargetArchetypes;
@@ -62,6 +63,7 @@ namespace Si.UtilityAI
         public int EngageSpeechCooldownMilliseconds;
         public string SpotTargetName;
         public int SpotSpeechCooldownMilliseconds;
+        public float DetectionAccuracyWorseningMultiplier;
 
         [XmlArrayItem("Archetype")]
         public string[] TargetArchetypes;
@@ -82,6 +84,7 @@ namespace Si.UtilityAI
         public int EngageSpeechCooldownMilliseconds { get; private set; }
         public string SpotTargetName { get; private set; }
         public int SpotSpeechCooldownMilliseconds { get; private set; }
+        public float DetectionAccuracyWorseningMultiplier { get; private set; }
         public string[] TargetArchetypes { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
@@ -99,6 +102,7 @@ namespace Si.UtilityAI
             EngageSpeechCooldownMilliseconds = Math.Max(0, ob.EngageSpeechCooldownMilliseconds);
             SpotTargetName = ob.SpotTargetName;
             SpotSpeechCooldownMilliseconds = Math.Max(0, ob.SpotSpeechCooldownMilliseconds);
+            DetectionAccuracyWorseningMultiplier = Math.Max(1, ob.DetectionAccuracyWorseningMultiplier);
             TargetArchetypes = ob.TargetArchetypes ?? EmptyArchetypes;
         }
     }
@@ -120,6 +124,7 @@ namespace Si.UtilityAI
         public int EngageSpeechCooldownMilliseconds { get; private set; }
         public string SpotTargetName { get; private set; }
         public int SpotSpeechCooldownMilliseconds { get; private set; }
+        public float DetectionAccuracyWorseningMultiplier { get; private set; }
         public string[] TargetArchetypes { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
@@ -158,6 +163,7 @@ namespace Si.UtilityAI
             EngageSpeechCooldownMilliseconds = Math.Max(0, ob.EngageSpeechCooldownMilliseconds);
             SpotTargetName = ob.SpotTargetName;
             SpotSpeechCooldownMilliseconds = Math.Max(0, ob.SpotSpeechCooldownMilliseconds);
+            DetectionAccuracyWorseningMultiplier = Math.Max(1, ob.DetectionAccuracyWorseningMultiplier);
             TargetArchetypes = ob.TargetArchetypes ?? EmptyArchetypes;
         }
 
@@ -173,6 +179,7 @@ namespace Si.UtilityAI
             EngageSpeechCooldownMilliseconds = balance.EngageSpeechCooldownMilliseconds;
             SpotTargetName = balance.SpotTargetName;
             SpotSpeechCooldownMilliseconds = balance.SpotSpeechCooldownMilliseconds;
+            DetectionAccuracyWorseningMultiplier = balance.DetectionAccuracyWorseningMultiplier;
             TargetArchetypes = balance.TargetArchetypes ?? EmptyArchetypes;
         }
 
@@ -323,7 +330,22 @@ namespace Si.UtilityAI
                 return;
             }
 
-            var fired = weapon.TryFire(context, targetEntity, _target.Velocity);
+            var distance = DistanceToTarget(context.Entity, targetEntity);
+            var observation = TryReportSpotting(context, _target, distance);
+            if (!observation.IsSpotted)
+            {
+                LogWithCooldown(
+                    ref _lastSpottingLogTime,
+                    $"[SiShoot] tick blocked unspotted target={DescribeTarget(_target)} distance={distance:0.0} spotting={observation.SpottingSum:0.00}/{observation.SpottingThreshold:0.00}");
+                return;
+            }
+
+            var fired = weapon.TryFire(
+                context,
+                targetEntity,
+                _target.Velocity,
+                observation.SpottingSum,
+                _definition.DetectionAccuracyWorseningMultiplier);
             if (!fired)
                 LogWithCooldown(
                     ref _lastTryFireFailedLogTime,

@@ -380,7 +380,12 @@ namespace Si.UtilityAI
             _fireCooldown = Math.Max(0, _fireCooldown - elapsedMilliseconds);
         }
 
-        internal bool TryFire(SiUtilityContext context, MyEntity targetEntity, Vector3D targetVelocity)
+        internal bool TryFire(
+            SiUtilityContext context,
+            MyEntity targetEntity,
+            Vector3D targetVelocity,
+            float detectionScore,
+            float detectionAccuracyWorseningMultiplier)
         {
             if (!IsOperational
                 || _fireCooldown > 0
@@ -391,11 +396,15 @@ namespace Si.UtilityAI
             if (!TryCreateShot(context.Entity, targetEntity, targetVelocity, out var projectileMatrix))
                 return false;
 
+            var projectileAccuracyMultiplier = ComputeProjectileAccuracyMultiplier(
+                detectionScore,
+                detectionAccuracyWorseningMultiplier);
+
             if (!SiPaxProjectileSpawner.TryCreateSyncedProjectile(
                     _definition.Projectile,
                     projectileMatrix,
                     _definition.ProjectileVelocityMultiplier,
-                    _definition.ProjectileAccuracyMultiplier,
+                    projectileAccuracyMultiplier,
                     Vector3.Zero,
                     _definition.ProjectileSyncDistance,
                     _definition.CharacterDamageMultiplier,
@@ -412,6 +421,16 @@ namespace Si.UtilityAI
                 shotFeedback.PlayReloadSound,
                 shotFeedback.PlayMagazineReloadSound);
             return true;
+        }
+
+        private float ComputeProjectileAccuracyMultiplier(
+            float detectionScore,
+            float detectionAccuracyWorseningMultiplier)
+        {
+            var clampedScore = MathHelper.Clamp(detectionScore, 0, 1);
+            var worseningMultiplier = Math.Max(1, detectionAccuracyWorseningMultiplier);
+            var blendedMultiplier = MathHelper.Lerp(worseningMultiplier, 1f, clampedScore);
+            return _definition.ProjectileAccuracyMultiplier * blendedMultiplier;
         }
 
         private bool TryCreateShot(
