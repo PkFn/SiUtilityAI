@@ -28,6 +28,7 @@ namespace Si.UtilityAI
         public double MarkerHeight { get; private set; }
         public double MarkerMaxDistance { get; private set; }
         public float MarkerTextScale { get; private set; }
+        public double EnemyJoinRadius { get; private set; }
 
         public SiRankDefinition PlayerRank => GetRank(PlayerRankId);
         public SiRankDefinition NpcRank => GetRank(NpcRankId);
@@ -70,6 +71,7 @@ namespace Si.UtilityAI
             MarkerHeight = Math.Max(0, ob.MarkerHeight);
             MarkerMaxDistance = Math.Max(0, ob.MarkerMaxDistance);
             MarkerTextScale = Math.Max(0, ob.MarkerTextScale);
+            EnemyJoinRadius = Math.Max(0, ob.EnemyJoinRadius);
         }
 
         public SiSquadLetterDefinition GetLetter(int index)
@@ -168,6 +170,9 @@ namespace Si.UtilityAI
 
         [XmlElement]
         public float MarkerTextScale;
+
+        [XmlElement]
+        public double EnemyJoinRadius;
 
         [XmlArrayItem("Letter")]
         public List<SquadLetter> Letters;

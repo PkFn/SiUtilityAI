@@ -13,6 +13,7 @@
     <MarkerHeight>2.2</MarkerHeight>
     <MarkerMaxDistance>75</MarkerMaxDistance>
     <MarkerTextScale>0.65</MarkerTextScale>
+    <EnemyJoinRadius>18</EnemyJoinRadius>
 
     <Ranks>
       <Rank Id="private" DisplayName="Private" Abbreviation="Pvt" Order="10" />

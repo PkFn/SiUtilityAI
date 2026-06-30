@@ -6,6 +6,7 @@ using Sandbox.Game.Players;
 using VRage.Game;
 using VRage.Game.Definitions;
 using VRage.ObjectBuilders;
+using VRageMath;
 
 namespace Si.UtilityAI
 {
@@ -107,6 +108,47 @@ namespace Si.UtilityAI
 
         public bool TryGetAssignment(long npcId, out SiAssignedNpc assignment) =>
             _assignedNpcs.TryGetValue(npcId, out assignment);
+
+        public bool TryFindNearbyAiSquadAssignment(
+            SiNpcManager npcManager,
+            in Vector3D position,
+            double radius,
+            SiArmyKey army,
+            out SiAssignedNpc assignment)
+        {
+            assignment = null;
+            if (npcManager == null || radius <= 0)
+                return false;
+
+            PurgeClosedNpcs(npcManager);
+
+            var bestDistanceSquared = radius * radius;
+            foreach (var entry in _assignedNpcs)
+            {
+                var candidateAssignment = entry.Value;
+                if (candidateAssignment.Leader.Kind != SiSquadLeaderKind.Ai
+                    || !candidateAssignment.Leader.Army.Equals(army))
+                    continue;
+
+                SiNpc npc;
+                if (!npcManager.Npcs.TryGetValue(entry.Key, out npc)
+                    || npc?.Entity == null
+                    || npc.Entity.Closed
+                    || npc.Entity.MarkedForClose)
+                    continue;
+
+                var distanceSquared = Vector3D.DistanceSquared(
+                    npc.Entity.WorldMatrix.Translation,
+                    position);
+                if (distanceSquared > bestDistanceSquared)
+                    continue;
+
+                bestDistanceSquared = distanceSquared;
+                assignment = candidateAssignment;
+            }
+
+            return assignment != null;
+        }
 
         public static SiArmyKey ArmyForPlayerIdentity(long identityId) =>
             ArmyForIdentity(identityId);

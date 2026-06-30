@@ -945,7 +945,7 @@ namespace Si.UtilityAI
             if (!TryMarkHostileToCaller(player, enemyFaction, out failure))
                 return false;
 
-            AssignNpcToEnemyFaction(npc, enemyFaction);
+            AssignNpcToEnemySquad(npc, enemyFaction);
             return true;
         }
 
@@ -980,17 +980,43 @@ namespace Si.UtilityAI
             return true;
         }
 
-        private void AssignNpcToEnemyFaction(SiNpc npc, MyFaction enemyFaction)
+        private void AssignNpcToEnemySquad(SiNpc npc, MyFaction enemyFaction)
         {
             if (npc == null || enemyFaction == null)
                 return;
 
-            Squads?.AssignNpcToLeader(
+            var squads = Squads;
+            if (squads == null)
+                return;
+
+            var army = new SiArmyKey(SiArmyKind.Faction, enemyFaction.FactionId);
+            SiAssignedNpc nearbyAssignment;
+            if (Npcs != null
+                && npc.Entity != null
+                && squads.TryFindNearbyAiSquadAssignment(
+                    Npcs,
+                    npc.Entity.WorldMatrix.Translation,
+                    squads.Definition?.EnemyJoinRadius ?? 0,
+                    army,
+                    out nearbyAssignment))
+            {
+                squads.AssignNpcToLeader(
+                    npc,
+                    nearbyAssignment.Leader.Kind,
+                    nearbyAssignment.Leader.Id,
+                    nearbyAssignment.Leader.Army.Kind,
+                    nearbyAssignment.Leader.Army.Id,
+                    nearbyAssignment.LeaderName,
+                    false);
+                return;
+            }
+
+            squads.AssignNpcToLeader(
                 npc,
                 SiSquadLeaderKind.Ai,
                 npc.EntityId,
-                SiArmyKind.Faction,
-                enemyFaction.FactionId,
+                army.Kind,
+                army.Id,
                 EnemyTrooperName(npc),
                 true);
         }
@@ -1671,8 +1697,13 @@ namespace Si.UtilityAI
             RestoreDiplomaticIdentity(saved, npc);
             if (Npcs != null && Npcs.IsHostileToSpawner(saved.Archetype))
             {
-                if (!RestoreHostileNpcFaction(saved, npc))
+                MyFaction enemyFaction;
+                if (!RestoreHostileNpcFaction(saved, npc, out enemyFaction))
                     RestoreSquadAssignment(saved, npc);
+                else if (saved.HasSquadAssignment)
+                    RestoreSquadAssignment(saved, npc);
+                else
+                    AssignNpcToEnemySquad(npc, enemyFaction);
             }
             else
                 RestoreSquadAssignment(saved, npc);
@@ -1702,8 +1733,10 @@ namespace Si.UtilityAI
 
         private bool RestoreHostileNpcFaction(
             MyObjectBuilder_SiNpcSessionComponent.SavedNpc saved,
-            SiNpc npc)
+            SiNpc npc,
+            out MyFaction enemyFaction)
         {
+            enemyFaction = null;
             if (npc == null)
                 return false;
 
@@ -1719,12 +1752,9 @@ namespace Si.UtilityAI
                 SetNpcDiplomaticIdentity(npc, identity);
             }
 
-            MyFaction enemyFaction;
             string failure;
             if (!TryAssignIdentityToEnemyFaction(npc.DiplomaticIdentityId, out enemyFaction, out failure))
                 return false;
-
-            AssignNpcToEnemyFaction(npc, enemyFaction);
             return true;
         }
 
