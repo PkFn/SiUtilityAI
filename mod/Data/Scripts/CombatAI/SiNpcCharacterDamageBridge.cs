@@ -78,6 +78,7 @@ namespace Si.UtilityAI
             if (!QueueDamageApplication(damageInformation))
                 return;
 
+            SiNpcSessionComponent.Instance?.ReportNpcShotAt(Entity?.EntityId ?? 0);
             ApplyPendingDamage();
         }
 
@@ -90,6 +91,7 @@ namespace Si.UtilityAI
             if (!QueueDamageApplication(damageInformation))
                 return;
 
+            SiNpcSessionComponent.Instance?.ReportNpcShotAt(Entity?.EntityId ?? 0);
             ApplyPendingDamage();
         }
 

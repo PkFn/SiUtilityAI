@@ -34,6 +34,8 @@ namespace Si.UtilityAI
         private const string EnemyCommand = "/si-enemy";
         private const string SquadCommand = "/si-squad";
         private const double SpawnDistance = 2.5;
+        private const long CombatStanceCooldownMilliseconds = 20000;
+        private const double CombatStanceNearbyEnemyDistance = 80;
         private static readonly Vector2 SpottingTextAnchor = new Vector2(-0.98f, -0.92f);
         private const string SpeakChannelName = "Speak";
         private static readonly MyStringHash HostileRelationship = MyStringHash.GetOrCompute("War");
@@ -43,6 +45,8 @@ namespace Si.UtilityAI
         private static double _speakRange = -1;
         private readonly Dictionary<long, SiSquadCommandState> _squadOrders =
             new Dictionary<long, SiSquadCommandState>();
+        private readonly Dictionary<SiSquadLeaderKey, SiSquadCombatState> _squadCombatStates =
+            new Dictionary<SiSquadLeaderKey, SiSquadCombatState>();
         private readonly Dictionary<long, SiMotionState> _leaderMotionStates =
             new Dictionary<long, SiMotionState>();
         private readonly Dictionary<long, SiMotionState> _npcMotionStates =
@@ -111,6 +115,7 @@ namespace Si.UtilityAI
             Npcs?.CloseAll(false);
             Npcs = null;
             _squadOrders.Clear();
+            _squadCombatStates.Clear();
             _leaderMotionStates.Clear();
             _npcMotionStates.Clear();
             Spotting?.Clear();
@@ -131,6 +136,7 @@ namespace Si.UtilityAI
             {
                 UpdateTrackedMotionStates();
                 UpdateSquadOrders();
+                UpdateCombatStances();
             }
             Npcs?.Update(elapsedMilliseconds);
             if (IsAuthoritative)
@@ -203,6 +209,21 @@ namespace Si.UtilityAI
                 ? state.EngagementStance
                 : SiSquadEngagementStance.Enemies;
         }
+
+        internal SiSquadCombatStance GetCombatStance(SiNpc npc)
+        {
+            if (npc == null || Squads == null)
+                return SiSquadCombatStance.Safe;
+
+            SiAssignedNpc assignment;
+            if (!Squads.TryGetAssignment(npc.EntityId, out assignment))
+                return SiSquadCombatStance.Safe;
+
+            return GetOrCreateCombatState(assignment.Leader).Stance;
+        }
+
+        private SiSquadCombatStance GetCombatStance(SiSquadLeaderKey leader) =>
+            GetOrCreateCombatState(leader).Stance;
 
         public void Draw()
         {
@@ -370,6 +391,10 @@ namespace Si.UtilityAI
                     return "Engage enemies";
                 case SiUtilityCommandMenuCommand.EngagementHoldFire:
                     return "Hold fire";
+                case SiUtilityCommandMenuCommand.CombatSafe:
+                    return "Safe movement";
+                case SiUtilityCommandMenuCommand.CombatCombat:
+                    return "Combat movement";
                 default:
                     return null;
             }
@@ -415,6 +440,22 @@ namespace Si.UtilityAI
                 case SiUtilityCommandMenuCommand.EngagementHoldFire:
                     SetEngagementStance(leaderIdentityId, SiSquadEngagementStance.HoldFire);
                     return;
+                case SiUtilityCommandMenuCommand.CombatSafe:
+                    SetCombatStance(
+                        PlayerLeaderKey(leaderIdentityId),
+                        player.Identity.DisplayName,
+                        SiSquadCombatStance.Safe,
+                        SiSquadCombatTransitionReason.PlayerOrder,
+                        true);
+                    return;
+                case SiUtilityCommandMenuCommand.CombatCombat:
+                    SetCombatStance(
+                        PlayerLeaderKey(leaderIdentityId),
+                        player.Identity.DisplayName,
+                        SiSquadCombatStance.Combat,
+                        SiSquadCombatTransitionReason.PlayerOrder,
+                        true);
+                    return;
                 case SiUtilityCommandMenuCommand.ToggleUi:
                 case SiUtilityCommandMenuCommand.ToggleSquadChatter:
                     return;
@@ -437,7 +478,9 @@ namespace Si.UtilityAI
                 Respond(sender, line);
 
             var state = GetSquadOrder(leaderIdentityId);
-            Respond(sender, $"Order: {OrderName(state.Mode)}, formation {FormationName(state.Formation)}, engagement {EngagementName(state.EngagementStance)}.");
+            Respond(
+                sender,
+                $"Order: {OrderName(state.Mode)}, formation {FormationName(state.Formation)}, engagement {EngagementName(state.EngagementStance)}, combat {CombatStanceName(GetCombatStance(PlayerLeaderKey(leaderIdentityId)))}.");
         }
 
         private void StopSquad(ulong sender, long leaderIdentityId)
@@ -472,6 +515,174 @@ namespace Si.UtilityAI
             state.EngagementStance = engagementStance;
         }
 
+        private void UpdateCombatStances()
+        {
+            if (_squadCombatStates.Count == 0)
+                return;
+
+            var now = CurrentTimeMilliseconds();
+            foreach (var entry in _squadCombatStates)
+            {
+                var leader = entry.Key;
+                var state = entry.Value;
+                if (state == null || state.Stance != SiSquadCombatStance.Combat)
+                    continue;
+
+                if (now - Math.Max(state.LastShotAtTime, state.LastStanceChangeTime) < CombatStanceCooldownMilliseconds)
+                    continue;
+                if (HasSpottedEnemyNearby(leader))
+                    continue;
+
+                SetCombatStance(
+                    leader,
+                    state.LeaderName,
+                    SiSquadCombatStance.Safe,
+                    SiSquadCombatTransitionReason.AreaClear,
+                    false);
+            }
+        }
+
+        private bool HasSpottedEnemyNearby(SiSquadLeaderKey leader)
+        {
+            if (Npcs == null || Squads == null || Spotting == null)
+                return false;
+
+            foreach (var npc in Npcs.Npcs.Values)
+            {
+                if (npc?.Entity == null)
+                    continue;
+
+                SiAssignedNpc assignment;
+                if (!Squads.TryGetAssignment(npc.EntityId, out assignment) || !assignment.Leader.Equals(leader))
+                    continue;
+                if (Spotting.HasSpottedTargetNearby(npc.EntityId, CombatStanceNearbyEnemyDistance))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private void SetCombatStance(
+            SiSquadLeaderKey leader,
+            string leaderName,
+            SiSquadCombatStance stance,
+            SiSquadCombatTransitionReason reason,
+            bool speakAsPlayerOrder)
+        {
+            var state = GetOrCreateCombatState(leader);
+            if (!string.IsNullOrWhiteSpace(leaderName))
+                state.LeaderName = leaderName;
+
+            var previous = state.Stance;
+            state.Stance = stance;
+            state.LastStanceChangeTime = CurrentTimeMilliseconds();
+            if (stance == SiSquadCombatStance.Combat && reason == SiSquadCombatTransitionReason.PlayerOrder)
+                state.LastEnemySpottedTime = state.LastStanceChangeTime;
+
+            if (previous == stance)
+                return;
+
+            if (speakAsPlayerOrder)
+                SpeakSquadBehaviorChange(leader, PlayerOrderCombatStanceReport(stance), true);
+            else
+                SpeakSquadBehaviorChange(leader, CombatStanceChangeReport(stance, reason), false);
+        }
+
+        private SiSquadCombatState GetOrCreateCombatState(SiSquadLeaderKey leader)
+        {
+            SiSquadCombatState state;
+            if (_squadCombatStates.TryGetValue(leader, out state))
+                return state;
+
+            state = new SiSquadCombatState
+            {
+                LeaderName = leader.Kind == SiSquadLeaderKind.Player ? "Player " + leader.Id : "Squad",
+                Stance = SiSquadCombatStance.Safe,
+                LastShotAtTime = long.MinValue,
+                LastEnemySpottedTime = long.MinValue,
+                LastStanceChangeTime = long.MinValue,
+            };
+            _squadCombatStates.Add(leader, state);
+            return state;
+        }
+
+        private void SpeakSquadBehaviorChange(
+            SiSquadLeaderKey leader,
+            string message,
+            bool force)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+                return;
+
+            var speaker = FindSquadSpeaker(leader);
+            if (speaker != null)
+            {
+                if (force || ShowSquadChatter)
+                    speaker.TrySpeak(message);
+            }
+        }
+
+        private SiNpc FindSquadSpeaker(SiSquadLeaderKey leader)
+        {
+            if (Npcs == null || Squads == null)
+                return null;
+
+            SiNpc first = null;
+            foreach (var npc in Npcs.Npcs.Values)
+            {
+                SiAssignedNpc assignment;
+                if (npc == null
+                    || !Squads.TryGetAssignment(npc.EntityId, out assignment)
+                    || !assignment.Leader.Equals(leader))
+                    continue;
+                if (assignment.IsLeader)
+                    return npc;
+                if (first == null)
+                    first = npc;
+            }
+
+            return first;
+        }
+
+        internal void ReportNpcSpottedTarget(long observerEntityId, long targetEntityId)
+        {
+            if (!IsAuthoritative || observerEntityId == 0 || targetEntityId == 0 || Npcs == null || Squads == null)
+                return;
+
+            SiAssignedNpc assignment;
+            if (!Npcs.Npcs.ContainsKey(observerEntityId)
+                || !Squads.TryGetAssignment(observerEntityId, out assignment))
+                return;
+
+            var state = GetOrCreateCombatState(assignment.Leader);
+            state.LastEnemySpottedTime = CurrentTimeMilliseconds();
+            SetCombatStance(
+                assignment.Leader,
+                assignment.LeaderName,
+                SiSquadCombatStance.Combat,
+                SiSquadCombatTransitionReason.EnemySpotted,
+                false);
+        }
+
+        internal void ReportNpcShotAt(long entityId)
+        {
+            if (!IsAuthoritative || entityId == 0 || Squads == null)
+                return;
+
+            SiAssignedNpc assignment;
+            if (!Squads.TryGetAssignment(entityId, out assignment))
+                return;
+
+            var state = GetOrCreateCombatState(assignment.Leader);
+            state.LastShotAtTime = CurrentTimeMilliseconds();
+            SetCombatStance(
+                assignment.Leader,
+                assignment.LeaderName,
+                SiSquadCombatStance.Combat,
+                SiSquadCombatTransitionReason.TakingFire,
+                false);
+        }
+
         private bool HandleCommand(ulong sender, string message, MyChatCommandType handledAsType)
         {
             if (!CanManageNpcs(sender))
@@ -496,6 +707,7 @@ namespace Si.UtilityAI
                     var removed = Npcs.Npcs.Count;
                     Npcs.CloseAll();
                     _squadOrders.Clear();
+                    _squadCombatStates.Clear();
                     Squads?.ClearNpcs();
                     BroadcastClear();
                     return Respond(sender, $"Removed {removed} custom NPC(s).");
@@ -1104,6 +1316,63 @@ namespace Si.UtilityAI
             }
         }
 
+        private static string CombatStanceName(SiSquadCombatStance stance)
+        {
+            switch (stance)
+            {
+                case SiSquadCombatStance.Combat:
+                    return "Combat";
+                case SiSquadCombatStance.Safe:
+                default:
+                    return "Safe";
+            }
+        }
+
+        private static string CombatStanceChangeReport(
+            SiSquadCombatStance stance,
+            SiSquadCombatTransitionReason reason)
+        {
+            switch (stance)
+            {
+                case SiSquadCombatStance.Combat:
+                    switch (reason)
+                    {
+                        case SiSquadCombatTransitionReason.TakingFire:
+                            return "Taking fire, combat stance.";
+                        case SiSquadCombatTransitionReason.EnemySpotted:
+                            return "Contact, combat stance.";
+                        case SiSquadCombatTransitionReason.PlayerOrder:
+                            return "Combat stance.";
+                        default:
+                            return "Combat stance.";
+                    }
+                case SiSquadCombatStance.Safe:
+                default:
+                    return reason == SiSquadCombatTransitionReason.AreaClear
+                        ? "Area clear, safe stance."
+                        : "Safe stance.";
+            }
+        }
+
+        private static string PlayerOrderCombatStanceReport(SiSquadCombatStance stance) =>
+            stance == SiSquadCombatStance.Combat
+                ? "Switch to combat movement."
+                : "Switch to safe movement.";
+
+        private static SiSquadLeaderKey PlayerLeaderKey(long identityId) =>
+            new SiSquadLeaderKey(
+                SiSquadLeaderKind.Player,
+                identityId,
+                SiSquadBook.ArmyForPlayerIdentity(identityId));
+
+        private static long CurrentTimeMilliseconds()
+        {
+            var session = MyAPIGateway.Session;
+            return session != null
+                ? (long)session.ElapsedPlayTime.TotalMilliseconds
+                : 0;
+        }
+
         private static MyPlayer LocalPlayer() =>
             MyAPIGateway.Session?.Player as MyPlayer;
 
@@ -1180,6 +1449,7 @@ namespace Si.UtilityAI
                     Mode = (byte)entry.Value.Mode,
                     Formation = (byte)entry.Value.Formation,
                     EngagementStance = (byte)entry.Value.EngagementStance,
+                    CombatStance = (byte)GetCombatStance(PlayerLeaderKey(entry.Key)),
                 });
             return saved;
         }
@@ -1320,13 +1590,15 @@ namespace Si.UtilityAI
                 return;
 
             _squadOrders.Clear();
+            _squadCombatStates.Clear();
             foreach (var saved in savedOrders)
             {
                 if (saved == null
                     || saved.LeaderIdentityId == 0
                     || !Enum.IsDefined(typeof(SiSquadOrderMode), (int)saved.Mode)
                     || !Enum.IsDefined(typeof(SiSquadFormation), (int)saved.Formation)
-                    || !Enum.IsDefined(typeof(SiSquadEngagementStance), (int)saved.EngagementStance))
+                    || !Enum.IsDefined(typeof(SiSquadEngagementStance), (int)saved.EngagementStance)
+                    || !Enum.IsDefined(typeof(SiSquadCombatStance), (int)saved.CombatStance))
                     continue;
 
                 _squadOrders[saved.LeaderIdentityId] = new SiSquadCommandState
@@ -1334,6 +1606,14 @@ namespace Si.UtilityAI
                     Mode = (SiSquadOrderMode)saved.Mode,
                     Formation = (SiSquadFormation)saved.Formation,
                     EngagementStance = (SiSquadEngagementStance)saved.EngagementStance,
+                };
+                _squadCombatStates[PlayerLeaderKey(saved.LeaderIdentityId)] = new SiSquadCombatState
+                {
+                    LeaderName = "Player " + saved.LeaderIdentityId,
+                    Stance = (SiSquadCombatStance)saved.CombatStance,
+                    LastShotAtTime = long.MinValue,
+                    LastEnemySpottedTime = long.MinValue,
+                    LastStanceChangeTime = long.MinValue,
                 };
             }
         }
@@ -1553,6 +1833,7 @@ namespace Si.UtilityAI
             _instance?.Npcs?.CloseAll();
             _instance?.Squads?.ClearNpcs();
             _instance?._squadOrders.Clear();
+            _instance?._squadCombatStates.Clear();
         }
 
         [Event, Reliable, Broadcast]
@@ -1722,6 +2003,9 @@ namespace Si.UtilityAI
 
             [XmlAttribute]
             public byte EngagementStance;
+
+            [XmlAttribute]
+            public byte CombatStance;
         }
     }
 
@@ -1746,11 +2030,34 @@ namespace Si.UtilityAI
         HoldFire,
     }
 
+    internal enum SiSquadCombatStance
+    {
+        Safe,
+        Combat,
+    }
+
+    internal enum SiSquadCombatTransitionReason
+    {
+        PlayerOrder,
+        EnemySpotted,
+        TakingFire,
+        AreaClear,
+    }
+
     internal sealed class SiSquadCommandState
     {
         public SiSquadOrderMode Mode { get; set; }
         public SiSquadFormation Formation { get; set; }
         public SiSquadEngagementStance EngagementStance { get; set; }
+    }
+
+    internal sealed class SiSquadCombatState
+    {
+        public string LeaderName { get; set; }
+        public SiSquadCombatStance Stance { get; set; }
+        public long LastShotAtTime { get; set; }
+        public long LastEnemySpottedTime { get; set; }
+        public long LastStanceChangeTime { get; set; }
     }
 
     internal sealed class SiMotionState

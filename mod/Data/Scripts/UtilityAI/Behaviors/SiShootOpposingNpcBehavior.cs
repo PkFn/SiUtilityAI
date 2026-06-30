@@ -274,22 +274,6 @@ namespace Si.UtilityAI
 
             weapon.Advance(elapsedMilliseconds);
 
-            var spotting = session?.Spotting;
-            if (spotting != null)
-            {
-                var targetDistance = Vector3D.Distance(
-                    context.Position,
-                    targetEntity.WorldMatrix.Translation);
-                var observation = spotting.ObserveTarget(
-                    context.Agent,
-                    targetEntity,
-                    _definition,
-                    GetWeaponAimHeight(),
-                    targetDistance);
-                if (!observation.IsSpotted)
-                    return;
-            }
-
             if (_definition.RequireLineOfSight && !HasLineOfSight(context.Entity, targetEntity, weapon.Definition.AimTargetHeight))
                 return;
 
@@ -308,7 +292,8 @@ namespace Si.UtilityAI
 
         private void TryReportSpotting(SiUtilityContext context, ShootTarget target, double distance)
         {
-            if (target == null)
+            var observation = ObserveTarget(context, target, distance);
+            if (target == null || !observation.IsSpotted)
                 return;
 
             if (_lastSpottedTargetId == target.EntityId
@@ -321,6 +306,23 @@ namespace Si.UtilityAI
                     ref _lastSpotSpeechTime,
                     _definition.SpotSpeechCooldownMilliseconds))
                 _lastSpottedTargetId = target.EntityId;
+        }
+
+        private SiSpottingObservation ObserveTarget(
+            SiUtilityContext context,
+            ShootTarget target,
+            double distance)
+        {
+            var spotting = SiNpcSessionComponent.Instance?.Spotting;
+            if (context?.Agent == null || target?.Entity == null || spotting == null)
+                return SiSpottingObservation.None;
+
+            return spotting.ObserveTarget(
+                context.Agent,
+                target.Entity,
+                _definition,
+                GetWeaponAimHeight(),
+                distance);
         }
 
         private string CreateSpottingReport(SiUtilityContext context, ShootTarget target, double distance)
@@ -453,14 +455,7 @@ namespace Si.UtilityAI
                 if (distanceSquared > bestDistanceSquared)
                     continue;
                 var distance = Math.Sqrt(distanceSquared);
-                var observation = session.Spotting?.ObserveTarget(
-                    context.Agent,
-                    target.Entity,
-                    _definition,
-                    GetWeaponAimHeight(),
-                    distance) ?? default(SiSpottingObservation);
-                if (!observation.IsSpotted)
-                    continue;
+                ObserveTarget(context, target, distance);
 
                 best = target;
                 bestDistanceSquared = distanceSquared;
@@ -484,14 +479,7 @@ namespace Si.UtilityAI
                     if (distanceSquared > bestDistanceSquared)
                         continue;
                     var distance = Math.Sqrt(distanceSquared);
-                    var observation = session.Spotting?.ObserveTarget(
-                        context.Agent,
-                        target.Entity,
-                        _definition,
-                        GetWeaponAimHeight(),
-                        distance) ?? default(SiSpottingObservation);
-                    if (!observation.IsSpotted)
-                        continue;
+                    ObserveTarget(context, target, distance);
 
                     best = target;
                     bestDistanceSquared = distanceSquared;

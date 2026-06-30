@@ -101,6 +101,16 @@ namespace Si.UtilityAI
             RequestCommand(SiUtilityCommandMenuCommand.EngagementHoldFire);
         }
 
+        internal void CommandCombatSafe()
+        {
+            RequestCommand(SiUtilityCommandMenuCommand.CombatSafe);
+        }
+
+        internal void CommandCombatCombat()
+        {
+            RequestCommand(SiUtilityCommandMenuCommand.CombatCombat);
+        }
+
         internal void CommandSettingsToggleUi()
         {
             RequestCommand(SiUtilityCommandMenuCommand.ToggleUi);
@@ -129,6 +139,8 @@ namespace Si.UtilityAI
         EngagementEnemiesNeutrals,
         EngagementEnemies,
         EngagementHoldFire,
+        CombatSafe,
+        CombatCombat,
         ToggleUi,
         ToggleSquadChatter,
     }

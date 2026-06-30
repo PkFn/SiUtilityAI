@@ -67,6 +67,16 @@ namespace Si.UtilityAI
             _session?.CommandEngagementHoldFire();
         }
 
+        public void CommandCombatSafe()
+        {
+            _session?.CommandCombatSafe();
+        }
+
+        public void CommandCombatCombat()
+        {
+            _session?.CommandCombatCombat();
+        }
+
         public void CommandSettingsToggleUi()
         {
             _session?.CommandSettingsToggleUi();

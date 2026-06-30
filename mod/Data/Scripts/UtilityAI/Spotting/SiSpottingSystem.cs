@@ -143,6 +143,34 @@ namespace Si.UtilityAI
             ApplyShotEvidence(shooterEntityId, shooter.WorldMatrix.Translation, now);
         }
 
+        public bool HasSpottedTargetNearby(long observerEntityId, double distance)
+        {
+            if (observerEntityId == 0 || distance < 0)
+                return false;
+
+            var observer = ResolveObserver(observerEntityId);
+            var observerEntity = observer?.Entity;
+            if (observerEntity == null)
+                return false;
+
+            var distanceSquared = distance * distance;
+            foreach (var pair in _observations)
+            {
+                var state = pair.Value;
+                if (state == null || !state.IsSpotted || state.ObserverId != observerEntityId)
+                    continue;
+
+                var target = ResolveEntity(state.TargetId);
+                if (target == null || target.Closed || target.MarkedForClose || !target.InScene)
+                    continue;
+
+                if (Vector3D.DistanceSquared(observerEntity.WorldMatrix.Translation, target.WorldMatrix.Translation) <= distanceSquared)
+                    return true;
+            }
+
+            return false;
+        }
+
         private void ApplyShotEvidence(long shooterEntityId, Vector3D shooterPosition, long now)
         {
             foreach (var pair in _observations)
@@ -226,7 +254,10 @@ namespace Si.UtilityAI
 
             state.SpottingSum = spottingSum;
             state.SpottingThreshold = ComputeSpottingThreshold(Definition, distance);
+            var wasSpotted = state.IsSpotted;
             state.IsSpotted = spottingSum >= state.SpottingThreshold;
+            if (!wasSpotted && state.IsSpotted)
+                _session?.ReportNpcSpottedTarget(state.ObserverId, state.TargetId);
             state.NextEvaluationTime = now + EvaluationInterval(state);
         }
 

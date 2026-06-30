@@ -45,7 +45,7 @@
             </Button>
 			<Button StyleName="ContextButtonSliced">
 				<Text>Combat</Text>
-				<Tooltip>Unit combat engagement.</Tooltip>
+				<Tooltip>Unit combat stance and engagement.</Tooltip>
 				<Action xsi:type="MyObjectBuilder_CMA_AddController">
 					<Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuEngagement" />
 				</Action>
@@ -134,7 +134,7 @@
 
 	<Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
 		<Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuEngagement" />
-		<Title>Combat engagement</Title>
+		<Title>Combat</Title>
 		<Width>800</Width>
 		<AutoCommit>true</AutoCommit>
 		<Embedded>
@@ -144,10 +144,20 @@
 
 	<Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
 		<Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityCommandMenuEngagementButtons" />
-		<Columns>3</Columns>
+		<Columns>5</Columns>
 		<Rows>1</Rows>
 		<ButtonStyleId>ButtonListWide</ButtonStyleId>
 		<Buttons>
+			<Button StyleName="ContextButtonSliced">
+				<Text>Safe</Text>
+				<Tooltip>Use the safe combat movement stance.</Tooltip>
+				<Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandCombatSafe" />
+			</Button>
+			<Button StyleName="ContextButtonSliced">
+				<Text>Combat</Text>
+				<Tooltip>Use the combat movement stance.</Tooltip>
+				<Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandCombatCombat" />
+			</Button>
 			<Button StyleName="ContextButtonSliced">
 				<Text>Engage EN</Text>
 				<Tooltip>Engage both enemies and neutrals.</Tooltip>
