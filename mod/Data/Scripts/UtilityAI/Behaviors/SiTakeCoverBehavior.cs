@@ -29,6 +29,7 @@ namespace Si.UtilityAI
     public class MyObjectBuilder_SiTakeCoverBehaviorDefinition : MyObjectBuilder_EntityComponentDefinition
     {
         public float SearchRadius;
+        public float CoverRescanLeaderDistance;
         public float WaypointRefreshDistance;
         public float CoverOccupancyRadius;
         public float CoverArrivalDistance;
@@ -46,6 +47,7 @@ namespace Si.UtilityAI
     public class SiTakeCoverBehaviorDefinition : MyEntityComponentDefinition
     {
         public float SearchRadius { get; private set; }
+        public float CoverRescanLeaderDistance { get; private set; }
         public float WaypointRefreshDistance { get; private set; }
         public float CoverOccupancyRadius { get; private set; }
         public float CoverArrivalDistance { get; private set; }
@@ -63,6 +65,7 @@ namespace Si.UtilityAI
             base.Init(builder);
             var ob = (MyObjectBuilder_SiTakeCoverBehaviorDefinition)builder;
             SearchRadius = Math.Max(0, ob.SearchRadius);
+            CoverRescanLeaderDistance = Math.Max(0.1f, ob.CoverRescanLeaderDistance);
             WaypointRefreshDistance = Math.Max(0, ob.WaypointRefreshDistance);
             CoverOccupancyRadius = Math.Max(0.1f, ob.CoverOccupancyRadius);
             CoverArrivalDistance = Math.Max(0.1f, ob.CoverArrivalDistance);
@@ -82,9 +85,6 @@ namespace Si.UtilityAI
     public class SiTakeCoverBehaviorComponent : MyEntityComponent, ISiUtilityBehavior
     {
         private const long LogCooldownMilliseconds = 2000;
-        private const long CoverSearchRetryMilliseconds = 1500;
-        private const long InitialCoverSearchSpreadMilliseconds = CoverSearchRetryMilliseconds;
-        private const long ExhaustedCoverRetryMilliseconds = 3000;
         private const long SlowCoverSearchLogCooldownMilliseconds = 5000;
         private const double SlowCoverSearchMilliseconds = 5;
         private static readonly double[] SideOffsetSamples =
@@ -107,10 +107,10 @@ namespace Si.UtilityAI
         private Vector3D _reservedCoverPosition;
         private Vector3D _reservedStandPosition;
         private bool _hasReservedCover;
+        private bool _hasLastCoverSearchOrigin;
+        private Vector3D _lastCoverSearchOrigin;
         private long _lastNoCoverLogTime = long.MinValue;
         private long _lastReservationFailLogTime = long.MinValue;
-        private long _lastCoverSearchTime = -1;
-        private long _nextCoverSearchAllowedTime = -1;
         private long _lastSlowCoverSearchLogTime = long.MinValue;
         private string _lastCoverRejectReason;
 
@@ -139,7 +139,7 @@ namespace Si.UtilityAI
             if (session.GetCombatStance(context.Agent) != SiSquadCombatStance.Combat)
             {
                 ReleaseCover(session, context);
-                ResetCoverSearchSchedule();
+                ResetCoverSearchState();
                 return 0;
             }
 
@@ -186,7 +186,7 @@ namespace Si.UtilityAI
             if (session.GetCombatStance(context.Agent) != SiSquadCombatStance.Combat)
             {
                 ReleaseCover(session, context);
-                ResetCoverSearchSchedule();
+                ResetCoverSearchState();
             }
         }
 
@@ -208,13 +208,17 @@ namespace Si.UtilityAI
             if (session.GetCombatStance(context.Agent) != SiSquadCombatStance.Combat)
             {
                 ReleaseCover(session, context);
-                ResetCoverSearchSchedule();
+                ResetCoverSearchState();
                 return;
             }
 
             var hasThreat = TryGetThreat(context, out var threatEntity, out var threatPosition);
             var hasUsableCurrentCover = HasUsableCurrentCover(context, session, hasThreat, threatEntity, threatPosition);
-            var wantsSwitch = ShouldSearchForCover(forceRefresh, hasUsableCurrentCover);
+            Vector3D searchOrigin;
+            if (!session.TryGetLeaderPosition(context.Agent, out searchOrigin))
+                searchOrigin = context.Position;
+
+            var wantsSwitch = ShouldSearchForCover(searchOrigin, forceRefresh, hasUsableCurrentCover);
 
             if (wantsSwitch
                 && FindBestCover(
@@ -223,9 +227,11 @@ namespace Si.UtilityAI
                     hasThreat,
                     threatEntity,
                     threatPosition,
+                    searchOrigin,
                     out var coverPosition,
                     out var standPosition))
             {
+                MarkCoverSearchAttempt(searchOrigin);
                 if (!_hasReservedCover
                     || Vector3D.DistanceSquared(_reservedCoverPosition, coverPosition) > 0.01)
                 {
@@ -247,6 +253,7 @@ namespace Si.UtilityAI
             }
             else if (wantsSwitch)
             {
+                MarkCoverSearchAttempt(searchOrigin);
                 LogWithCooldown(
                     ref _lastNoCoverLogTime,
                     $"[SiCover] no valid cover found scanned={_coverPositions.Count} lastReject={_lastCoverRejectReason ?? "none"}");
@@ -307,47 +314,30 @@ namespace Si.UtilityAI
             return true;
         }
 
-        private bool ShouldSearchForCover(bool forceRefresh, bool hasUsableCurrentCover)
+        private bool ShouldSearchForCover(in Vector3D searchOrigin, bool forceRefresh, bool hasUsableCurrentCover)
         {
-            if (_nextCoverSearchAllowedTime < 0)
-                InitializeCoverSearchSchedule();
+            if (!_hasLastCoverSearchOrigin)
+                return true;
 
             if (forceRefresh)
-                return IsCoverSearchDue() && MarkCoverSearchAttempt();
+                return HasLeaderMovedAwayFromLastSearch(searchOrigin);
 
             if (!_hasReservedCover || !hasUsableCurrentCover)
-                return IsCoverSearchDue() && MarkCoverSearchAttempt();
+                return HasLeaderMovedAwayFromLastSearch(searchOrigin);
 
             return false;
         }
 
-        private bool IsCoverSearchDue()
+        private bool HasLeaderMovedAwayFromLastSearch(in Vector3D searchOrigin)
         {
-            var now = CurrentTimeMilliseconds();
-            return now >= _nextCoverSearchAllowedTime;
+            return Vector3D.DistanceSquared(_lastCoverSearchOrigin, searchOrigin)
+                   >= _definition.CoverRescanLeaderDistance * _definition.CoverRescanLeaderDistance;
         }
 
-        private bool MarkCoverSearchAttempt()
+        private void MarkCoverSearchAttempt(in Vector3D searchOrigin)
         {
-            var now = CurrentTimeMilliseconds();
-            _lastCoverSearchTime = now;
-            _nextCoverSearchAllowedTime = now + CoverSearchRetryMilliseconds;
-            return true;
-        }
-
-        private void InitializeCoverSearchSchedule()
-        {
-            var now = CurrentTimeMilliseconds();
-            _nextCoverSearchAllowedTime = now + ResolveInitialCoverSearchDelayMilliseconds();
-        }
-
-        private long ResolveInitialCoverSearchDelayMilliseconds()
-        {
-            var entityId = Entity?.EntityId ?? 0;
-            if (InitialCoverSearchSpreadMilliseconds <= 0 || entityId == 0)
-                return 0;
-
-            return Math.Abs(entityId % (InitialCoverSearchSpreadMilliseconds + 1));
+            _lastCoverSearchOrigin = searchOrigin;
+            _hasLastCoverSearchOrigin = true;
         }
 
         private bool FindBestCover(
@@ -356,15 +346,12 @@ namespace Si.UtilityAI
             bool hasThreat,
             MyEntity threatEntity,
             in Vector3D threatPosition,
+            in Vector3D searchOrigin,
             out Vector3D coverPosition,
             out Vector3D standPosition)
         {
             coverPosition = Vector3D.Zero;
             standPosition = Vector3D.Zero;
-
-            Vector3D searchOrigin;
-            if (!session.TryGetLeaderPosition(context.Agent, out searchOrigin))
-                searchOrigin = context.Position;
 
             var cacheState = "none";
             var rawScanElapsedMilliseconds = 0d;
@@ -565,9 +552,6 @@ namespace Si.UtilityAI
                 return true;
             }
 
-            if (viableCandidates > 0 && occupiedRejects >= viableCandidates)
-                ApplyExhaustedCoverCooldown();
-
             LogSlowCoverSearch(
                 context,
                 searchOrigin,
@@ -582,12 +566,6 @@ namespace Si.UtilityAI
                 scanStats,
                 cacheState);
             return false;
-        }
-
-        private void ApplyExhaustedCoverCooldown()
-        {
-            var now = CurrentTimeMilliseconds();
-            _nextCoverSearchAllowedTime = Math.Max(_nextCoverSearchAllowedTime, now + ExhaustedCoverRetryMilliseconds);
         }
 
         private List<SiCoverSearchCandidate> BuildEvaluatedCandidates(
@@ -820,10 +798,10 @@ namespace Si.UtilityAI
             _reservedStandPosition = Vector3D.Zero;
         }
 
-        private void ResetCoverSearchSchedule()
+        private void ResetCoverSearchState()
         {
-            _lastCoverSearchTime = -1;
-            _nextCoverSearchAllowedTime = -1;
+            _hasLastCoverSearchOrigin = false;
+            _lastCoverSearchOrigin = Vector3D.Zero;
         }
 
         private void SetRejectReason(string reason)
