@@ -146,6 +146,8 @@ namespace Si.UtilityAI
             var combatToken = session.GetCombatEntryToken(context.Agent);
             EnsureCombatState(combatToken, session, context);
 
+            RefreshCoveredRoleIfNeeded(combatToken, session, context);
+
             var role = EnsureCombatRole(combatToken, session, context);
             if (role != SiCombatMovementRole.Covered)
                 return 0;
@@ -218,6 +220,35 @@ namespace Si.UtilityAI
             context.TrySetCrouch(false);
             _activeCombatToken = combatToken;
             context.Agent.ClearCombatMovementRole();
+        }
+
+        private void RefreshCoveredRoleIfNeeded(long combatToken, SiNpcSessionComponent session, SiUtilityContext context)
+        {
+            if (context.Agent.GetCombatMovementRole(combatToken) != SiCombatMovementRole.Covered)
+                return;
+            if (!session.IsFollowingPlayer(context.Agent))
+                return;
+
+            double leaderDistance;
+            if (!session.TryGetLeaderDistance(context.Agent, out leaderDistance)
+                || leaderDistance <= _definition.SwitchDistanceFromLeader)
+                return;
+
+            Vector3D searchOrigin;
+            if (!session.TryGetLeaderPosition(context.Agent, out searchOrigin))
+                searchOrigin = context.Position;
+
+            if (_hasLastCoverSearchOrigin
+                && Vector3D.DistanceSquared(_lastCoverSearchOrigin, searchOrigin)
+                   < _definition.CoverRescanLeaderDistance * _definition.CoverRescanLeaderDistance)
+                return;
+
+            ReleaseCover(session, context);
+            ResetCoverSearchState();
+            context.TrySetCrouch(false);
+            if (context.HasWaypoint)
+                context.TryClearWaypoint();
+            context.Agent.SetCombatMovementRole(combatToken, SiCombatMovementRole.None);
         }
 
         private SiCombatMovementRole EnsureCombatRole(long combatToken, SiNpcSessionComponent session, SiUtilityContext context)
