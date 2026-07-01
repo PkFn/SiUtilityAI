@@ -119,8 +119,10 @@ namespace Si.UtilityAI
             else
             {
                 _pendingBehaviorElapsedMilliseconds += Math.Max(0, elapsedMilliseconds);
-                _utilityBrain?.SetDecisionMakingEnabled(
+                var utilityBrain = _utilityBrain;
+                utilityBrain?.SetDecisionMakingEnabled(
                     SiNpcSessionComponent.Instance?.UtilityDecisionMakingEnabled ?? true);
+                utilityBrain?.TickActiveBehavior(elapsedMilliseconds);
                 OnUpdate(elapsedMilliseconds);
             }
 
@@ -144,7 +146,7 @@ namespace Si.UtilityAI
 
             utilityBrain.SetDecisionMakingEnabled(
                 SiNpcSessionComponent.Instance?.UtilityDecisionMakingEnabled ?? true);
-            utilityBrain.UpdateDecision(_pendingBehaviorElapsedMilliseconds);
+            utilityBrain.AdvanceDecision(_pendingBehaviorElapsedMilliseconds);
             _pendingBehaviorElapsedMilliseconds = 0;
         }
 

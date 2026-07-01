@@ -144,10 +144,18 @@ namespace Si.UtilityAI
                 return;
 
             Decide();
-            _activeBehavior?.Tick(_context, 0);
+            TickActiveBehavior(0);
         }
 
-        internal void UpdateDecision(long elapsedMilliseconds)
+        internal void TickActiveBehavior(long elapsedMilliseconds)
+        {
+            if (_context == null || !IsAuthoritative || !_decisionMakingEnabled)
+                return;
+
+            _activeBehavior?.Tick(_context, elapsedMilliseconds);
+        }
+
+        internal void AdvanceDecision(long elapsedMilliseconds)
         {
             if (_context == null || !IsAuthoritative || !_decisionMakingEnabled)
                 return;
@@ -164,8 +172,6 @@ namespace Si.UtilityAI
             _decisionCountdown -= elapsedMilliseconds;
             if (_decisionCountdown <= 0)
                 Decide();
-
-            _activeBehavior?.Tick(_context, elapsedMilliseconds);
         }
 
         internal void Unbind()
@@ -201,7 +207,7 @@ namespace Si.UtilityAI
             _startupDelayCountdown = 0;
             _decisionCountdown = 0;
             Decide();
-            _activeBehavior?.Tick(_context, 0);
+            TickActiveBehavior(0);
         }
 
         private void Decide()
