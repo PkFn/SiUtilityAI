@@ -40,6 +40,7 @@ namespace Si.UtilityAI
         public string SpotTargetName;
         public int SpotSpeechCooldownMilliseconds;
         public float DetectionAccuracyWorseningMultiplier;
+        public int TargetReevaluationIntervalMilliseconds;
 
         [XmlArrayItem("Archetype")]
         public string[] TargetArchetypes;
@@ -61,6 +62,7 @@ namespace Si.UtilityAI
         public string SpotTargetName;
         public int SpotSpeechCooldownMilliseconds;
         public float DetectionAccuracyWorseningMultiplier;
+        public int TargetReevaluationIntervalMilliseconds;
 
         [XmlArrayItem("Archetype")]
         public string[] TargetArchetypes;
@@ -82,6 +84,7 @@ namespace Si.UtilityAI
         public string SpotTargetName { get; private set; }
         public int SpotSpeechCooldownMilliseconds { get; private set; }
         public float DetectionAccuracyWorseningMultiplier { get; private set; }
+        public int TargetReevaluationIntervalMilliseconds { get; private set; }
         public string[] TargetArchetypes { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
@@ -100,6 +103,7 @@ namespace Si.UtilityAI
             SpotTargetName = ob.SpotTargetName;
             SpotSpeechCooldownMilliseconds = Math.Max(0, ob.SpotSpeechCooldownMilliseconds);
             DetectionAccuracyWorseningMultiplier = Math.Max(1, ob.DetectionAccuracyWorseningMultiplier);
+            TargetReevaluationIntervalMilliseconds = Math.Max(1, ob.TargetReevaluationIntervalMilliseconds);
             TargetArchetypes = ob.TargetArchetypes ?? EmptyArchetypes;
         }
     }
@@ -122,6 +126,7 @@ namespace Si.UtilityAI
         public string SpotTargetName { get; private set; }
         public int SpotSpeechCooldownMilliseconds { get; private set; }
         public float DetectionAccuracyWorseningMultiplier { get; private set; }
+        public int TargetReevaluationIntervalMilliseconds { get; private set; }
         public string[] TargetArchetypes { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
@@ -161,6 +166,7 @@ namespace Si.UtilityAI
             SpotTargetName = ob.SpotTargetName;
             SpotSpeechCooldownMilliseconds = Math.Max(0, ob.SpotSpeechCooldownMilliseconds);
             DetectionAccuracyWorseningMultiplier = Math.Max(1, ob.DetectionAccuracyWorseningMultiplier);
+            TargetReevaluationIntervalMilliseconds = Math.Max(1, ob.TargetReevaluationIntervalMilliseconds);
             TargetArchetypes = ob.TargetArchetypes ?? EmptyArchetypes;
         }
 
@@ -177,6 +183,7 @@ namespace Si.UtilityAI
             SpotTargetName = balance.SpotTargetName;
             SpotSpeechCooldownMilliseconds = balance.SpotSpeechCooldownMilliseconds;
             DetectionAccuracyWorseningMultiplier = balance.DetectionAccuracyWorseningMultiplier;
+            TargetReevaluationIntervalMilliseconds = balance.TargetReevaluationIntervalMilliseconds;
             TargetArchetypes = balance.TargetArchetypes ?? EmptyArchetypes;
         }
 
@@ -213,6 +220,7 @@ namespace Si.UtilityAI
         private SiShootOpposingNpcBehaviorDefinition _definition;
         private SiTakeCoverBehaviorComponent _takeCoverBehavior;
         private ShootTarget _target;
+        private long _nextTargetEvaluationTime = -1;
         private long _lastEngageSpeechTime = -1;
         private long _lastSpotSpeechTime = -1;
         private long _lastSpottedTargetId;
@@ -240,11 +248,11 @@ namespace Si.UtilityAI
             if (weapon == null || !weapon.IsOperational)
             {
                 _target = null;
+                _nextTargetEvaluationTime = -1;
                 return 0;
             }
 
-            var target = FindBestTarget(context, out var distance);
-            _target = target;
+            var target = GetTrackedTarget(context, false, out var distance);
             if (target == null)
             {
                 _lastSpottedTargetId = 0;
@@ -278,14 +286,17 @@ namespace Si.UtilityAI
             var weapon = GetWeapon();
             if (weapon == null
                 || !weapon.IsOperational
-                || session?.GetEngagementStance(context.Agent) == SiSquadEngagementStance.HoldFire
-                || !IsValidTarget(context.Agent, _target))
+                || session?.GetEngagementStance(context.Agent) == SiSquadEngagementStance.HoldFire)
                 return;
 
             if (_takeCoverBehavior?.IsRunningToCover(context) ?? false)
                 return;
 
-            var targetEntity = _target.Entity;
+            var target = GetTrackedTarget(context, false, out var distance);
+            if (!IsValidTarget(context.Agent, target))
+                return;
+
+            var targetEntity = target.Entity;
             if (_definition.RotateToTarget)
                 FaceTarget(context.Entity, targetEntity);
 
@@ -294,15 +305,14 @@ namespace Si.UtilityAI
             if (_definition.RequireLineOfSight && !HasLineOfSight(context.Entity, targetEntity, weapon.Definition.AimTargetHeight))
                 return;
 
-            var distance = Vector3D.Distance(context.Entity.WorldMatrix.Translation, targetEntity.WorldMatrix.Translation);
-            var observation = TryReportSpotting(context, _target, distance);
+            var observation = TryReportSpotting(context, target, distance);
             if (!observation.IsSpotted)
                 return;
 
             weapon.TryFire(
                 context,
                 targetEntity,
-                _target.Velocity,
+                target.Velocity,
                 observation.SpottingSum,
                 _definition.DetectionAccuracyWorseningMultiplier);
         }
@@ -310,6 +320,7 @@ namespace Si.UtilityAI
         void ISiUtilityBehavior.End(SiUtilityContext context)
         {
             _target = null;
+            _nextTargetEvaluationTime = -1;
             _lastSpottedTargetId = 0;
             GetWeapon()?.ResetState();
         }
@@ -578,22 +589,73 @@ namespace Si.UtilityAI
             if (context?.Agent == null)
                 return false;
 
-            if (IsValidTarget(context.Agent, _target))
-            {
-                targetEntity = _target.Entity;
-                distance = Vector3D.Distance(
-                    context.Position,
-                    targetEntity.WorldMatrix.Translation);
-                return true;
-            }
-
-            var target = FindBestTarget(context, out distance);
+            var target = GetTrackedTarget(context, true, out distance);
             if (target?.Entity == null)
                 return false;
 
             _target = target;
             targetEntity = target.Entity;
             return true;
+        }
+
+        private ShootTarget GetTrackedTarget(
+            SiUtilityContext context,
+            bool forceRefresh,
+            out double distance)
+        {
+            distance = 0;
+            if (context?.Agent == null)
+                return null;
+
+            if (_nextTargetEvaluationTime < 0)
+                InitializeTargetEvaluationSchedule();
+
+            var current = _target;
+            var currentIsValid = IsValidTarget(context.Agent, current);
+            if (!forceRefresh && currentIsValid && !IsTargetEvaluationDue())
+            {
+                distance = Vector3D.Distance(
+                    context.Position,
+                    current.Entity.WorldMatrix.Translation);
+                return current;
+            }
+
+            if (!currentIsValid)
+                forceRefresh = true;
+
+            if (!forceRefresh && !IsTargetEvaluationDue())
+                return null;
+
+            current = FindBestTarget(context, out distance);
+            _target = current;
+            MarkTargetEvaluation();
+            if (current == null)
+                _lastSpottedTargetId = 0;
+            return current;
+        }
+
+        private bool IsTargetEvaluationDue() =>
+            CurrentTimeMilliseconds() >= _nextTargetEvaluationTime;
+
+        private void InitializeTargetEvaluationSchedule()
+        {
+            var now = CurrentTimeMilliseconds();
+            _nextTargetEvaluationTime = now + ResolveInitialTargetEvaluationDelayMilliseconds();
+        }
+
+        private void MarkTargetEvaluation()
+        {
+            _nextTargetEvaluationTime = CurrentTimeMilliseconds() + _definition.TargetReevaluationIntervalMilliseconds;
+        }
+
+        private long ResolveInitialTargetEvaluationDelayMilliseconds()
+        {
+            var interval = _definition.TargetReevaluationIntervalMilliseconds;
+            var entityId = Entity?.EntityId ?? 0;
+            if (interval <= 0 || entityId == 0)
+                return 0;
+
+            return Math.Abs(entityId % (interval + 1));
         }
 
         internal float GetWeaponAimHeightForCover() =>

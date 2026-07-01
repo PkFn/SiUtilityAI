@@ -51,6 +51,7 @@
     <SpotTargetName>enemy infantry</SpotTargetName>
     <SpotSpeechCooldownMilliseconds>15000</SpotSpeechCooldownMilliseconds>
     <DetectionAccuracyWorseningMultiplier>2</DetectionAccuracyWorseningMultiplier>
+    <TargetReevaluationIntervalMilliseconds>400</TargetReevaluationIntervalMilliseconds>
   </Definition>
 
   <!-- Uses PAX defender projectile definitions through the PAX projectile spawner. -->
@@ -82,6 +83,7 @@
     <SpotTargetName>enemy infantry</SpotTargetName>
     <SpotSpeechCooldownMilliseconds>15000</SpotSpeechCooldownMilliseconds>
     <DetectionAccuracyWorseningMultiplier>2</DetectionAccuracyWorseningMultiplier>
+    <TargetReevaluationIntervalMilliseconds>400</TargetReevaluationIntervalMilliseconds>
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
