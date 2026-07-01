@@ -65,6 +65,10 @@ namespace Si.UtilityAI
         void End(SiUtilityContext context);
     }
 
+    internal interface ISiContinuousUtilityBehavior
+    {
+    }
+
     /// <summary>
     /// Capabilities exposed to utility behaviors.  Behaviors request movement
     /// through the owning NPC manager so commands are replicated to clients.
@@ -152,7 +156,8 @@ namespace Si.UtilityAI
             if (_context == null || !IsAuthoritative || !_decisionMakingEnabled)
                 return;
 
-            _activeBehavior?.Tick(_context, elapsedMilliseconds);
+            if (_activeBehavior is ISiContinuousUtilityBehavior)
+                _activeBehavior.Tick(_context, elapsedMilliseconds);
         }
 
         internal void AdvanceDecision(long elapsedMilliseconds)
@@ -172,6 +177,9 @@ namespace Si.UtilityAI
             _decisionCountdown -= elapsedMilliseconds;
             if (_decisionCountdown <= 0)
                 Decide();
+
+            if (!(_activeBehavior is ISiContinuousUtilityBehavior))
+                _activeBehavior?.Tick(_context, elapsedMilliseconds);
         }
 
         internal void Unbind()

@@ -78,7 +78,7 @@ namespace Si.UtilityAI
     /// </summary>
     [MyComponent(typeof(MyObjectBuilder_SiFollowNearbyPlayerBehavior))]
     [MyDefinitionRequired(typeof(SiFollowNearbyPlayerBehaviorDefinition))]
-    public class SiFollowNearbyPlayerBehaviorComponent : MyEntityComponent, ISiUtilityBehavior
+    public class SiFollowNearbyPlayerBehaviorComponent : MyEntityComponent, ISiUtilityBehavior, ISiContinuousUtilityBehavior
     {
         private SiFollowNearbyPlayerBehaviorDefinition _definition;
         private MyEntity _target;

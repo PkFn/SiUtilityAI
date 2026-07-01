@@ -213,7 +213,7 @@ namespace Si.UtilityAI
     /// </summary>
     [MyComponent(typeof(MyObjectBuilder_SiShootOpposingNpcBehavior))]
     [MyDefinitionRequired(typeof(SiShootOpposingNpcBehaviorDefinition))]
-    public class SiShootOpposingNpcBehaviorComponent : MyEntityComponent, ISiUtilityBehavior
+    public class SiShootOpposingNpcBehaviorComponent : MyEntityComponent, ISiUtilityBehavior, ISiContinuousUtilityBehavior
     {
         private static readonly MyStringHash HostileRelationship = MyStringHash.GetOrCompute("War");
 
