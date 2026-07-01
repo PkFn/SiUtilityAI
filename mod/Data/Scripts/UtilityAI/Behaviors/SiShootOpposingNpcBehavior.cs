@@ -3,6 +3,7 @@ using System.Xml.Serialization;
 using Medieval.GameSystems.Factions;
 using Sandbox.Game.Players;
 using Sandbox.ModAPI;
+using SiCore.Core.Debug;
 using VRage.Components;
 using VRage.Game;
 using VRage.Game.Components;
@@ -216,6 +217,9 @@ namespace Si.UtilityAI
     public class SiShootOpposingNpcBehaviorComponent : MyEntityComponent, ISiUtilityBehavior, ISiContinuousUtilityBehavior
     {
         private static readonly MyStringHash HostileRelationship = MyStringHash.GetOrCompute("War");
+        private const long TargetLogCooldownMilliseconds = 1500;
+        private const long SearchLogCooldownMilliseconds = 2000;
+        private const long FireBlockLogCooldownMilliseconds = 1000;
 
         private SiShootOpposingNpcBehaviorDefinition _definition;
         private SiTakeCoverBehaviorComponent _takeCoverBehavior;
@@ -224,6 +228,10 @@ namespace Si.UtilityAI
         private long _lastEngageSpeechTime = -1;
         private long _lastSpotSpeechTime = -1;
         private long _lastSpottedTargetId;
+        private long _lastTargetLogTime = -1;
+        private long _lastSearchLogTime = -1;
+        private long _lastFireBlockLogTime = -1;
+        private readonly SiGameLog _log = new SiGameLog(nameof(SiShootOpposingNpcBehaviorComponent), "[SiShoot]");
 
         public string BehaviorName => DefinitionId.ToString();
 
@@ -284,17 +292,31 @@ namespace Si.UtilityAI
         {
             var session = SiNpcSessionComponent.Instance;
             var weapon = GetWeapon();
-            if (weapon == null
-                || !weapon.IsOperational
-                || session?.GetEngagementStance(context.Agent) == SiSquadEngagementStance.HoldFire)
+            var stance = session?.GetEngagementStance(context.Agent) ?? SiSquadEngagementStance.HoldFire;
+            if (weapon == null || !weapon.IsOperational)
+            {
+                LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, null, "weapon-unavailable", 0, SiSpottingObservation.None, weapon);
                 return;
+            }
+
+            if (stance == SiSquadEngagementStance.HoldFire)
+            {
+                LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, _target, "hold-fire", 0, SiSpottingObservation.None, weapon);
+                return;
+            }
 
             if (_takeCoverBehavior?.IsRunningToCover(context) ?? false)
+            {
+                LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, _target, "running-to-cover", 0, SiSpottingObservation.None, weapon);
                 return;
+            }
 
             var target = GetTrackedTarget(context, false, out var distance);
             if (!IsValidTarget(context.Agent, target))
+            {
+                LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, target, "no-valid-target", distance, SiSpottingObservation.None, weapon);
                 return;
+            }
 
             var targetEntity = target.Entity;
             if (_definition.RotateToTarget)
@@ -303,11 +325,17 @@ namespace Si.UtilityAI
             weapon.Advance(elapsedMilliseconds);
 
             if (_definition.RequireLineOfSight && !HasLineOfSight(context.Entity, targetEntity, weapon.Definition.AimTargetHeight))
+            {
+                LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, target, "line-of-sight-blocked", distance, SiSpottingObservation.None, weapon);
                 return;
+            }
 
             var observation = TryReportSpotting(context, target, distance);
             if (!observation.IsSpotted)
+            {
+                LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, target, "spotting-not-confirmed", distance, observation, weapon);
                 return;
+            }
 
             weapon.TryFire(
                 context,
@@ -479,51 +507,73 @@ namespace Si.UtilityAI
 
             ShootTarget best = null;
             var bestDistanceSquared = (double)_definition.SearchRadius * _definition.SearchRadius;
+            var npcTotal = 0;
+            var npcValid = 0;
+            var npcOpposing = 0;
+            var npcArchetype = 0;
+            var npcInRange = 0;
+            var npcSpotted = 0;
             foreach (var candidate in manager.Npcs.Values)
             {
+                npcTotal++;
                 var target = new ShootTarget(candidate);
                 if (!IsValidTarget(context.Agent, target))
                     continue;
+                npcValid++;
                 if (!IsOpposing(context.Agent, candidate, session.Squads, stance))
                     continue;
+                npcOpposing++;
                 if (!CanTargetArchetype(context.Agent.Archetype, candidate.Archetype))
                     continue;
+                npcArchetype++;
 
                 var distanceSquared = Vector3D.DistanceSquared(
                     context.Position,
                     target.Entity.WorldMatrix.Translation);
                 if (distanceSquared > bestDistanceSquared)
                     continue;
+                npcInRange++;
                 var distance = Math.Sqrt(distanceSquared);
                 var observation = ObserveTarget(context, target, distance);
                 if (!observation.IsSpotted)
                     continue;
+                npcSpotted++;
 
                 best = target;
                 bestDistanceSquared = distanceSquared;
             }
 
+            var playerTotal = 0;
+            var playerValid = 0;
+            var playerOpposing = 0;
+            var playerInRange = 0;
+            var playerSpotted = 0;
             if (MyPlayers.Static != null)
             {
                 foreach (var entry in MyPlayers.Static.GetAllPlayers())
                 {
+                    playerTotal++;
                     var player = entry.Value;
                     var controlled = player?.ControlledEntity;
                     var target = new ShootTarget(player, controlled);
                     if (!IsValidTarget(context.Agent, target))
                         continue;
+                    playerValid++;
                     if (!IsOpposingPlayer(context.Agent, player, session.Squads, stance))
                         continue;
+                    playerOpposing++;
 
                     var distanceSquared = Vector3D.DistanceSquared(
                         context.Position,
                         target.Entity.WorldMatrix.Translation);
                     if (distanceSquared > bestDistanceSquared)
                         continue;
+                    playerInRange++;
                     var distance = Math.Sqrt(distanceSquared);
                     var observation = ObserveTarget(context, target, distance);
                     if (!observation.IsSpotted)
                         continue;
+                    playerSpotted++;
 
                     best = target;
                     bestDistanceSquared = distanceSquared;
@@ -531,6 +581,10 @@ namespace Si.UtilityAI
             }
 
             bestDistance = best != null ? Math.Sqrt(bestDistanceSquared) : 0;
+            if (best == null)
+                LogSearchWithCooldown(context, "no-target", npcTotal, npcValid, npcOpposing, npcArchetype, npcInRange, npcSpotted, playerTotal, playerValid, playerOpposing, playerInRange, playerSpotted);
+            else
+                LogSearchWithCooldown(context, "selected-target", npcTotal, npcValid, npcOpposing, npcArchetype, npcInRange, npcSpotted, playerTotal, playerValid, playerOpposing, playerInRange, playerSpotted, best, bestDistance);
             return best;
         }
 
@@ -621,27 +675,42 @@ namespace Si.UtilityAI
                 currentObservation = ObserveTarget(context, current, distance);
                 if (!currentObservation.IsSpotted)
                 {
+                    LogTargetStateWithCooldown(context, current, distance, currentObservation, "current-target-unspotted");
                     currentIsValid = false;
                     forceRefresh = true;
                 }
                 else if (!forceRefresh
                          && !IsTargetEvaluationDue()
                          && HasCloserSpottedTarget(context, distance))
+                {
+                    LogTargetStateWithCooldown(context, current, distance, currentObservation, "closer-spotted-target-available");
                     forceRefresh = true;
+                }
             }
 
             if (!forceRefresh && currentIsValid && !IsTargetEvaluationDue())
                 return current;
 
             if (!currentIsValid)
+            {
+                LogTargetStateWithCooldown(context, current, distance, currentObservation, "refresh-invalid-target");
                 forceRefresh = true;
+            }
 
             if (!forceRefresh && !IsTargetEvaluationDue())
+            {
+                LogTargetStateWithCooldown(context, current, distance, currentObservation, "evaluation-not-due-no-refresh");
                 return null;
+            }
 
+            var previous = _target;
             current = FindBestTarget(context, out distance);
             _target = current;
             MarkTargetEvaluation();
+            if (current == null)
+                LogTargetStateWithCooldown(context, previous, distance, currentObservation, "target-refresh-found-none");
+            else if (previous == null || previous.EntityId != current.EntityId)
+                LogTargetStateWithCooldown(context, current, distance, ObserveTarget(context, current, distance), "target-changed");
             if (current == null)
                 _lastSpottedTargetId = 0;
             return current;
@@ -936,6 +1005,64 @@ namespace Si.UtilityAI
             return lengthSquared > 0.0001
                 ? value / Math.Sqrt(lengthSquared)
                 : fallback;
+        }
+
+        private void LogTargetStateWithCooldown(
+            SiUtilityContext context,
+            ShootTarget target,
+            double distance,
+            SiSpottingObservation observation,
+            string outcome)
+        {
+            var now = CurrentTimeMilliseconds();
+            if (_lastTargetLogTime >= 0 && now - _lastTargetLogTime < TargetLogCooldownMilliseconds)
+                return;
+
+            _lastTargetLogTime = now;
+            _log.Warning($"entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} definition={DefinitionId.SubtypeName} debug target-state outcome={outcome} stance={SiNpcSessionComponent.Instance?.GetEngagementStance(context?.Agent) ?? SiSquadEngagementStance.HoldFire} currentTargetId={target?.EntityId ?? 0} currentTargetName={target?.Entity?.Name ?? "null"} currentTargetNpc={target?.Npc?.Archetype ?? "player-or-null"} distance={distance:0.00} spotted={observation.IsSpotted} spottingSum={observation.SpottingSum:0.000} spottingThreshold={observation.SpottingThreshold:0.000} forceDue={IsTargetEvaluationDue()} nextEval={_nextTargetEvaluationTime} now={now}"); // AGENT-DEBUG-LOG
+        }
+
+        private void LogSearchWithCooldown(
+            SiUtilityContext context,
+            string outcome,
+            int npcTotal,
+            int npcValid,
+            int npcOpposing,
+            int npcArchetype,
+            int npcInRange,
+            int npcSpotted,
+            int playerTotal,
+            int playerValid,
+            int playerOpposing,
+            int playerInRange,
+            int playerSpotted,
+            ShootTarget best = null,
+            double bestDistance = 0)
+        {
+            var now = CurrentTimeMilliseconds();
+            if (_lastSearchLogTime >= 0 && now - _lastSearchLogTime < SearchLogCooldownMilliseconds)
+                return;
+
+            _lastSearchLogTime = now;
+            _log.Warning($"entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} definition={DefinitionId.SubtypeName} debug target-search outcome={outcome} stance={SiNpcSessionComponent.Instance?.GetEngagementStance(context?.Agent) ?? SiSquadEngagementStance.HoldFire} npcTotal={npcTotal} npcValid={npcValid} npcOpposing={npcOpposing} npcArchetype={npcArchetype} npcInRange={npcInRange} npcSpotted={npcSpotted} playerTotal={playerTotal} playerValid={playerValid} playerOpposing={playerOpposing} playerInRange={playerInRange} playerSpotted={playerSpotted} selectedTargetId={best?.EntityId ?? 0} selectedTargetName={best?.Entity?.Name ?? "null"} selectedTargetNpc={best?.Npc?.Archetype ?? "player-or-null"} selectedDistance={bestDistance:0.00}"); // AGENT-DEBUG-LOG
+        }
+
+        private void LogFireBlockedWithCooldown(
+            ref long lastLogTime,
+            long cooldownMilliseconds,
+            SiUtilityContext context,
+            ShootTarget target,
+            string outcome,
+            double distance,
+            SiSpottingObservation observation,
+            SiNpcRangedWeaponComponent weapon)
+        {
+            var now = CurrentTimeMilliseconds();
+            if (lastLogTime >= 0 && now - lastLogTime < cooldownMilliseconds)
+                return;
+
+            lastLogTime = now;
+            _log.Warning($"entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} definition={DefinitionId.SubtypeName} debug fire-blocked outcome={outcome} stance={SiNpcSessionComponent.Instance?.GetEngagementStance(context?.Agent) ?? SiSquadEngagementStance.HoldFire} targetId={target?.EntityId ?? 0} targetName={target?.Entity?.Name ?? "null"} targetNpc={target?.Npc?.Archetype ?? "player-or-null"} distance={distance:0.00} spotted={observation.IsSpotted} spottingSum={observation.SpottingSum:0.000} spottingThreshold={observation.SpottingThreshold:0.000} nextEval={_nextTargetEvaluationTime} now={now} weaponReady={weapon != null && weapon.IsOperational} takingCover={_takeCoverBehavior?.IsRunningToCover(context) ?? false}"); // AGENT-DEBUG-LOG
         }
 
         private sealed class ShootTarget

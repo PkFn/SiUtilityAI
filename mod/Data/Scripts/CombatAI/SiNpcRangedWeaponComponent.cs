@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Xml.Serialization;
 using Pax.Cannons;
 using Sandbox.ModAPI;
+using SiCore.Core.Debug;
 using VRage.Components;
 using VRage.Game;
 using VRage.Game.Components;
@@ -327,14 +328,17 @@ namespace Si.UtilityAI
     [StaticEventOwner]
     public class SiNpcRangedWeaponComponent : MyEntityComponent
     {
+        private const long FireDenyLogCooldownMilliseconds = 1000;
         private static readonly Random ShotSpreadRandom = new Random();
         private static readonly object ShotSpreadRandomLock = new object();
 
         private readonly List<PendingShotSound> _pendingShotSounds = new List<PendingShotSound>();
         private readonly List<PendingWeaponSound> _pendingWeaponSounds = new List<PendingWeaponSound>();
+        private readonly SiGameLog _log = new SiGameLog(nameof(SiNpcRangedWeaponComponent), "[SiShoot]");
 
         private SiNpcRangedWeaponComponentDefinition _definition;
         private long _fireCooldown;
+        private long _lastFireDenyLogTime = -1;
         private int _shotsRemainingInMagazine;
         private int _shotsRemainingInBurst;
 
@@ -387,14 +391,29 @@ namespace Si.UtilityAI
             float detectionScore,
             float detectionAccuracyWorseningMultiplier)
         {
-            if (!IsOperational
-                || _fireCooldown > 0
-                || context?.Entity == null
-                || targetEntity == null)
+            if (!IsOperational)
+            {
+                LogFireDeniedWithCooldown("weapon-not-operational", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
                 return false;
+            }
+
+            if (_fireCooldown > 0)
+            {
+                LogFireDeniedWithCooldown("weapon-cooldown", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
+                return false;
+            }
+
+            if (context?.Entity == null || targetEntity == null)
+            {
+                LogFireDeniedWithCooldown("missing-entity-context", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
+                return false;
+            }
 
             if (!TryCreateShot(context.Entity, targetEntity, targetVelocity, out var projectileMatrix))
+            {
+                LogFireDeniedWithCooldown("shot-creation-failed", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
                 return false;
+            }
 
             var projectileAccuracyMultiplier = ComputeProjectileAccuracyMultiplier(
                 detectionScore,
@@ -409,7 +428,10 @@ namespace Si.UtilityAI
                     _definition.ProjectileSyncDistance,
                     _definition.CharacterDamageMultiplier,
                     context.EntityId))
+            {
+                LogFireDeniedWithCooldown("projectile-spawn-failed", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
                 return false;
+            }
 
             var shotFeedback = ConsumeShot();
             _fireCooldown = shotFeedback.CooldownMilliseconds;
@@ -421,6 +443,21 @@ namespace Si.UtilityAI
                 shotFeedback.PlayReloadSound,
                 shotFeedback.PlayMagazineReloadSound);
             return true;
+        }
+
+        private void LogFireDeniedWithCooldown(
+            string outcome,
+            SiUtilityContext context,
+            MyEntity targetEntity,
+            float detectionScore,
+            float detectionAccuracyWorseningMultiplier)
+        {
+            var now = CurrentTimeMilliseconds();
+            if (_lastFireDenyLogTime >= 0 && now - _lastFireDenyLogTime < FireDenyLogCooldownMilliseconds)
+                return;
+
+            _lastFireDenyLogTime = now;
+            _log.Warning($"entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} definition={DefinitionId.SubtypeName} debug fire-denied outcome={outcome} targetId={targetEntity?.EntityId ?? 0} targetName={targetEntity?.Name ?? "null"} cooldownMs={_fireCooldown} magazineRemaining={_shotsRemainingInMagazine} burstRemaining={_shotsRemainingInBurst} projectile={_definition?.Projectile ?? "null"} projectileVelocityMultiplier={_definition?.ProjectileVelocityMultiplier ?? 0:0.000} projectileAccuracyMultiplier={_definition?.ProjectileAccuracyMultiplier ?? 0:0.000} projectileSyncDistance={_definition?.ProjectileSyncDistance ?? 0:0.000} detectionScore={detectionScore:0.000} detectionAccuracyWorseningMultiplier={detectionAccuracyWorseningMultiplier:0.000} contextEntityId={context?.EntityId ?? 0}"); // AGENT-DEBUG-LOG
         }
 
         private float ComputeProjectileAccuracyMultiplier(
