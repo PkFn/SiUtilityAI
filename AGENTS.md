@@ -61,9 +61,10 @@
 ## Runtime Debugging
 
 - When an in-game issue is silent or only reproducible inside Medieval Engineers, prefer adding temporary runtime logging over guessing.
-- Use `NamedLogger(MySession.Static.Log, nameof(YourComponentType))` and emit a short, grep-friendly prefix such as `[YourSystem]` in each message so the user can filter `C:\Users\SicH\AppData\Roaming\MedievalEngineers\MedievalEngineers.log`.
+- Use the shared gated logger `SiCore.Core.Debug.SiGameLog` instead of writing directly to `NamedLogger`. Instantiate it once per component, for example `private readonly SiGameLog _log = new SiGameLog(nameof(YourComponentType), "[YourSystem]");`, and route game-log output through `_log.Warning(...)`, `_log.Info(...)`, or `_log.Error(...)`.
+- Leave `SiGameLog` disabled by default so published test builds do not inflate player logs. When active in game testing needs those messages, toggle it with `/si-npc gamelog on`, confirm with `/si-npc gamelog status`, and turn it back off with `/si-npc gamelog off`.
 - Any temporary game-log output line added for debugging in game-loaded C# scripts must end with the exact marker comment `// AGENT-DEBUG-LOG`. This is mandatory for agent-added temporary logging.
-- Keep each marked temporary log emission on a single physical line so it can be removed mechanically. Example: `_log.Warning($"[SiCover] entityId={Entity?.EntityId ?? 0} ..."); // AGENT-DEBUG-LOG`
+- Keep each marked temporary log emission on a single physical line so it can be removed mechanically. Example: `_log.Warning($"entityId={Entity?.EntityId ?? 0} ..."); // AGENT-DEBUG-LOG`
 - Use `powershell -ExecutionPolicy Bypass -File .\tools\Remove-AgentDebugLogs.ps1` from the repo root to remove every marked debug log line under `mod/Data/`. Use `-WhatIf` first to preview the files and counts without editing, and pass `-Root .\some\other\Data` to target a different Data tree when needed.
 - Include the entity id, entity name, key definition subtype, and the exact branch outcome being tested. One good log line with concrete state is better than many vague ones.
 - For wiring problems, log the component or inventory lookup results directly. If useful, dump the runtime component type list once on first failure instead of spamming it every retry.

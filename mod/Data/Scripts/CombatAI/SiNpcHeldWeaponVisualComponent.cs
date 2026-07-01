@@ -5,13 +5,13 @@ using Medieval.Constants;
 using Sandbox.Entities.Components;
 using Sandbox.Game.Inventory;
 using Sandbox.ModAPI;
+using SiCore.Core.Debug;
 using VRage.Components;
 using VRage.Definitions.Inventory;
 using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.Definitions;
 using VRage.Game.Entity;
-using VRage.Logging;
 using VRage.Game.ObjectBuilders.ComponentSystem;
 using VRage.Inventory;
 using VRage.Network;
@@ -67,8 +67,7 @@ namespace Si.UtilityAI
 
         private SiNpcHeldWeaponVisualComponentDefinition _definition;
         private int _attempts;
-        private NamedLogger _log;
-        private bool _logInitialized;
+        private readonly SiGameLog _log = new SiGameLog(nameof(SiNpcHeldWeaponVisualComponent), "[SiNpcHeldWeaponVisual]");
         private bool _loggedComponentDump;
 
         public override bool IsSerialized => false;
@@ -241,14 +240,7 @@ namespace Si.UtilityAI
             var heldSubtype = _definition != null && _definition.HeldItem.HasValue
                 ? _definition.HeldItem.Value.SubtypeName
                 : "null";
-            if (!_logInitialized && MySession.Static?.Log != null)
-            {
-                _log = new NamedLogger(MySession.Static.Log, nameof(SiNpcHeldWeaponVisualComponent));
-                _logInitialized = true;
-            }
-
-            if (_logInitialized)
-                _log.Warning($"[SiNpcHeldWeaponVisual] entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} held={heldSubtype} {message}");
+            _log.Warning($"entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} held={heldSubtype} {message}");
         }
     }
 }

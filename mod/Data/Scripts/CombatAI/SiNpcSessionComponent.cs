@@ -6,6 +6,7 @@ using Sandbox.Definitions.Chat;
 using Sandbox.Game.GameSystems.Chat;
 using Sandbox.Game.Players;
 using Sandbox.ModAPI;
+using SiCore.Core.Debug;
 using VRage;
 using VRage.Components;
 using VRage.Components.Interfaces;
@@ -21,7 +22,6 @@ using VRage.ObjectBuilders.Components;
 using VRage.Session;
 using VRage.Utils;
 using VRageMath;
-using VRage.Logging;
 using VRageRender;
 
 namespace Si.UtilityAI
@@ -75,8 +75,7 @@ namespace Si.UtilityAI
         private bool _showTroopMarkers;
         private bool _showSquadChatter;
         private bool _utilityDecisionMakingEnabled = true;
-        private NamedLogger _log;
-        private bool _logInitialized;
+        private readonly SiGameLog _log = new SiGameLog(nameof(SiNpcSessionComponent), "[SiCover]");
         private long _lastCoverCleanupLogTime = long.MinValue;
 
         public static SiNpcSessionComponent Instance => _instance;
@@ -90,7 +89,6 @@ namespace Si.UtilityAI
         {
             base.OnLoad();
             _instance = this;
-            TryInitLog();
             Npcs = new SiNpcManager();
             Squads = new SiSquadBook();
             Spotting = new SiSpottingSystem(this);
@@ -101,7 +99,7 @@ namespace Si.UtilityAI
             _chat?.RegisterChatCommand(
                 Command,
                 HandleCommand,
-                "Manage custom Si Utility AI NPCs. /si-npc spawn [archetype] | spawn-enemy | list | clear | utility-ai [toggle|on|off|status]",
+                "Manage custom Si Utility AI NPCs. /si-npc spawn [archetype] | spawn-enemy | list | clear | utility-ai [toggle|on|off|status] | gamelog [toggle|on|off|status]",
                 MyChatCommandType.Server);
             _chat?.RegisterChatCommand(
                 EnemyCommand,
@@ -581,6 +579,27 @@ namespace Si.UtilityAI
             }
         }
 
+        private bool HandleGameLogCommand(ulong sender, string[] tokens)
+        {
+            var action = tokens.Length >= 3 ? tokens[2].ToLowerInvariant() : "toggle";
+            switch (action)
+            {
+                case "toggle":
+                    SiGameLog.SetEnabled(!SiGameLog.Enabled);
+                    return Respond(sender, SiGameLog.StatusText());
+                case "on":
+                    SiGameLog.SetEnabled(true);
+                    return Respond(sender, SiGameLog.StatusText());
+                case "off":
+                    SiGameLog.SetEnabled(false);
+                    return Respond(sender, SiGameLog.StatusText());
+                case "status":
+                    return Respond(sender, SiGameLog.StatusText());
+                default:
+                    return Respond(sender, $"{Command} gamelog [toggle|on|off|status]");
+            }
+        }
+
         private void SpeakPlayerCommand(MyPlayer player, SiUtilityCommandMenuCommand command)
         {
             var message = UtilityCommandSpeech(command);
@@ -961,6 +980,9 @@ namespace Si.UtilityAI
                 case "utilityai":
                 case "ai":
                     return HandleUtilityAiCommand(sender, tokens);
+                case "gamelog":
+                case "log":
+                    return HandleGameLogCommand(sender, tokens);
                 default:
                     return Respond(sender, HelpText());
             }
@@ -1315,15 +1337,6 @@ namespace Si.UtilityAI
             _squadCombatStates[change.NewLeader] = combatState;
         }
 
-        private void TryInitLog()
-        {
-            if (_logInitialized || MySession.Static?.Log == null)
-                return;
-
-            _log = new NamedLogger(MySession.Static.Log, nameof(SiNpcSessionComponent));
-            _logInitialized = true;
-        }
-
         private void LogSlowCoverCleanup(double elapsedMilliseconds, int removedReservations)
         {
             var now = CurrentTimeMilliseconds();
@@ -1333,11 +1346,7 @@ namespace Si.UtilityAI
                 return;
 
             _lastCoverCleanupLogTime = now;
-            TryInitLog();
-            if (!_logInitialized)
-                return;
-
-            _log.Warning($"[SiCover] entityId=0 name=Session definition=SiNpcSessionComponent debug cover-cleanup elapsedMs={elapsedMilliseconds:0.00} activeReservations={_coverReservations.Count} removedReservations={removedReservations} npcCount={Npcs?.Npcs?.Count ?? 0}"); // AGENT-DEBUG-LOG
+            _log.Warning($"entityId=0 name=Session definition=SiNpcSessionComponent debug cover-cleanup elapsedMs={elapsedMilliseconds:0.00} activeReservations={_coverReservations.Count} removedReservations={removedReservations} npcCount={Npcs?.Npcs?.Count ?? 0}"); // AGENT-DEBUG-LOG
         }
 
         private static long DebugTimestampTicks()
@@ -1843,7 +1852,7 @@ namespace Si.UtilityAI
         }
 
         private string HelpText() =>
-            $"{Command} spawn [archetype] | spawn-enemy | list | clear | utility-ai [toggle|on|off|status]. Available: {Npcs?.KnownArchetypesText ?? SiNpcManager.SoldierArchetype}";
+            $"{Command} spawn [archetype] | spawn-enemy | list | clear | utility-ai [toggle|on|off|status] | gamelog [toggle|on|off|status]. Available: {Npcs?.KnownArchetypesText ?? SiNpcManager.SoldierArchetype}";
 
         private string UtilityAiDecisionMakingStatusText() =>
             $"UtilityAI decision making {(_utilityDecisionMakingEnabled ? "enabled" : "disabled")}.";

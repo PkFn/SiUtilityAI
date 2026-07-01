@@ -4,6 +4,7 @@ using System.Xml.Serialization;
 using Equinox76561198048419394.Core.Util;
 using Medieval.WorldEnvironment.Modules;
 using Sandbox.ModAPI;
+using SiCore.Core.Debug;
 using VRage.Components;
 using VRage.Game;
 using VRage.Game.Components;
@@ -11,10 +12,8 @@ using VRage.Game.Definitions;
 using VRage.Game.Entity;
 using VRage.Game.ObjectBuilders.ComponentSystem;
 using VRage.Entities.Gravity;
-using VRage.Logging;
 using VRage.ModAPI;
 using VRage.ObjectBuilders;
-using VRage.Session;
 using VRageMath;
 
 namespace Si.UtilityAI
@@ -104,8 +103,7 @@ namespace Si.UtilityAI
 
         private SiTakeCoverBehaviorDefinition _definition;
         private SiShootOpposingNpcBehaviorComponent _shootBehavior;
-        private NamedLogger _log;
-        private bool _logInitialized;
+        private readonly SiGameLog _log = new SiGameLog(nameof(SiTakeCoverBehaviorComponent), "[SiCover]");
         private Vector3D _reservedCoverPosition;
         private Vector3D _reservedStandPosition;
         private bool _hasReservedCover;
@@ -130,7 +128,6 @@ namespace Si.UtilityAI
         {
             base.OnAddedToContainer();
             _shootBehavior = Entity?.Components?.Get<SiShootOpposingNpcBehaviorComponent>();
-            TryInitLog();
         }
 
         float ISiUtilityBehavior.Evaluate(SiUtilityContext context)
@@ -834,15 +831,6 @@ namespace Si.UtilityAI
             _lastCoverRejectReason = reason;
         }
 
-        private void TryInitLog()
-        {
-            if (_logInitialized || MySession.Static?.Log == null)
-                return;
-
-            _log = new NamedLogger(MySession.Static.Log, nameof(SiTakeCoverBehaviorComponent));
-            _logInitialized = true;
-        }
-
         private void LogWithCooldown(ref long lastLogTime, string message)
         {
             var now = CurrentTimeMilliseconds();
@@ -855,12 +843,7 @@ namespace Si.UtilityAI
 
         private void Log(string message)
         {
-            TryInitLog();
-            if (!_logInitialized)
-                return;
-
-            _log.Warning(
-                $"[SiCover] entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} definition={DefinitionId.SubtypeName} {message}");
+            _log.Warning($"entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} definition={DefinitionId.SubtypeName} {message}");
         }
 
         private void LogSlowCoverSearch(
@@ -887,11 +870,7 @@ namespace Si.UtilityAI
                 return;
 
             _lastSlowCoverSearchLogTime = now;
-            TryInitLog();
-            if (!_logInitialized)
-                return;
-
-            _log.Warning($"[SiCover] entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} definition={DefinitionId.SubtypeName} debug slow-cover-search outcome={(foundCover ? "found" : "none")} cache={cacheState} totalMs={totalElapsedMilliseconds:0.00} rawScanMs={rawScanElapsedMilliseconds:0.00} buildMs={buildElapsedMilliseconds:0.00} filterMs={filterElapsedMilliseconds:0.00} hasThreat={hasThreat} searchOrigin={FormatVector(searchOrigin)} reserved={_hasReservedCover} scannedSectors={scanStats.TotalSectors} intersectingSectors={scanStats.IntersectingSectors} foliageEntries={scanStats.FoliageEntries} candidates={scanStats.AcceptedCandidates} viable={viableCandidates} occupiedRejects={occupiedRejects} standingRejects={standingPointRejects} lastReject={_lastCoverRejectReason ?? "none"} waypoint={FormatVector(context?.Waypoint ?? Vector3D.Zero)}"); // AGENT-DEBUG-LOG
+            _log.Warning($"entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} definition={DefinitionId.SubtypeName} debug slow-cover-search outcome={(foundCover ? "found" : "none")} cache={cacheState} totalMs={totalElapsedMilliseconds:0.00} rawScanMs={rawScanElapsedMilliseconds:0.00} buildMs={buildElapsedMilliseconds:0.00} filterMs={filterElapsedMilliseconds:0.00} hasThreat={hasThreat} searchOrigin={FormatVector(searchOrigin)} reserved={_hasReservedCover} scannedSectors={scanStats.TotalSectors} intersectingSectors={scanStats.IntersectingSectors} foliageEntries={scanStats.FoliageEntries} candidates={scanStats.AcceptedCandidates} viable={viableCandidates} occupiedRejects={occupiedRejects} standingRejects={standingPointRejects} lastReject={_lastCoverRejectReason ?? "none"} waypoint={FormatVector(context?.Waypoint ?? Vector3D.Zero)}"); // AGENT-DEBUG-LOG
         }
 
         private static long DebugTimestampTicks()
