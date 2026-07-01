@@ -22,7 +22,9 @@ namespace Si.UtilityAI
         private readonly Dictionary<string, SiNpcArchetypeRecord> _archetypes =
             new Dictionary<string, SiNpcArchetypeRecord>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<long, SiNpc> _npcs = new Dictionary<long, SiNpc>();
+        private readonly List<long> _behaviorNpcIds = new List<long>();
         private readonly List<long> _closedNpcIds = new List<long>();
+        private int _behaviorNpcIndex;
 
         public SiNpcManager()
         {
@@ -189,16 +191,38 @@ namespace Si.UtilityAI
 
         public void Update(long elapsedMilliseconds)
         {
+            _behaviorNpcIds.Clear();
             _closedNpcIds.Clear();
             foreach (var entry in _npcs)
-                if (!entry.Value.Update(elapsedMilliseconds))
+                if (!entry.Value.UpdateFrame(elapsedMilliseconds))
                 {
                     entry.Value.Close();
                     _closedNpcIds.Add(entry.Key);
                 }
+                else
+                    _behaviorNpcIds.Add(entry.Key);
+
+            ProcessBehaviorEngineStep();
 
             foreach (var id in _closedNpcIds)
                 _npcs.Remove(id);
+        }
+
+        private void ProcessBehaviorEngineStep()
+        {
+            if (_behaviorNpcIds.Count == 0)
+            {
+                _behaviorNpcIndex = 0;
+                return;
+            }
+
+            if (_behaviorNpcIndex >= _behaviorNpcIds.Count)
+                _behaviorNpcIndex = 0;
+
+            var entityId = _behaviorNpcIds[_behaviorNpcIndex];
+            _behaviorNpcIndex = (_behaviorNpcIndex + 1) % _behaviorNpcIds.Count;
+            if (_npcs.TryGetValue(entityId, out var npc))
+                npc.ProcessBehaviorUpdate();
         }
 
         public void CloseAll(bool deleteDiplomaticIdentities = true)
@@ -206,6 +230,8 @@ namespace Si.UtilityAI
             foreach (var npc in _npcs.Values)
                 npc.Close(deleteDiplomaticIdentities);
             _npcs.Clear();
+            _behaviorNpcIds.Clear();
+            _behaviorNpcIndex = 0;
             _closedNpcIds.Clear();
         }
     }

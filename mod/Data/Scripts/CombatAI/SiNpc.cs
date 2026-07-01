@@ -26,6 +26,7 @@ namespace Si.UtilityAI
         private SiUtilityBrainComponent _utilityBrain;
         private bool _deleteDiplomaticIdentityOnClose;
         private bool _deathStarted;
+        private long _pendingBehaviorElapsedMilliseconds;
 
         protected SiNpc(long entityId, in MatrixD transform)
         {
@@ -100,7 +101,7 @@ namespace Si.UtilityAI
             }
         }
 
-        internal bool Update(long elapsedMilliseconds)
+        internal bool UpdateFrame(long elapsedMilliseconds)
         {
             if (Entity == null || Entity.Closed || Entity.MarkedForClose)
                 return false;
@@ -117,9 +118,9 @@ namespace Si.UtilityAI
             }
             else
             {
+                _pendingBehaviorElapsedMilliseconds += Math.Max(0, elapsedMilliseconds);
                 _utilityBrain?.SetDecisionMakingEnabled(
                     SiNpcSessionComponent.Instance?.UtilityDecisionMakingEnabled ?? true);
-                _utilityBrain?.UpdateDecision(elapsedMilliseconds);
                 OnUpdate(elapsedMilliseconds);
             }
 
@@ -127,6 +128,24 @@ namespace Si.UtilityAI
                 return false;
             Transform = Entity.WorldMatrix;
             return true;
+        }
+
+        internal void ProcessBehaviorUpdate()
+        {
+            if (Entity == null || Entity.Closed || Entity.MarkedForClose || IsDead)
+                return;
+
+            var utilityBrain = _utilityBrain;
+            if (utilityBrain == null)
+            {
+                _pendingBehaviorElapsedMilliseconds = 0;
+                return;
+            }
+
+            utilityBrain.SetDecisionMakingEnabled(
+                SiNpcSessionComponent.Instance?.UtilityDecisionMakingEnabled ?? true);
+            utilityBrain.UpdateDecision(_pendingBehaviorElapsedMilliseconds);
+            _pendingBehaviorElapsedMilliseconds = 0;
         }
 
         public bool TryGetHealth(out float current, out float max)
@@ -154,6 +173,7 @@ namespace Si.UtilityAI
 
             _utilityBrain?.Unbind();
             _utilityBrain = null;
+            _pendingBehaviorElapsedMilliseconds = 0;
             OnClosing();
             _deathStarted = false;
             if (deleteDiplomaticIdentity)
