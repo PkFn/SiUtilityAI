@@ -293,6 +293,7 @@ namespace Si.UtilityAI
             var session = SiNpcSessionComponent.Instance;
             var weapon = GetWeapon();
             var stance = session?.GetEngagementStance(context.Agent) ?? SiSquadEngagementStance.HoldFire;
+            var runningToCover = _takeCoverBehavior?.IsRunningToCover(context) ?? false;
             if (weapon == null || !weapon.IsOperational)
             {
                 LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, null, "weapon-unavailable", 0, SiSpottingObservation.None, weapon);
@@ -302,12 +303,6 @@ namespace Si.UtilityAI
             if (stance == SiSquadEngagementStance.HoldFire)
             {
                 LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, _target, "hold-fire", 0, SiSpottingObservation.None, weapon);
-                return;
-            }
-
-            if (_takeCoverBehavior?.IsRunningToCover(context) ?? false)
-            {
-                LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, _target, "running-to-cover", 0, SiSpottingObservation.None, weapon);
                 return;
             }
 
@@ -333,7 +328,7 @@ namespace Si.UtilityAI
             var observation = TryReportSpotting(context, target, distance);
             if (!observation.IsSpotted)
             {
-                LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, target, "spotting-not-confirmed", distance, observation, weapon);
+                LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, target, runningToCover ? "running-to-cover" : "spotting-not-confirmed", distance, observation, weapon);
                 return;
             }
 
