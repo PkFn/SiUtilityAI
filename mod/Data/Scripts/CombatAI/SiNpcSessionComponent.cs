@@ -169,7 +169,10 @@ namespace Si.UtilityAI
             }
             Npcs?.Update(elapsedMilliseconds);
             if (IsAuthoritative)
+            {
+                ReassignLeaderlessSquads();
                 Spotting?.Update(elapsedMilliseconds);
+            }
         }
 
         protected override bool IsSerialized =>
@@ -1278,6 +1281,40 @@ namespace Si.UtilityAI
             _staleCoverReservationIds.Clear();
         }
 
+        private void ReassignLeaderlessSquads()
+        {
+            if (Squads == null || Npcs == null)
+                return;
+
+            var changes = Squads.ReassignLeaderlessSquads(Npcs, IsPlayerLeaderActive);
+            if (changes == null || changes.Count == 0)
+                return;
+
+            for (var i = 0; i < changes.Count; i++)
+            {
+                var change = changes[i];
+                ClearSquadWaypoints(change.NewLeader);
+                MigrateSquadLeadershipState(change);
+            }
+        }
+
+        private void MigrateSquadLeadershipState(SiSquadLeadershipChange change)
+        {
+            if (change.OldLeader.Kind == SiSquadLeaderKind.Player)
+            {
+                _squadOrders.Remove(change.OldLeader.Id);
+                _leaderMotionStates.Remove(change.OldLeader.Id);
+            }
+
+            SiSquadCombatState combatState;
+            if (!_squadCombatStates.TryGetValue(change.OldLeader, out combatState))
+                return;
+
+            _squadCombatStates.Remove(change.OldLeader);
+            combatState.LeaderName = change.NewLeaderName;
+            _squadCombatStates[change.NewLeader] = combatState;
+        }
+
         private void TryInitLog()
         {
             if (_logInitialized || MySession.Static?.Log == null)
@@ -1560,6 +1597,12 @@ namespace Si.UtilityAI
             }
 
             return false;
+        }
+
+        private bool IsPlayerLeaderActive(long leaderIdentityId)
+        {
+            MatrixD leaderTransform;
+            return leaderIdentityId != 0 && TryGetLeaderTransform(leaderIdentityId, out leaderTransform);
         }
 
         private static void CreateLeaderFrame(

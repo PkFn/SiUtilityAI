@@ -150,6 +150,66 @@ namespace Si.UtilityAI
             return assignment != null;
         }
 
+        public List<SiSquadLeadershipChange> ReassignLeaderlessSquads(
+            SiNpcManager npcManager,
+            Func<long, bool> isPlayerLeaderActive)
+        {
+            var changes = new List<SiSquadLeadershipChange>();
+            if (npcManager == null || _assignedNpcs.Count == 0)
+                return changes;
+
+            PurgeClosedNpcs(npcManager);
+
+            var memberIdsByLeader = new Dictionary<SiSquadLeaderKey, List<long>>();
+            foreach (var assigned in _assignedNpcs)
+            {
+                List<long> members;
+                if (!memberIdsByLeader.TryGetValue(assigned.Value.Leader, out members))
+                {
+                    members = new List<long>();
+                    memberIdsByLeader.Add(assigned.Value.Leader, members);
+                }
+
+                members.Add(assigned.Key);
+            }
+
+            foreach (var squad in memberIdsByLeader)
+            {
+                if (IsLeaderActive(npcManager, squad.Key, isPlayerLeaderActive))
+                    continue;
+
+                SiNpc replacementNpc;
+                SiAssignedNpc replacementAssignment;
+                if (!TryFindReplacementLeader(npcManager, squad.Value, out replacementNpc, out replacementAssignment))
+                    continue;
+
+                var replacementLeader = new SiSquadLeaderKey(
+                    SiSquadLeaderKind.Ai,
+                    replacementNpc.EntityId,
+                    squad.Key.Army);
+                var replacementLeaderName = NpcName(replacementNpc, replacementAssignment);
+                changes.Add(new SiSquadLeadershipChange(
+                    squad.Key,
+                    replacementLeader,
+                    replacementLeaderName));
+
+                foreach (var memberId in squad.Value)
+                {
+                    SiAssignedNpc memberAssignment;
+                    if (!_assignedNpcs.TryGetValue(memberId, out memberAssignment))
+                        continue;
+
+                    _assignedNpcs[memberId] = new SiAssignedNpc(
+                        replacementLeader,
+                        replacementLeaderName,
+                        memberAssignment.Archetype,
+                        memberId == replacementNpc.EntityId);
+                }
+            }
+
+            return changes;
+        }
+
         public static SiArmyKey ArmyForPlayerIdentity(long identityId) =>
             ArmyForIdentity(identityId);
 
@@ -407,13 +467,72 @@ namespace Si.UtilityAI
         {
             _staleNpcIds.Clear();
             foreach (var assigned in _assignedNpcs)
-                if (npcManager == null || !npcManager.Npcs.ContainsKey(assigned.Key))
+            {
+                SiNpc npc;
+                if (npcManager == null
+                    || !npcManager.Npcs.TryGetValue(assigned.Key, out npc)
+                    || !IsNpcAvailable(npc))
                     _staleNpcIds.Add(assigned.Key);
+            }
 
             foreach (var id in _staleNpcIds)
                 _assignedNpcs.Remove(id);
             _staleNpcIds.Clear();
         }
+
+        private static bool IsLeaderActive(
+            SiNpcManager npcManager,
+            SiSquadLeaderKey leader,
+            Func<long, bool> isPlayerLeaderActive)
+        {
+            if (leader.Kind == SiSquadLeaderKind.Player)
+                return leader.Id != 0 && (isPlayerLeaderActive?.Invoke(leader.Id) ?? false);
+
+            SiNpc npc;
+            return TryGetNpc(npcManager, leader.Id, out npc);
+        }
+
+        private bool TryFindReplacementLeader(
+            SiNpcManager npcManager,
+            List<long> memberIds,
+            out SiNpc npc,
+            out SiAssignedNpc assignment)
+        {
+            npc = null;
+            assignment = null;
+            if (npcManager == null || memberIds == null || memberIds.Count == 0)
+                return false;
+
+            memberIds.Sort();
+            for (var i = 0; i < memberIds.Count; i++)
+            {
+                if (!TryGetNpc(npcManager, memberIds[i], out npc))
+                    continue;
+
+                if (!_assignedNpcs.TryGetValue(memberIds[i], out assignment))
+                    continue;
+
+                return true;
+            }
+
+            npc = null;
+            assignment = null;
+            return false;
+        }
+
+        private static bool TryGetNpc(SiNpcManager npcManager, long entityId, out SiNpc npc)
+        {
+            npc = null;
+            return npcManager != null
+                   && npcManager.Npcs.TryGetValue(entityId, out npc)
+                   && IsNpcAvailable(npc);
+        }
+
+        private static bool IsNpcAvailable(SiNpc npc) =>
+            npc?.Entity != null
+            && !npc.Entity.Closed
+            && !npc.Entity.MarkedForClose
+            && !npc.IsDead;
 
         private static List<MyPlayer> OnlinePlayers()
         {
@@ -782,6 +901,23 @@ namespace Si.UtilityAI
         public string LeaderName { get; }
         public string Archetype { get; }
         public bool IsLeader { get; }
+    }
+
+    internal sealed class SiSquadLeadershipChange
+    {
+        public SiSquadLeadershipChange(
+            SiSquadLeaderKey oldLeader,
+            SiSquadLeaderKey newLeader,
+            string newLeaderName)
+        {
+            OldLeader = oldLeader;
+            NewLeader = newLeader;
+            NewLeaderName = newLeaderName;
+        }
+
+        public SiSquadLeaderKey OldLeader { get; }
+        public SiSquadLeaderKey NewLeader { get; }
+        public string NewLeaderName { get; }
     }
 
     internal sealed class SiSquadNpcMarker
