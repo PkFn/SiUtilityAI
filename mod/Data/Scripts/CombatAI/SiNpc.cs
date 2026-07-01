@@ -27,6 +27,8 @@ namespace Si.UtilityAI
         private bool _deleteDiplomaticIdentityOnClose;
         private bool _deathStarted;
         private long _pendingBehaviorElapsedMilliseconds;
+        private long _combatMovementRoleToken = long.MinValue;
+        private SiCombatMovementRole _combatMovementRole;
 
         protected SiNpc(long entityId, in MatrixD transform)
         {
@@ -219,6 +221,25 @@ namespace Si.UtilityAI
         internal bool TrySpeak(string message) =>
             _manager?.TrySpeak(EntityId, message) ?? false;
 
+        internal SiCombatMovementRole GetCombatMovementRole(long token)
+        {
+            return _combatMovementRoleToken == token
+                ? _combatMovementRole
+                : SiCombatMovementRole.None;
+        }
+
+        internal void SetCombatMovementRole(long token, SiCombatMovementRole role)
+        {
+            _combatMovementRoleToken = token;
+            _combatMovementRole = role;
+        }
+
+        internal void ClearCombatMovementRole()
+        {
+            _combatMovementRoleToken = long.MinValue;
+            _combatMovementRole = SiCombatMovementRole.None;
+        }
+
         internal void SetDiplomaticIdentity(MyIdentity identity, bool deleteOnClose)
         {
             DiplomaticIdentityId = identity?.Id ?? 0;
@@ -243,5 +264,12 @@ namespace Si.UtilityAI
             DiplomaticIdentityId = 0;
             _deleteDiplomaticIdentityOnClose = false;
         }
+    }
+
+    internal enum SiCombatMovementRole
+    {
+        None,
+        Covered,
+        PlainView,
     }
 }

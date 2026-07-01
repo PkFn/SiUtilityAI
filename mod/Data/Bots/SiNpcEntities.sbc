@@ -28,6 +28,7 @@
     <Component Type="EntityFXComponent" Subtype="Medieval_male" />
     <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
     <Component Type="SiTakeCoverBehavior" Subtype="SiTrooperTakeCover" />
+    <Component Type="SiTakePlainViewBehavior" Subtype="SiTrooperTakePlainView" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_ContainerDefinition" Copy="Append">

@@ -37,6 +37,18 @@
     <FullSwitchDistanceFromLeader>50</FullSwitchDistanceFromLeader>
   </Definition>
 
+  <Definition xsi:type="MyObjectBuilder_SiTakePlainViewBehaviorDefinition">
+    <Id Type="MyObjectBuilder_SiTakePlainViewBehavior" Subtype="SiTrooperTakePlainView" />
+    <MinimumDistanceFromLeader>4</MinimumDistanceFromLeader>
+    <MaximumDistanceFromLeader>10</MaximumDistanceFromLeader>
+    <ArrivalDistance>1.25</ArrivalDistance>
+    <WaypointRefreshDistance>0.75</WaypointRefreshDistance>
+    <RepositionLeaderDistance>18</RepositionLeaderDistance>
+    <BaseScore>0.35</BaseScore>
+    <DistanceScore>0.65</DistanceScore>
+    <DistanceExponent>1.2</DistanceExponent>
+  </Definition>
+
   <!-- Shared decision policy for all rifle troopers so no faction/model has hidden gameplay advantage. -->
   <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition">
     <Id Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />

@@ -113,6 +113,7 @@ namespace Si.UtilityAI
         private long _lastReservationFailLogTime = long.MinValue;
         private long _lastSlowCoverSearchLogTime = long.MinValue;
         private string _lastCoverRejectReason;
+        private long _activeCombatToken = long.MinValue;
 
         public string BehaviorName => DefinitionId.ToString();
 
@@ -138,56 +139,41 @@ namespace Si.UtilityAI
 
             if (session.GetCombatStance(context.Agent) != SiSquadCombatStance.Combat)
             {
-                ReleaseCover(session, context);
-                ResetCoverSearchState();
+                ResetCombatState(session, context);
                 return 0;
             }
 
+            var combatToken = session.GetCombatEntryToken(context.Agent);
+            EnsureCombatState(combatToken, session, context);
+
+            var role = EnsureCombatRole(combatToken, session, context);
+            if (role != SiCombatMovementRole.Covered)
+                return 0;
+
             var hasThreat = TryGetThreat(context, out var threatEntity, out var threatPosition);
-            if (!HasUsableCurrentCover(context, session, hasThreat, threatEntity, threatPosition))
+            if (!_hasReservedCover)
+                return 0;
+
+            if (IsRunningToCover(context))
                 return 1f;
 
-            if (!session.IsFollowingPlayer(context.Agent))
-                return 0;
-
-            double leaderDistance;
-            if (!session.TryGetLeaderDistance(context.Agent, out leaderDistance))
-                return 0;
-            if (leaderDistance <= _definition.SwitchDistanceFromLeader)
-                return 0;
-
-            var span = _definition.FullSwitchDistanceFromLeader - _definition.SwitchDistanceFromLeader;
-            if (span <= 0.001f)
-                return 1f;
-
-            var normalized = MathHelper.Clamp(
-                (float)((leaderDistance - _definition.SwitchDistanceFromLeader) / span),
-                0,
-                1);
-            return normalized;
+            return !HasUsableCurrentCover(context, session, hasThreat, threatEntity, threatPosition)
+                ? 1f
+                : 0f;
         }
 
         void ISiUtilityBehavior.Begin(SiUtilityContext context)
         {
-            MaintainCover(context, true);
+            MoveToReservedCover(context);
         }
 
         void ISiUtilityBehavior.Tick(SiUtilityContext context, long elapsedMilliseconds)
         {
-            MaintainCover(context, false);
+            MoveToReservedCover(context);
         }
 
         void ISiUtilityBehavior.End(SiUtilityContext context)
         {
-            var session = SiNpcSessionComponent.Instance;
-            if (context?.Agent == null || session == null)
-                return;
-
-            if (session.GetCombatStance(context.Agent) != SiSquadCombatStance.Combat)
-            {
-                ReleaseCover(session, context);
-                ResetCoverSearchState();
-            }
         }
 
         internal bool IsRunningToCover(SiUtilityContext context)
@@ -199,7 +185,7 @@ namespace Si.UtilityAI
                    > _definition.CoverArrivalDistance * _definition.CoverArrivalDistance;
         }
 
-        private void MaintainCover(SiUtilityContext context, bool forceRefresh)
+        private void MoveToReservedCover(SiUtilityContext context)
         {
             var session = SiNpcSessionComponent.Instance;
             if (context?.Agent == null || session == null)
@@ -207,21 +193,46 @@ namespace Si.UtilityAI
 
             if (session.GetCombatStance(context.Agent) != SiSquadCombatStance.Combat)
             {
-                ReleaseCover(session, context);
-                ResetCoverSearchState();
+                ResetCombatState(session, context);
                 return;
             }
 
+            if (!_hasReservedCover)
+                return;
+
+            session.TryReserveCover(context.Agent, _reservedCoverPosition, _definition.CoverOccupancyRadius);
+            context.TrySetCrouch(false);
+            if (!context.HasWaypoint
+                || Vector3D.DistanceSquared(context.Waypoint, _reservedStandPosition)
+                   > _definition.WaypointRefreshDistance * _definition.WaypointRefreshDistance)
+                context.TrySetWaypoint(_reservedStandPosition);
+        }
+
+        private void EnsureCombatState(long combatToken, SiNpcSessionComponent session, SiUtilityContext context)
+        {
+            if (_activeCombatToken == combatToken)
+                return;
+
+            ReleaseCover(session, context);
+            ResetCoverSearchState();
+            context.TrySetCrouch(false);
+            _activeCombatToken = combatToken;
+            context.Agent.ClearCombatMovementRole();
+        }
+
+        private SiCombatMovementRole EnsureCombatRole(long combatToken, SiNpcSessionComponent session, SiUtilityContext context)
+        {
+            var currentRole = context.Agent.GetCombatMovementRole(combatToken);
+            if (currentRole != SiCombatMovementRole.None)
+                return currentRole;
+
             var hasThreat = TryGetThreat(context, out var threatEntity, out var threatPosition);
-            var hasUsableCurrentCover = HasUsableCurrentCover(context, session, hasThreat, threatEntity, threatPosition);
             Vector3D searchOrigin;
             if (!session.TryGetLeaderPosition(context.Agent, out searchOrigin))
                 searchOrigin = context.Position;
 
-            var wantsSwitch = ShouldSearchForCover(searchOrigin, forceRefresh, hasUsableCurrentCover);
-
-            if (wantsSwitch
-                && FindBestCover(
+            MarkCoverSearchAttempt(searchOrigin);
+            if (FindBestCover(
                     context,
                     session,
                     hasThreat,
@@ -229,44 +240,31 @@ namespace Si.UtilityAI
                     threatPosition,
                     searchOrigin,
                     out var coverPosition,
-                    out var standPosition))
+                    out var standPosition)
+                && session.TryReserveCover(context.Agent, coverPosition, _definition.CoverOccupancyRadius))
             {
-                MarkCoverSearchAttempt(searchOrigin);
-                if (!_hasReservedCover
-                    || Vector3D.DistanceSquared(_reservedCoverPosition, coverPosition) > 0.01)
-                {
-                    ReleaseCover(session, context);
-                    if (session.TryReserveCover(context.Agent, coverPosition, _definition.CoverOccupancyRadius))
-                    {
-                        _reservedCoverPosition = coverPosition;
-                        _reservedStandPosition = standPosition;
-                        _hasReservedCover = true;
-                    }
-                    else
-                        LogWithCooldown(ref _lastReservationFailLogTime, $"[SiCover] reservation failed cover={FormatVector(coverPosition)}");
-                }
-                else
-                {
-                    session.TryReserveCover(context.Agent, _reservedCoverPosition, _definition.CoverOccupancyRadius);
-                    _reservedStandPosition = standPosition;
-                }
-            }
-            else if (wantsSwitch)
-            {
-                MarkCoverSearchAttempt(searchOrigin);
-                LogWithCooldown(
-                    ref _lastNoCoverLogTime,
-                    $"[SiCover] no valid cover found scanned={_coverPositions.Count} lastReject={_lastCoverRejectReason ?? "none"}");
+                _reservedCoverPosition = coverPosition;
+                _reservedStandPosition = standPosition;
+                _hasReservedCover = true;
+                context.Agent.SetCombatMovementRole(combatToken, SiCombatMovementRole.Covered);
+                return SiCombatMovementRole.Covered;
             }
 
-            if (!_hasReservedCover)
-                return;
+            _hasReservedCover = false;
+            context.Agent.SetCombatMovementRole(combatToken, SiCombatMovementRole.PlainView);
+            LogWithCooldown(
+                ref _lastNoCoverLogTime,
+                $"[SiCover] no valid cover found scanned={_coverPositions.Count} lastReject={_lastCoverRejectReason ?? "none"}");
+            return SiCombatMovementRole.PlainView;
+        }
 
-            session.TryReserveCover(context.Agent, _reservedCoverPosition, _definition.CoverOccupancyRadius);
-            if (!context.HasWaypoint
-                || Vector3D.DistanceSquared(context.Waypoint, _reservedStandPosition)
-                   > _definition.WaypointRefreshDistance * _definition.WaypointRefreshDistance)
-                context.TrySetWaypoint(_reservedStandPosition);
+        private void ResetCombatState(SiNpcSessionComponent session, SiUtilityContext context)
+        {
+            ReleaseCover(session, context);
+            ResetCoverSearchState();
+            context.TrySetCrouch(false);
+            context.Agent.ClearCombatMovementRole();
+            _activeCombatToken = long.MinValue;
         }
 
         private bool HasUsableCurrentCover(
@@ -312,26 +310,6 @@ namespace Si.UtilityAI
 
             _reservedStandPosition = standPosition;
             return true;
-        }
-
-        private bool ShouldSearchForCover(in Vector3D searchOrigin, bool forceRefresh, bool hasUsableCurrentCover)
-        {
-            if (!_hasLastCoverSearchOrigin)
-                return true;
-
-            if (forceRefresh)
-                return HasLeaderMovedAwayFromLastSearch(searchOrigin);
-
-            if (!_hasReservedCover || !hasUsableCurrentCover)
-                return HasLeaderMovedAwayFromLastSearch(searchOrigin);
-
-            return false;
-        }
-
-        private bool HasLeaderMovedAwayFromLastSearch(in Vector3D searchOrigin)
-        {
-            return Vector3D.DistanceSquared(_lastCoverSearchOrigin, searchOrigin)
-                   >= _definition.CoverRescanLeaderDistance * _definition.CoverRescanLeaderDistance;
         }
 
         private void MarkCoverSearchAttempt(in Vector3D searchOrigin)

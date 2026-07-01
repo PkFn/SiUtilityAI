@@ -311,6 +311,17 @@ namespace Si.UtilityAI
             return true;
         }
 
+        internal long GetCombatEntryToken(SiNpc npc)
+        {
+            if (npc == null || Squads == null)
+                return 0;
+
+            SiAssignedNpc assignment;
+            return Squads.TryGetAssignment(npc.EntityId, out assignment)
+                ? GetOrCreateCombatState(assignment.Leader).CombatEntryToken
+                : 0;
+        }
+
         internal bool IsCoverAvailable(SiNpc requester, in Vector3D coverPosition, double radius)
         {
             if (requester == null)
@@ -826,7 +837,10 @@ namespace Si.UtilityAI
                 return;
 
             if (stance == SiSquadCombatStance.Combat)
+            {
+                state.CombatEntryToken++;
                 ClearSquadWaypoints(leader);
+            }
 
             if (speakAsPlayerOrder)
                 SpeakSquadBehaviorChange(leader, PlayerOrderCombatStanceReport(stance), true);
@@ -847,6 +861,7 @@ namespace Si.UtilityAI
                 LastShotAtTime = long.MinValue,
                 LastEnemySpottedTime = long.MinValue,
                 LastStanceChangeTime = long.MinValue,
+                CombatEntryToken = 0,
             };
             _squadCombatStates.Add(leader, state);
             return state;
@@ -2516,6 +2531,7 @@ namespace Si.UtilityAI
         public long LastShotAtTime { get; set; }
         public long LastEnemySpottedTime { get; set; }
         public long LastStanceChangeTime { get; set; }
+        public long CombatEntryToken { get; set; }
     }
 
     internal sealed class SiMotionState

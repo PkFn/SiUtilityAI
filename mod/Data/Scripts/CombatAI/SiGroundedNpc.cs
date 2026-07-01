@@ -81,17 +81,25 @@ namespace Si.UtilityAI
         void ClearWaypoint();
     }
 
+    public interface ISiPostureController
+    {
+        bool WantsCrouch { get; }
+
+        void SetCrouch(bool wantsCrouch);
+    }
+
     /// <summary>
     /// Reusable waypoint locomotion for NPCs driven by the stock
     /// character movement component.
     /// </summary>
-    public abstract class SiGroundedNpc : SiNpc, ISiWaypointMover
+    public abstract class SiGroundedNpc : SiNpc, ISiWaypointMover, ISiPostureController
     {
         private const double MinimumDirectionLengthSquared = 0.0001;
 
         private Vector3D _waypoint;
         private MyCharacterMovementComponent _movement;
         private bool _movementHandlersRegistered;
+        private bool _wantsCrouch;
 
         protected SiGroundedNpc(long entityId, in MatrixD transform)
             : base(entityId, transform)
@@ -101,6 +109,7 @@ namespace Si.UtilityAI
         public bool HasWaypoint { get; private set; }
         public Vector3D Waypoint => _waypoint;
         public Vector3D Velocity => Entity?.Physics?.LinearVelocity ?? Vector3.Zero;
+        public bool WantsCrouch => _wantsCrouch;
 
         public void SetWaypoint(in Vector3D waypoint)
         {
@@ -111,6 +120,11 @@ namespace Si.UtilityAI
         public void ClearWaypoint()
         {
             HasWaypoint = false;
+        }
+
+        public void SetCrouch(bool wantsCrouch)
+        {
+            _wantsCrouch = wantsCrouch;
         }
 
         protected sealed override void OnUpdate(long elapsedMilliseconds)
@@ -148,6 +162,7 @@ namespace Si.UtilityAI
         {
             base.OnKilled();
             ClearWaypoint();
+            _wantsCrouch = false;
             if (_movement != null)
                 _movement.BlockMovement = true;
         }
@@ -164,6 +179,7 @@ namespace Si.UtilityAI
             base.OnClosing();
             _movement = null;
             _movementHandlersRegistered = false;
+            _wantsCrouch = false;
         }
 
         private bool TryGetMoveDirection(
@@ -215,6 +231,8 @@ namespace Si.UtilityAI
                 direction,
                 Entity.PositionComp.WorldMatrixNormalizedInv);
             moveIndicator = (Vector3)localDirection;
+            if (_wantsCrouch)
+                moveIndicator.Y = -1f;
         }
 
         private void RotationIndicatorHandler(

@@ -102,6 +102,16 @@ namespace Si.UtilityAI
         public bool TryClearWaypoint() => _agent.TryClearWaypoint();
 
         public bool TrySpeak(string message) => _agent.TrySpeak(message);
+
+        public bool TrySetCrouch(bool wantsCrouch)
+        {
+            var posture = _agent as ISiPostureController;
+            if (posture == null)
+                return false;
+
+            posture.SetCrouch(wantsCrouch);
+            return true;
+        }
     }
 
     /// <summary>
