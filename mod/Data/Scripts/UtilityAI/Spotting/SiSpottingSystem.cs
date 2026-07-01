@@ -40,6 +40,8 @@ namespace Si.UtilityAI
             new Dictionary<long, long>();
         private readonly Dictionary<long, long> _recentPlayerEvidenceTimes =
             new Dictionary<long, long>();
+        private readonly Queue<long> _pendingObservers = new Queue<long>();
+        private readonly HashSet<long> _queuedObservers = new HashSet<long>();
         private readonly List<SpottingKey> _removals = new List<SpottingKey>();
         private readonly SiNpcSessionComponent _session;
         private readonly SiNearbyEnvironmentScanner _environmentScanner = new SiNearbyEnvironmentScanner();
@@ -59,6 +61,8 @@ namespace Si.UtilityAI
             _observations.Clear();
             _recentShotTimes.Clear();
             _recentPlayerEvidenceTimes.Clear();
+            _pendingObservers.Clear();
+            _queuedObservers.Clear();
             _removals.Clear();
             _weather = null;
         }
@@ -72,32 +76,8 @@ namespace Si.UtilityAI
                 return;
 
             var now = CurrentTimeMilliseconds();
-            _removals.Clear();
-            foreach (var pair in _observations)
-            {
-                var state = pair.Value;
-                if (state == null || state.Definition == null)
-                {
-                    _removals.Add(pair.Key);
-                    continue;
-                }
-
-                if (now - state.LastRequestedTime > TrackingTimeoutMilliseconds())
-                {
-                    _removals.Add(pair.Key);
-                    continue;
-                }
-
-                if (now < state.NextEvaluationTime)
-                    continue;
-
-                var observer = ResolveObserver(state.ObserverId);
-                var target = ResolveEntity(state.TargetId);
-                Evaluate(state, observer, target, now);
-            }
-
-            for (var i = 0; i < _removals.Count; i++)
-                _observations.Remove(_removals[i]);
+            CleanupExpiredObservations(now);
+            ProcessQueuedObserver(now);
         }
 
         public SiSpottingObservation ObserveTarget(
@@ -126,9 +106,8 @@ namespace Si.UtilityAI
             state.Definition = definition;
             state.AimHeight = aimHeight;
             state.LastRequestedTime = CurrentTimeMilliseconds();
-
-            if (state.NextEvaluationTime <= 0 || CurrentTimeMilliseconds() >= state.NextEvaluationTime)
-                Evaluate(state, observer, target, CurrentTimeMilliseconds(), distance);
+            state.LastKnownDistance = distance;
+            EnqueueObserver(observer.EntityId);
 
             var sharedSpottingSum = GetSharedSpottingSum(observer, target, state.SpottingSum);
             var isSpotted = sharedSpottingSum >= state.SpottingThreshold;
@@ -203,6 +182,93 @@ namespace Si.UtilityAI
                            * (float)Math.Pow(normalized, Definition.ShotAwarenessDistanceExponent);
                 state.ShotAwareness = MathHelper.Clamp(state.ShotAwareness + gain, 0, 1);
             }
+        }
+
+        private void CleanupExpiredObservations(long now)
+        {
+            _removals.Clear();
+            foreach (var pair in _observations)
+            {
+                var state = pair.Value;
+                if (state == null
+                    || state.Definition == null
+                    || now - state.LastRequestedTime > TrackingTimeoutMilliseconds())
+                    _removals.Add(pair.Key);
+            }
+
+            for (var i = 0; i < _removals.Count; i++)
+                _observations.Remove(_removals[i]);
+        }
+
+        private void ProcessQueuedObserver(long now)
+        {
+            var attempts = _pendingObservers.Count;
+            for (var i = 0; i < attempts; i++)
+            {
+                if (_pendingObservers.Count == 0)
+                    return;
+
+                var observerId = _pendingObservers.Dequeue();
+                _queuedObservers.Remove(observerId);
+                if (!TryProcessObserver(observerId, now))
+                {
+                    RequeueObserverIfActive(observerId, now);
+                    continue;
+                }
+
+                RequeueObserverIfActive(observerId, now);
+                return;
+            }
+        }
+
+        private bool TryProcessObserver(long observerId, long now)
+        {
+            var processed = false;
+            foreach (var pair in _observations)
+            {
+                var state = pair.Value;
+                if (state == null
+                    || state.ObserverId != observerId
+                    || now < state.NextEvaluationTime)
+                    continue;
+
+                var observer = ResolveObserver(state.ObserverId);
+                var target = ResolveEntity(state.TargetId);
+                Evaluate(state, observer, target, now, state.LastKnownDistance);
+                processed = true;
+            }
+
+            return processed;
+        }
+
+        private void RequeueObserverIfActive(long observerId, long now)
+        {
+            foreach (var pair in _observations)
+            {
+                var state = pair.Value;
+                if (state == null || state.ObserverId != observerId)
+                    continue;
+
+                if (now >= state.NextEvaluationTime)
+                {
+                    EnqueueObserver(observerId);
+                    return;
+                }
+
+                if (now - state.LastRequestedTime <= TrackingTimeoutMilliseconds())
+                {
+                    EnqueueObserver(observerId);
+                    return;
+                }
+            }
+        }
+
+        private void EnqueueObserver(long observerId)
+        {
+            if (observerId == 0 || !_queuedObservers.Add(observerId))
+                return;
+
+            _pendingObservers.Enqueue(observerId);
         }
 
         private void Evaluate(
@@ -548,6 +614,7 @@ namespace Si.UtilityAI
             public long LastRequestedTime;
             public long LastAwarenessUpdateTime;
             public long NextEvaluationTime;
+            public double LastKnownDistance;
         }
     }
 }
