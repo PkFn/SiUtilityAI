@@ -612,13 +612,26 @@ namespace Si.UtilityAI
 
             var current = _target;
             var currentIsValid = IsValidTarget(context.Agent, current);
-            if (!forceRefresh && currentIsValid && !IsTargetEvaluationDue())
+            SiSpottingObservation currentObservation = SiSpottingObservation.None;
+            if (currentIsValid)
             {
                 distance = Vector3D.Distance(
                     context.Position,
                     current.Entity.WorldMatrix.Translation);
-                return current;
+                currentObservation = ObserveTarget(context, current, distance);
+                if (!currentObservation.IsSpotted)
+                {
+                    currentIsValid = false;
+                    forceRefresh = true;
+                }
+                else if (!forceRefresh
+                         && !IsTargetEvaluationDue()
+                         && HasCloserSpottedTarget(context, distance))
+                    forceRefresh = true;
             }
+
+            if (!forceRefresh && currentIsValid && !IsTargetEvaluationDue())
+                return current;
 
             if (!currentIsValid)
                 forceRefresh = true;
@@ -632,6 +645,15 @@ namespace Si.UtilityAI
             if (current == null)
                 _lastSpottedTargetId = 0;
             return current;
+        }
+
+        private bool HasCloserSpottedTarget(SiUtilityContext context, double currentDistance)
+        {
+            var spotting = SiNpcSessionComponent.Instance?.Spotting;
+            if (context?.Agent == null || spotting == null || currentDistance <= 0.5)
+                return false;
+
+            return spotting.HasSpottedTargetNearby(context.Agent.EntityId, Math.Max(0, currentDistance - 0.5));
         }
 
         private bool IsTargetEvaluationDue() =>
