@@ -1128,8 +1128,6 @@ namespace Si.UtilityAI
                 Respond(sender, "No free transport seats were found on the current vehicle.");
                 return;
             }
-
-            Respond(sender, $"Mount up: assigned {assigned} seat(s) on the current vehicle.");
         }
 
         private void DisembarkSquad(ulong sender, long leaderIdentityId)
@@ -1144,7 +1142,6 @@ namespace Si.UtilityAI
             }
 
             state.TransportMode = SiSquadTransportMode.Disembark;
-            Respond(sender, "Disembark order issued.");
         }
 
         private void UpdateCombatStances()
