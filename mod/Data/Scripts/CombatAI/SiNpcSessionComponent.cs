@@ -647,6 +647,10 @@ namespace Si.UtilityAI
                     return "Safe movement";
                 case SiUtilityCommandMenuCommand.CombatCombat:
                     return "Combat movement";
+                case SiUtilityCommandMenuCommand.TransportationGetIn:
+                    return "Mount up";
+                case SiUtilityCommandMenuCommand.TransportationDisembark:
+                    return "Disembark";
                 default:
                     return null;
             }
@@ -707,6 +711,10 @@ namespace Si.UtilityAI
                         SiSquadCombatStance.Combat,
                         SiSquadCombatTransitionReason.PlayerOrder,
                         true);
+                    return;
+                case SiUtilityCommandMenuCommand.TransportationGetIn:
+                case SiUtilityCommandMenuCommand.TransportationDisembark:
+                    Respond(sender, "Transportation commands are not implemented yet.");
                     return;
                 case SiUtilityCommandMenuCommand.ToggleUi:
                 case SiUtilityCommandMenuCommand.ToggleSquadChatter:

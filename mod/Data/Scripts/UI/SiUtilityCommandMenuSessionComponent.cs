@@ -111,6 +111,16 @@ namespace Si.UtilityAI
             RequestCommand(SiUtilityCommandMenuCommand.CombatCombat);
         }
 
+        internal void CommandTransportationGetIn()
+        {
+            RequestCommand(SiUtilityCommandMenuCommand.TransportationGetIn);
+        }
+
+        internal void CommandTransportationDisembark()
+        {
+            RequestCommand(SiUtilityCommandMenuCommand.TransportationDisembark);
+        }
+
         internal void CommandSettingsToggleUi()
         {
             RequestCommand(SiUtilityCommandMenuCommand.ToggleUi);
@@ -141,6 +151,8 @@ namespace Si.UtilityAI
         EngagementHoldFire,
         CombatSafe,
         CombatCombat,
+        TransportationGetIn,
+        TransportationDisembark,
         ToggleUi,
         ToggleSquadChatter,
     }

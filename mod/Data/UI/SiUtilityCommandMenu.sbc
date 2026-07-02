@@ -20,7 +20,7 @@
 
     <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
         <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityCommandMenuRootButtons" />
-        <Columns>5</Columns>
+        <Columns>6</Columns>
         <Rows>1</Rows>
         <ButtonStyleId>ButtonListWide</ButtonStyleId>
         <Buttons>
@@ -48,6 +48,13 @@
 				<Tooltip>Unit combat stance and engagement.</Tooltip>
 				<Action xsi:type="MyObjectBuilder_CMA_AddController">
 					<Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuEngagement" />
+				</Action>
+			</Button>
+			<Button StyleName="ContextButtonSliced">
+				<Text>Transportation</Text>
+				<Tooltip>Vehicle boarding and disembark orders.</Tooltip>
+				<Action xsi:type="MyObjectBuilder_CMA_AddController">
+					<Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuTransportation" />
 				</Action>
 			</Button>
             <Button StyleName="ContextButtonSliced">
@@ -177,6 +184,37 @@
 	</Definition>
 	
 	
+
+	<Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+		<Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuTransportation" />
+		<Title>Transportation</Title>
+		<Width>800</Width>
+		<AutoCommit>true</AutoCommit>
+		<Embedded>
+			<Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityCommandMenuTransportationButtons" />
+		</Embedded>
+	</Definition>
+
+	<Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
+		<Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityCommandMenuTransportationButtons" />
+		<Columns>2</Columns>
+		<Rows>1</Rows>
+		<ButtonStyleId>ButtonListWide</ButtonStyleId>
+		<Buttons>
+			<Button StyleName="ContextButtonSliced">
+				<Text>Get In</Text>
+				<Tooltip>Order units to board available transportation.</Tooltip>
+				<Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandTransportationGetIn" />
+			</Button>
+			<Button StyleName="ContextButtonSliced">
+				<Text>Disembark</Text>
+				<Tooltip>Order embarked units to disembark.</Tooltip>
+				<Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandTransportationDisembark" />
+			</Button>
+		</Buttons>
+	</Definition>
+
+
 
     <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
         <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuSettings" />

@@ -77,6 +77,16 @@ namespace Si.UtilityAI
             _session?.CommandCombatCombat();
         }
 
+        public void CommandTransportationGetIn()
+        {
+            _session?.CommandTransportationGetIn();
+        }
+
+        public void CommandTransportationDisembark()
+        {
+            _session?.CommandTransportationDisembark();
+        }
+
         public void CommandSettingsToggleUi()
         {
             _session?.CommandSettingsToggleUi();
