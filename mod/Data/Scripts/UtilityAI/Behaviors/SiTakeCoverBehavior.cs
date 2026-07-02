@@ -29,6 +29,7 @@ namespace Si.UtilityAI
     public class MyObjectBuilder_SiTakeCoverBehaviorDefinition : MyObjectBuilder_EntityComponentDefinition
     {
         public float SearchRadius;
+        public float ThreatFrontExclusionAngleDegrees;
         public float CoverRescanLeaderDistance;
         public float WaypointRefreshDistance;
         public float CoverOccupancyRadius;
@@ -47,6 +48,7 @@ namespace Si.UtilityAI
     public class SiTakeCoverBehaviorDefinition : MyEntityComponentDefinition
     {
         public float SearchRadius { get; private set; }
+        public float ThreatFrontExclusionAngleDegrees { get; private set; }
         public float CoverRescanLeaderDistance { get; private set; }
         public float WaypointRefreshDistance { get; private set; }
         public float CoverOccupancyRadius { get; private set; }
@@ -65,6 +67,7 @@ namespace Si.UtilityAI
             base.Init(builder);
             var ob = (MyObjectBuilder_SiTakeCoverBehaviorDefinition)builder;
             SearchRadius = Math.Max(0, ob.SearchRadius);
+            ThreatFrontExclusionAngleDegrees = (float)SiThreatSectorHelper.ClampFrontExclusionAngleDegrees(ob.ThreatFrontExclusionAngleDegrees);
             CoverRescanLeaderDistance = Math.Max(0.1f, ob.CoverRescanLeaderDistance);
             WaypointRefreshDistance = Math.Max(0, ob.WaypointRefreshDistance);
             CoverOccupancyRadius = Math.Max(0.1f, ob.CoverOccupancyRadius);
@@ -114,6 +117,8 @@ namespace Si.UtilityAI
         private long _lastSlowCoverSearchLogTime = long.MinValue;
         private string _lastCoverRejectReason;
         private long _activeCombatToken = long.MinValue;
+        private Vector3D _lastThreatDirection;
+        private bool _hasLastThreatDirection;
 
         public string BehaviorName => DefinitionId.ToString();
 
@@ -153,6 +158,7 @@ namespace Si.UtilityAI
                 return 0;
 
             var hasThreat = TryGetThreat(context, out var threatEntity, out var threatPosition);
+            RememberThreatDirectionIfAvailable(context, session, hasThreat, threatPosition);
             if (!_hasReservedCover)
                 return 0;
 
@@ -217,6 +223,8 @@ namespace Si.UtilityAI
 
             ReleaseCover(session, context);
             ResetCoverSearchState();
+            _hasLastThreatDirection = false;
+            _lastThreatDirection = Vector3D.Zero;
             context.TrySetCrouch(false);
             _activeCombatToken = combatToken;
             context.Agent.ClearCombatMovementRole();
@@ -258,18 +266,29 @@ namespace Si.UtilityAI
                 return currentRole;
 
             var hasThreat = TryGetThreat(context, out var threatEntity, out var threatPosition);
-            Vector3D searchOrigin;
-            if (!session.TryGetLeaderPosition(context.Agent, out searchOrigin))
+            var hasLeaderPosition = session.TryGetLeaderPosition(context.Agent, out var searchOrigin);
+            if (!hasLeaderPosition)
                 searchOrigin = context.Position;
+            RememberThreatDirectionIfAvailable(context, session, hasThreat, threatPosition);
+            var hasThreatDirection = ResolveThreatDirection(
+                context,
+                searchOrigin,
+                hasLeaderPosition,
+                hasThreat,
+                threatPosition,
+                out var threatDirection,
+                out var effectiveThreatPosition);
 
             MarkCoverSearchAttempt(searchOrigin);
             if (FindBestCover(
                     context,
                     session,
-                    hasThreat,
+                    hasThreatDirection,
                     threatEntity,
-                    threatPosition,
+                    effectiveThreatPosition,
                     searchOrigin,
+                    hasLeaderPosition,
+                    threatDirection,
                     out var coverPosition,
                     out var standPosition)
                 && session.TryReserveCover(context.Agent, coverPosition, _definition.CoverOccupancyRadius))
@@ -293,6 +312,8 @@ namespace Si.UtilityAI
         {
             ReleaseCover(session, context);
             ResetCoverSearchState();
+            _hasLastThreatDirection = false;
+            _lastThreatDirection = Vector3D.Zero;
             context.TrySetCrouch(false);
             context.Agent.ClearCombatMovementRole();
             _activeCombatToken = long.MinValue;
@@ -356,6 +377,8 @@ namespace Si.UtilityAI
             MyEntity threatEntity,
             in Vector3D threatPosition,
             in Vector3D searchOrigin,
+            bool useThreatSector,
+            in Vector3D threatDirection,
             out Vector3D coverPosition,
             out Vector3D standPosition)
         {
@@ -458,6 +481,8 @@ namespace Si.UtilityAI
                     hasThreat,
                     threatEntity,
                     threatPosition,
+                    useThreatSector,
+                    threatDirection,
                     scanStats,
                     out standingPointRejects,
                     out viableCandidates);
@@ -583,6 +608,8 @@ namespace Si.UtilityAI
             bool hasThreat,
             MyEntity threatEntity,
             in Vector3D threatPosition,
+            bool useThreatSector,
+            in Vector3D threatDirection,
             SiNearbyCoverScanner.ScanStats scanStats,
             out int standingPointRejects,
             out int viableCandidates)
@@ -594,6 +621,13 @@ namespace Si.UtilityAI
             for (var i = 0; i < _coverPositions.Count; i++)
             {
                 var candidate = _coverPositions[i];
+                if (useThreatSector
+                    && IsInThreatFrontSector(searchOrigin, candidate, threatDirection, context.Position, context.Entity.WorldMatrix.Up))
+                {
+                    SetRejectReason($"front-sector cover={FormatVector(candidate)}");
+                    continue;
+                }
+
                 var effectiveThreat = hasThreat
                     ? threatPosition
                     : GuessThreatPosition(context, candidate);
@@ -733,6 +767,75 @@ namespace Si.UtilityAI
                 Vector3D.Reject(context.Entity.WorldMatrix.Forward, ResolveUp(context.Position, context.Entity.WorldMatrix.Up)),
                 Vector3D.Forward);
             return coverPosition + forward * Math.Max(15f, _definition.SearchRadius);
+        }
+
+        private void RememberThreatDirectionIfAvailable(
+            SiUtilityContext context,
+            SiNpcSessionComponent session,
+            bool hasThreat,
+            in Vector3D threatPosition)
+        {
+            if (!hasThreat || context?.Agent == null || session == null)
+                return;
+
+            Vector3D leaderPosition;
+            if (!session.TryGetLeaderPosition(context.Agent, out leaderPosition))
+                leaderPosition = context.Position;
+
+            Vector3D threatDirection;
+            if (!SiThreatSectorHelper.TryGetPlanarDirection(
+                    leaderPosition,
+                    threatPosition,
+                    ResolveUp(leaderPosition, context.Entity.WorldMatrix.Up),
+                    out threatDirection))
+                return;
+
+            _lastThreatDirection = threatDirection;
+            _hasLastThreatDirection = true;
+        }
+
+        private bool ResolveThreatDirection(
+            SiUtilityContext context,
+            in Vector3D searchOrigin,
+            bool hasLeaderPosition,
+            bool hasThreat,
+            in Vector3D threatPosition,
+            out Vector3D threatDirection,
+            out Vector3D effectiveThreatPosition)
+        {
+            threatDirection = Vector3D.Zero;
+            effectiveThreatPosition = threatPosition;
+            var up = ResolveUp(searchOrigin, context.Entity.WorldMatrix.Up);
+            if (hasThreat
+                && SiThreatSectorHelper.TryGetPlanarDirection(searchOrigin, threatPosition, up, out threatDirection))
+            {
+                effectiveThreatPosition = threatPosition;
+                return true;
+            }
+
+            if (hasLeaderPosition && _hasLastThreatDirection)
+            {
+                threatDirection = _lastThreatDirection;
+                effectiveThreatPosition = searchOrigin + threatDirection * Math.Max(15f, _definition.SearchRadius);
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool IsInThreatFrontSector(
+            in Vector3D origin,
+            in Vector3D candidatePosition,
+            in Vector3D threatDirection,
+            in Vector3D referencePosition,
+            in Vector3D referenceUp)
+        {
+            return SiThreatSectorHelper.IsInsideFrontExclusionSector(
+                origin,
+                candidatePosition,
+                threatDirection,
+                ResolveUp(referencePosition, referenceUp),
+                _definition.ThreatFrontExclusionAngleDegrees);
         }
 
         private bool TryGetThreat(SiUtilityContext context, out MyEntity threatEntity, out Vector3D threatPosition)

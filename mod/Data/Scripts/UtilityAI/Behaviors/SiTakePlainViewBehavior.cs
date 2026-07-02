@@ -25,6 +25,7 @@ namespace Si.UtilityAI
     {
         public float MinimumDistanceFromLeader = 4f;
         public float MaximumDistanceFromLeader = 10f;
+        public float ThreatFrontExclusionAngleDegrees = 90f;
         public float ArrivalDistance = 1.1f;
         public float WaypointRefreshDistance = 0.75f;
         public float RepositionLeaderDistance = 18f;
@@ -38,6 +39,7 @@ namespace Si.UtilityAI
     {
         public float MinimumDistanceFromLeader { get; private set; }
         public float MaximumDistanceFromLeader { get; private set; }
+        public float ThreatFrontExclusionAngleDegrees { get; private set; }
         public float ArrivalDistance { get; private set; }
         public float WaypointRefreshDistance { get; private set; }
         public float RepositionLeaderDistance { get; private set; }
@@ -51,6 +53,7 @@ namespace Si.UtilityAI
             var ob = (MyObjectBuilder_SiTakePlainViewBehaviorDefinition)builder;
             MinimumDistanceFromLeader = Math.Max(0.5f, ob.MinimumDistanceFromLeader);
             MaximumDistanceFromLeader = Math.Max(MinimumDistanceFromLeader, ob.MaximumDistanceFromLeader);
+            ThreatFrontExclusionAngleDegrees = (float)SiThreatSectorHelper.ClampFrontExclusionAngleDegrees(ob.ThreatFrontExclusionAngleDegrees);
             ArrivalDistance = Math.Max(0.1f, ob.ArrivalDistance);
             WaypointRefreshDistance = Math.Max(0.05f, ob.WaypointRefreshDistance);
             RepositionLeaderDistance = Math.Max(MaximumDistanceFromLeader, ob.RepositionLeaderDistance);
@@ -69,6 +72,9 @@ namespace Si.UtilityAI
         private bool _hasPlainViewPosition;
         private long _activeCombatToken = long.MinValue;
         private int _repositionIndex;
+        private SiShootOpposingNpcBehaviorComponent _shootBehavior;
+        private Vector3D _lastThreatDirection;
+        private bool _hasLastThreatDirection;
 
         public string BehaviorName => DefinitionId.ToString();
 
@@ -78,6 +84,12 @@ namespace Si.UtilityAI
         {
             base.Init(definition);
             _definition = (SiTakePlainViewBehaviorDefinition)definition;
+        }
+
+        public override void OnAddedToContainer()
+        {
+            base.OnAddedToContainer();
+            _shootBehavior = Entity?.Components?.Get<SiShootOpposingNpcBehaviorComponent>();
         }
 
         float ISiUtilityBehavior.Evaluate(SiUtilityContext context)
@@ -109,6 +121,7 @@ namespace Si.UtilityAI
             }
 
             var leaderPosition = ResolveLeaderPosition(session, context);
+            RememberThreatDirectionIfAvailable(context, leaderPosition);
             var leaderDistance = Vector3D.Distance(context.Position, leaderPosition);
             if (!_hasPlainViewPosition)
                 AssignPlainViewPosition(context, leaderPosition);
@@ -181,21 +194,67 @@ namespace Si.UtilityAI
                 forward = Vector3D.CalculatePerpendicularVector(up);
             forward.Normalize();
             var right = Vector3D.Normalize(Vector3D.Cross(forward, up));
+            var hasThreatDirection = _hasLastThreatDirection;
+            var threatDirection = _lastThreatDirection;
+            var threatRight = hasThreatDirection
+                ? SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(Vector3D.Cross(threatDirection, up), right)
+                : Vector3D.Zero;
 
             _repositionIndex++;
             var hash = unchecked((int)(context.EntityId ^ (_activeCombatToken * 397) ^ (_repositionIndex * 7919)));
             var normalizedAngle = (Math.Abs(hash) % 1024) / 1024d;
             var normalizedRadius = (Math.Abs(hash / 1024) % 1024) / 1024d;
-            var angle = normalizedAngle * Math.PI * 2d;
             var radius = MathHelper.Lerp(
                 _definition.MinimumDistanceFromLeader,
                 _definition.MaximumDistanceFromLeader,
                 (float)normalizedRadius);
 
-            _plainViewPosition = leaderPosition
-                                 + forward * (Math.Cos(angle) * radius)
-                                 + right * (Math.Sin(angle) * radius);
+            if (hasThreatDirection && _definition.ThreatFrontExclusionAngleDegrees > 0)
+            {
+                var angle = ResolveAllowedSectorAngle(normalizedAngle);
+                _plainViewPosition = leaderPosition
+                                     + threatDirection * (Math.Cos(angle) * radius)
+                                     + threatRight * (Math.Sin(angle) * radius);
+            }
+            else
+            {
+                var angle = normalizedAngle * Math.PI * 2d;
+                _plainViewPosition = leaderPosition
+                                     + forward * (Math.Cos(angle) * radius)
+                                     + right * (Math.Sin(angle) * radius);
+            }
+
             _hasPlainViewPosition = true;
+        }
+
+        private void RememberThreatDirectionIfAvailable(SiUtilityContext context, in Vector3D leaderPosition)
+        {
+            if (_shootBehavior == null)
+                return;
+
+            MyEntity threatEntity;
+            double ignoredDistance;
+            if (!_shootBehavior.TryGetCurrentThreat(context, out threatEntity, out ignoredDistance) || threatEntity == null)
+                return;
+
+            Vector3D threatDirection;
+            if (!SiThreatSectorHelper.TryGetPlanarDirection(
+                    leaderPosition,
+                    threatEntity.WorldMatrix.Translation,
+                    ResolveUp(leaderPosition, context.Entity?.WorldMatrix.Up ?? Vector3D.Up),
+                    out threatDirection))
+                return;
+
+            _lastThreatDirection = threatDirection;
+            _hasLastThreatDirection = true;
+        }
+
+        private double ResolveAllowedSectorAngle(double normalizedAngle)
+        {
+            var blockedAngle = MathHelper.ToRadians(_definition.ThreatFrontExclusionAngleDegrees);
+            var allowedAngle = Math.Max(0.001d, Math.PI * 2d - blockedAngle);
+            var startAngle = blockedAngle * 0.5d;
+            return startAngle + normalizedAngle * allowedAngle;
         }
 
         private Vector3D ResolveLeaderPosition(SiNpcSessionComponent session, SiUtilityContext context)
@@ -219,6 +278,8 @@ namespace Si.UtilityAI
             _plainViewPosition = Vector3D.Zero;
             _activeCombatToken = long.MinValue;
             _repositionIndex = 0;
+            _hasLastThreatDirection = false;
+            _lastThreatDirection = Vector3D.Zero;
             context?.TrySetCrouch(false);
         }
 

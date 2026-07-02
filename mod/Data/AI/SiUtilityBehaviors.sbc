@@ -23,6 +23,7 @@
   <Definition xsi:type="MyObjectBuilder_SiTakeCoverBehaviorDefinition">
     <Id Type="MyObjectBuilder_SiTakeCoverBehavior" Subtype="SiTrooperTakeCover" />
     <SearchRadius>50</SearchRadius>
+    <ThreatFrontExclusionAngleDegrees>90</ThreatFrontExclusionAngleDegrees>
     <CoverRescanLeaderDistance>6</CoverRescanLeaderDistance>
     <WaypointRefreshDistance>0.5</WaypointRefreshDistance>
     <CoverOccupancyRadius>1.4</CoverOccupancyRadius>
@@ -41,6 +42,7 @@
     <Id Type="MyObjectBuilder_SiTakePlainViewBehavior" Subtype="SiTrooperTakePlainView" />
     <MinimumDistanceFromLeader>4</MinimumDistanceFromLeader>
     <MaximumDistanceFromLeader>10</MaximumDistanceFromLeader>
+    <ThreatFrontExclusionAngleDegrees>90</ThreatFrontExclusionAngleDegrees>
     <ArrivalDistance>1.25</ArrivalDistance>
     <WaypointRefreshDistance>0.75</WaypointRefreshDistance>
     <RepositionLeaderDistance>18</RepositionLeaderDistance>
