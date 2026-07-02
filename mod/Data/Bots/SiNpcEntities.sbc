@@ -31,6 +31,7 @@
     <Component Type="SiUseTransportSeatsBehavior" Subtype="SiTrooperUseTransportSeats" />
     <Component Type="SiTakeCoverBehavior" Subtype="SiTrooperTakeCover" />
     <Component Type="SiTakePlainViewBehavior" Subtype="SiTrooperTakePlainView" />
+    <Component Type="SiSelfUnstuckTeleportBehavior" Subtype="SiTrooperSelfUnstuckTeleport" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_ContainerDefinition" Copy="Append">

@@ -186,6 +186,13 @@ namespace Si.UtilityAI
                 context.TrySetWaypoint(_plainViewPosition);
         }
 
+        internal bool IsMovingToPlainView(SiUtilityContext context)
+        {
+            return _hasPlainViewPosition
+                   && context?.Agent != null
+                   && !HasReachedDestination(context);
+        }
+
         private void AssignPlainViewPosition(SiUtilityContext context, in Vector3D leaderPosition)
         {
             var up = ResolveUp(context.Position, context.Entity?.WorldMatrix.Up ?? Vector3D.Up);

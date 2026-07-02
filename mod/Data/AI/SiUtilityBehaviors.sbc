@@ -58,6 +58,21 @@
     <DistanceExponent>1.2</DistanceExponent>
   </Definition>
 
+  <Definition xsi:type="MyObjectBuilder_SiSelfUnstuckTeleportBehaviorDefinition">
+    <Id Type="MyObjectBuilder_SiSelfUnstuckTeleportBehavior" Subtype="SiTrooperSelfUnstuckTeleport" />
+    <ActivationScore>1</ActivationScore>
+    <StuckTimeoutMilliseconds>2500</StuckTimeoutMilliseconds>
+    <MaximumPlanarSpeed>0.2</MaximumPlanarSpeed>
+    <MinimumRemainingDistance>1.5</MinimumRemainingDistance>
+    <MinimumTeleportDistance>2.5</MinimumTeleportDistance>
+    <MaximumTeleportDistance>7</MaximumTeleportDistance>
+    <VerticalProbeHeight>4</VerticalProbeHeight>
+    <VerticalProbeDepth>10</VerticalProbeDepth>
+    <TeleportClearance>0.35</TeleportClearance>
+    <MinimumGroundUpDot>0.6</MinimumGroundUpDot>
+    <RetryCooldownMilliseconds>250</RetryCooldownMilliseconds>
+  </Definition>
+
   <!-- Shared decision policy for all rifle troopers so no faction/model has hidden gameplay advantage. -->
   <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition">
     <Id Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />
