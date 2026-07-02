@@ -9,8 +9,10 @@ using Sandbox.Game.GameSystems.Chat;
 using Sandbox.Game.Players;
 using Sandbox.ModAPI;
 using SiCore.Core.Debug;
+using SiCore.Core.Grid;
 using VRage;
 using VRage.Components;
+using VRage.Components.Entity.CubeGrid;
 using VRage.Components.Interfaces;
 using VRage.Game;
 using VRage.Entities.Gravity;
@@ -919,19 +921,19 @@ namespace Si.UtilityAI
             var controlledEntity = player?.ControlledEntity as MyEntity;
             var controller = controlledEntity?.Components.Get<EquiEntityControllerComponent>();
             var seat = controller?.Controlled;
-            if (seat?.Controllable?.Entity == null)
+            if (seat == null)
             {
                 failure = "You must be sitting in a vehicle seat to issue Mount up.";
                 return false;
             }
 
-            vehicle = ResolveVehicleRoot(seat.Controllable.Entity);
-            if (vehicle == null)
+            if (!SiTransportSeatHelpers.TryGetSeatBlockGrid(seat, out var seatBlockEntity, out var vehicleGrid))
             {
                 failure = "Failed to resolve the current vehicle grid.";
                 return false;
             }
 
+            vehicle = vehicleGrid.Entity ?? seatBlockEntity;
             return true;
         }
 
@@ -1083,40 +1085,11 @@ namespace Si.UtilityAI
 
         private IEnumerable<EquiPlayerAttachmentComponent.Slot> EnumerateVehicleSeats(MyEntity vehicle)
         {
-            if (vehicle?.Scene == null)
+            if (vehicle == null || !vehicle.Components.TryGet(out MyGridDataComponent gridData))
                 yield break;
 
-            var seenEntities = new HashSet<long>();
-            foreach (var group in vehicle.Scene.GetEntityGroups(vehicle.Id))
-            foreach (var entity in group.Entities)
-            {
-                if (entity == null || !seenEntities.Add(entity.EntityId))
-                    continue;
-                if (!ReferenceEquals(ResolveVehicleRoot(entity), vehicle))
-                    continue;
-
-                var attachment = entity.Components.Get<EquiPlayerAttachmentComponent>();
-                if (attachment == null)
-                    continue;
-
-                foreach (var slot in attachment.GetSlots())
-                    yield return slot;
-            }
-
-            if (!seenEntities.Contains(vehicle.EntityId))
-            {
-                var attachment = vehicle.Components.Get<EquiPlayerAttachmentComponent>();
-                if (attachment != null)
-                    foreach (var slot in attachment.GetSlots())
-                        yield return slot;
-            }
-        }
-
-        private static MyEntity ResolveVehicleRoot(MyEntity entity)
-        {
-            while (entity?.Parent != null)
-                entity = entity.Parent;
-            return entity;
+            foreach (var slot in SiTransportSeatHelpers.EnumerateSeatSlotsOnGrid(gridData))
+                yield return slot;
         }
 
         private void MountSquad(ulong sender, MyPlayer player, long leaderIdentityId)
