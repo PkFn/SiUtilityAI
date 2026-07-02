@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Xml.Serialization;
 using Equinox76561198048419394.Core.Util;
-using Medieval.WorldEnvironment.Modules;
 using Sandbox.ModAPI;
 using SiCore.Core.Debug;
 using VRage.Components;
@@ -90,7 +89,6 @@ namespace Si.UtilityAI
         private const long LogCooldownMilliseconds = 2000;
         private const long SlowCoverSearchLogCooldownMilliseconds = 5000;
         private const double SlowCoverSearchMilliseconds = 5;
-        private const double MinimumRayLengthSquared = 0.000001;
         private const double MinimumDirectionLengthSquared = 0.0001;
         private static readonly double[] SideOffsetSamples =
         {
@@ -167,7 +165,7 @@ namespace Si.UtilityAI
             if (IsRunningToCover(context))
                 return 1f;
 
-            return !HasUsableCurrentCover(context, session, hasThreat, threatEntity, threatPosition)
+            return !HasUsableCurrentCover(context, session, hasThreat, threatPosition)
                 ? 1f
                 : 0f;
         }
@@ -286,10 +284,9 @@ namespace Si.UtilityAI
                     context,
                     session,
                     hasThreatDirection,
-                    threatEntity,
                     effectiveThreatPosition,
                     searchOrigin,
-                    hasLeaderPosition,
+                    hasThreatDirection,
                     threatDirection,
                     out var coverPosition,
                     out var standPosition)
@@ -325,7 +322,6 @@ namespace Si.UtilityAI
             SiUtilityContext context,
             SiNpcSessionComponent session,
             bool hasThreat,
-            MyEntity threatEntity,
             in Vector3D threatPosition)
         {
             if (!_hasReservedCover)
@@ -341,19 +337,7 @@ namespace Si.UtilityAI
                 > _definition.CoverArrivalDistance * _definition.CoverArrivalDistance)
                 return true;
 
-            if (!hasThreat)
-                return true;
-
-            return EvaluateCoverStandingPoint(
-                context,
-                _reservedCoverPosition,
-                threatEntity,
-                threatPosition,
-                out var refreshedStandPosition,
-                out var ignoredIsTree,
-                out var score)
-                && score > 0
-                && UpdateStandingPointIfNear(refreshedStandPosition);
+            return !hasThreat || TryRefreshReservedStandPosition(context, threatPosition);
         }
 
         private bool UpdateStandingPointIfNear(in Vector3D standPosition)
@@ -375,9 +359,8 @@ namespace Si.UtilityAI
         private bool FindBestCover(
             SiUtilityContext context,
             SiNpcSessionComponent session,
-            bool hasThreat,
-            MyEntity threatEntity,
-            in Vector3D threatPosition,
+            bool hasThreatDirection,
+            in Vector3D threatReferencePosition,
             in Vector3D searchOrigin,
             bool useThreatSector,
             in Vector3D threatDirection,
@@ -392,6 +375,9 @@ namespace Si.UtilityAI
             var buildElapsedMilliseconds = 0d;
             SiCoverSearchCacheEntry cachedEvaluation = null;
             SiCoverScanCacheEntry cachedScan = null;
+            var effectiveThreatReferencePosition = hasThreatDirection
+                ? threatReferencePosition
+                : GuessThreatPosition(context, searchOrigin);
             var rawScanStartedAt = DebugTimestampTicks();
             var scanStats = default(SiNearbyCoverScanner.ScanStats);
             if (session.TryGetCachedCoverScan(
@@ -416,7 +402,7 @@ namespace Si.UtilityAI
                 scanStats.IntersectingSectors = cachedScan.IntersectingSectors;
                 scanStats.FoliageEntries = cachedScan.FoliageEntries;
                 scanStats.AcceptedCandidates = cachedScan.CandidateCount;
-                cacheState = hasThreat ? "scan-hit" : "scan-hit/eval-none";
+                cacheState = hasThreatDirection ? "scan-hit" : "scan-hit/eval-none";
             }
             else
             {
@@ -429,7 +415,7 @@ namespace Si.UtilityAI
                 };
                 scanCacheEntry.CoverPositions.AddRange(_coverPositions);
                 session.StoreCachedCoverScan(searchOrigin, _definition.SearchRadius, DefinitionId, scanCacheEntry);
-                cacheState = hasThreat ? "scan-miss" : "scan-miss/eval-none";
+                cacheState = hasThreatDirection ? "scan-miss" : "scan-miss/eval-none";
             }
 
             if (_coverPositions.Count == 0)
@@ -437,7 +423,7 @@ namespace Si.UtilityAI
                 LogSlowCoverSearch(
                     context,
                     searchOrigin,
-                    hasThreat,
+                    hasThreatDirection,
                     rawScanElapsedMilliseconds,
                     buildElapsedMilliseconds,
                     0,
@@ -450,14 +436,13 @@ namespace Si.UtilityAI
                 return false;
             }
 
-            if (hasThreat)
+            if (hasThreatDirection)
             {
-                var threatEntityId = threatEntity?.EntityId ?? 0;
                 if (session.TryGetCachedCoverSearch(
                         searchOrigin,
                         _definition.SearchRadius,
-                        threatPosition,
-                        threatEntityId,
+                        effectiveThreatReferencePosition,
+                        0,
                         DefinitionId,
                         out cachedEvaluation))
                     cacheState += "/eval-hit";
@@ -480,16 +465,14 @@ namespace Si.UtilityAI
                 evaluatedCandidates = BuildEvaluatedCandidates(
                     context,
                     searchOrigin,
-                    hasThreat,
-                    threatEntity,
-                    threatPosition,
+                    effectiveThreatReferencePosition,
                     useThreatSector,
                     threatDirection,
                     scanStats,
                     out standingPointRejects,
                     out viableCandidates);
                 buildElapsedMilliseconds = DebugElapsedMilliseconds(buildStartedAt);
-                if (hasThreat)
+                if (hasThreatDirection)
                 {
                     var cacheEntry = new SiCoverSearchCacheEntry
                     {
@@ -504,8 +487,8 @@ namespace Si.UtilityAI
                     session.StoreCachedCoverSearch(
                         searchOrigin,
                         _definition.SearchRadius,
-                        threatPosition,
-                        threatEntity?.EntityId ?? 0,
+                        effectiveThreatReferencePosition,
+                        0,
                         DefinitionId,
                         cacheEntry);
                 }
@@ -555,7 +538,7 @@ namespace Si.UtilityAI
                 LogSlowCoverSearch(
                     context,
                     searchOrigin,
-                    hasThreat,
+                    hasThreatDirection,
                     rawScanElapsedMilliseconds,
                     buildElapsedMilliseconds,
                     filterElapsedMilliseconds,
@@ -575,7 +558,7 @@ namespace Si.UtilityAI
                 LogSlowCoverSearch(
                     context,
                     searchOrigin,
-                    hasThreat,
+                    hasThreatDirection,
                     rawScanElapsedMilliseconds,
                     buildElapsedMilliseconds,
                     filterElapsedMilliseconds,
@@ -591,7 +574,7 @@ namespace Si.UtilityAI
             LogSlowCoverSearch(
                 context,
                 searchOrigin,
-                hasThreat,
+                hasThreatDirection,
                 rawScanElapsedMilliseconds,
                 buildElapsedMilliseconds,
                 filterElapsedMilliseconds,
@@ -607,9 +590,7 @@ namespace Si.UtilityAI
         private List<SiCoverSearchCandidate> BuildEvaluatedCandidates(
             SiUtilityContext context,
             in Vector3D searchOrigin,
-            bool hasThreat,
-            MyEntity threatEntity,
-            in Vector3D threatPosition,
+            in Vector3D threatReferencePosition,
             bool useThreatSector,
             in Vector3D threatDirection,
             SiNearbyCoverScanner.ScanStats scanStats,
@@ -630,20 +611,15 @@ namespace Si.UtilityAI
                     continue;
                 }
 
-                var effectiveThreat = hasThreat
-                    ? threatPosition
-                    : GuessThreatPosition(context, candidate);
-                if (!EvaluateCoverStandingPoint(
+                if (!TryResolveStandingPoint(
                         context,
                         candidate,
-                        threatEntity,
-                        effectiveThreat,
+                        threatReferencePosition,
                         out var candidateStand,
-                        out var isTree,
-                        out var ignoredCoverScore))
+                        out var isTree))
                 {
                     standingPointRejects++;
-                    SetRejectReason($"ray reject cover={FormatVector(candidate)}");
+                    SetRejectReason($"standpoint reject cover={FormatVector(candidate)}");
                     continue;
                 }
 
@@ -658,22 +634,19 @@ namespace Si.UtilityAI
             return results;
         }
 
-        private bool EvaluateCoverStandingPoint(
+        private bool TryResolveStandingPoint(
             SiUtilityContext context,
             in Vector3D coverPosition,
-            MyEntity threatEntity,
-            in Vector3D threatPosition,
+            in Vector3D threatReferencePosition,
             out Vector3D bestStandPosition,
-            out bool isTree,
-            out double bestScore)
+            out bool isTree)
         {
             bestStandPosition = Vector3D.Zero;
             isTree = false;
-            bestScore = double.MinValue;
 
             var world = context.Entity.WorldMatrix;
             var up = ResolveUp(context.Position, world.Up);
-            var awayFromThreat = Vector3D.Reject(coverPosition - threatPosition, up);
+            var awayFromThreat = Vector3D.Reject(coverPosition - threatReferencePosition, up);
             awayFromThreat = SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(
                 awayFromThreat,
                 SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(
@@ -690,102 +663,16 @@ namespace Si.UtilityAI
                     var standPosition = coverPosition
                                         + awayFromThreat * offset
                                         + side * SideOffsetSamples[sampleIndex];
-                    if (!TryScoreStandingPoint(context, standPosition, threatEntity, threatPosition, up, out var score))
+                    if (!IsFiniteVector(standPosition))
                         continue;
 
-                    if (score > bestScore)
-                    {
-                        bestScore = score;
-                        bestStandPosition = standPosition;
-                        isTree = offset >= _definition.PreferredTreeOffset;
-                    }
+                    bestStandPosition = standPosition;
+                    isTree = offset >= _definition.PreferredTreeOffset;
+                    return true;
                 }
             }
 
-            return bestScore > double.MinValue;
-        }
-
-        private bool TryScoreStandingPoint(
-            SiUtilityContext context,
-            in Vector3D standPosition,
-            MyEntity threatEntity,
-            in Vector3D threatPosition,
-            in Vector3D up,
-            out double score)
-        {
-            score = 0;
-            var toThreat = SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(
-                threatPosition - standPosition,
-                context.Entity.WorldMatrix.Forward);
-            var aimPoint = threatPosition + up * GetAimTargetHeight();
-            var bodyOrigin = standPosition
-                             + up * _definition.BodyCoverAimHeight
-                             + toThreat * _definition.BodyCoverForwardOffset;
-            var muzzleOrigin = standPosition
-                               + up * GetMuzzleUpOffset()
-                               + toThreat * GetCoverTestMuzzleForwardOffset();
-            if (!IsFiniteVector(standPosition)
-                || !IsFiniteVector(threatPosition)
-                || !IsFiniteVector(bodyOrigin)
-                || !IsFiniteVector(muzzleOrigin)
-                || !IsFiniteVector(aimPoint))
-            {
-                SetRejectReason($"non-finite cover ray stand={FormatVector(standPosition)} threat={FormatVector(threatPosition)}");
-                return false;
-            }
-
-            var bodyThreatDistance = Vector3D.Distance(bodyOrigin, aimPoint);
-            var maxCoverRayDistance = ResolveMaxCoverRayDistance();
-            if (bodyThreatDistance <= 0.001 || bodyThreatDistance > maxCoverRayDistance)
-            {
-                SetRejectReason(
-                    $"body ray invalid stand={FormatVector(standPosition)} threatDistance={bodyThreatDistance:0.00} max={maxCoverRayDistance:0.00}");
-                return false;
-            }
-
-            var bodyFoliageBlockage = FoliageBlockage(bodyOrigin, aimPoint, maxCoverRayDistance);
-
-            double bodyHitDistance;
-            var hasSolidBodyBlocker = TryGetBlockingHitDistance(
-                bodyOrigin,
-                aimPoint,
-                context.Entity,
-                threatEntity,
-                maxCoverRayDistance,
-                out bodyHitDistance);
-            if (!hasSolidBodyBlocker && bodyFoliageBlockage <= 0)
-            {
-                SetRejectReason(
-                    $"body open stand={FormatVector(standPosition)} foliage={bodyFoliageBlockage:0.00}");
-                return false;
-            }
-
-            double muzzleHitDistance;
-            if (TryGetBlockingHitDistance(
-                    muzzleOrigin,
-                    aimPoint,
-                    context.Entity,
-                    threatEntity,
-                    maxCoverRayDistance,
-                    out muzzleHitDistance))
-            {
-                SetRejectReason(
-                    $"muzzle blocked stand={FormatVector(standPosition)} hitDistance={muzzleHitDistance:0.00}");
-                return false;
-            }
-
-            var solidBodyCover = hasSolidBodyBlocker && bodyThreatDistance > 0.001
-                ? MathHelper.Clamp((float)(1d - bodyHitDistance / bodyThreatDistance), 0, 1)
-                : 0f;
-            var normalizedCover = Math.Max(solidBodyCover, bodyFoliageBlockage);
-            if (normalizedCover <= 0)
-            {
-                SetRejectReason($"cover too shallow stand={FormatVector(standPosition)} blockage={normalizedCover:0.00}");
-                return false;
-            }
-
-            score = normalizedCover;
-            return true;
+            return false;
         }
 
         private Vector3D GuessThreatPosition(SiUtilityContext context, in Vector3D coverPosition)
@@ -879,80 +766,12 @@ namespace Si.UtilityAI
             return true;
         }
 
-        private static bool TryGetBlockingHitDistance(
-            in Vector3D start,
-            in Vector3D end,
-            MyEntity self,
-            MyEntity target,
-            double maxDistance,
-            out double distance)
-        {
-            distance = 0;
-            if (!IsUsableRay(start, end, maxDistance))
-                return false;
-
-            IHitInfo hit;
-            if (!MyAPIGateway.Physics.CastRay(start, end, out hit)
-                || hit == null
-                || hit.HitEntity == null
-                || hit.HitEntity == self
-                || hit.HitEntity == target)
-                return false;
-
-            distance = Vector3D.Distance(start, hit.Position);
-            return true;
-        }
-
-        private static float FoliageBlockage(in Vector3D start, in Vector3D end, double maxDistance)
-        {
-            if (!IsUsableRay(start, end, maxDistance))
-                return 0;
-
-            return MathHelper.Clamp(
-                MyFoliageRaycastEnvironmentModule.Intersect((Vector3)start, (Vector3)end),
-                0,
-                1);
-        }
-
-        private float GetAimTargetHeight() =>
-            _shootBehavior?.GetWeaponAimHeightForCover() ?? _definition.BodyCoverAimHeight;
-
-        private float GetMuzzleForwardOffset() =>
-            _shootBehavior?.GetWeaponMuzzleForwardOffsetForCover() ?? 0.6f;
-
-        private float GetCoverTestMuzzleForwardOffset() =>
-            Math.Min(GetMuzzleForwardOffset(), _definition.BodyCoverForwardOffset);
-
-        private float GetMuzzleUpOffset() =>
-            _shootBehavior?.GetWeaponMuzzleUpOffsetForCover() ?? GetAimTargetHeight();
-
         private static Vector3D ResolveUp(in Vector3D position, in Vector3D fallbackUp)
         {
             var gravity = MyGravityProviderSystem.CalculateTotalGravityInPoint(position);
             if (gravity.LengthSquared() > MinimumDirectionLengthSquared)
                 return -Vector3D.Normalize(gravity);
             return SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(fallbackUp, Vector3D.Up);
-        }
-
-        private double ResolveMaxCoverRayDistance()
-        {
-            return Math.Max(25d, _definition.SearchRadius * 3d);
-        }
-
-        private static bool IsUsableRay(in Vector3D start, in Vector3D end, double maxDistance)
-        {
-            if (!IsFiniteVector(start) || !IsFiniteVector(end))
-                return false;
-
-            var delta = end - start;
-            var lengthSquared = delta.LengthSquared();
-            if (double.IsNaN(lengthSquared) || double.IsInfinity(lengthSquared))
-                return false;
-            if (lengthSquared <= MinimumRayLengthSquared)
-                return false;
-
-            var maxDistanceSquared = maxDistance * maxDistance;
-            return lengthSquared <= maxDistanceSquared;
         }
 
         private static bool IsFiniteVector(in Vector3D value)
@@ -963,6 +782,16 @@ namespace Si.UtilityAI
                      || double.IsInfinity(value.Y)
                      || double.IsNaN(value.Z)
                      || double.IsInfinity(value.Z));
+        }
+
+        private bool TryRefreshReservedStandPosition(SiUtilityContext context, in Vector3D threatPosition)
+        {
+            Vector3D refreshedStandPosition;
+            bool ignoredIsTree;
+            if (!TryResolveStandingPoint(context, _reservedCoverPosition, threatPosition, out refreshedStandPosition, out ignoredIsTree))
+                return true;
+
+            return UpdateStandingPointIfNear(refreshedStandPosition);
         }
 
         private void ReleaseCover(SiNpcSessionComponent session, SiUtilityContext context)
