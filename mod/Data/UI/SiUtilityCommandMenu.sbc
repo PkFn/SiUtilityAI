@@ -51,7 +51,7 @@
 				</Action>
 			</Button>
 			<Button StyleName="ContextButtonSliced">
-				<Text>Transportation</Text>
+				<Text>Transport</Text>
 				<Tooltip>Vehicle boarding and disembark orders.</Tooltip>
 				<Action xsi:type="MyObjectBuilder_CMA_AddController">
 					<Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuTransportation" />
