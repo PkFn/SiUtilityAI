@@ -90,6 +90,8 @@ namespace Si.UtilityAI
         private const long LogCooldownMilliseconds = 2000;
         private const long SlowCoverSearchLogCooldownMilliseconds = 5000;
         private const double SlowCoverSearchMilliseconds = 5;
+        private const double MinimumRayLengthSquared = 0.000001;
+        private const double MinimumDirectionLengthSquared = 0.0001;
         private static readonly double[] SideOffsetSamples =
         {
             0,
@@ -722,8 +724,26 @@ namespace Si.UtilityAI
             var muzzleOrigin = standPosition
                                + up * GetMuzzleUpOffset()
                                + toThreat * GetCoverTestMuzzleForwardOffset();
+            if (!IsFiniteVector(standPosition)
+                || !IsFiniteVector(threatPosition)
+                || !IsFiniteVector(bodyOrigin)
+                || !IsFiniteVector(muzzleOrigin)
+                || !IsFiniteVector(aimPoint))
+            {
+                SetRejectReason($"non-finite cover ray stand={FormatVector(standPosition)} threat={FormatVector(threatPosition)}");
+                return false;
+            }
+
             var bodyThreatDistance = Vector3D.Distance(bodyOrigin, aimPoint);
-            var bodyFoliageBlockage = FoliageBlockage(bodyOrigin, aimPoint);
+            var maxCoverRayDistance = ResolveMaxCoverRayDistance();
+            if (bodyThreatDistance <= 0.001 || bodyThreatDistance > maxCoverRayDistance)
+            {
+                SetRejectReason(
+                    $"body ray invalid stand={FormatVector(standPosition)} threatDistance={bodyThreatDistance:0.00} max={maxCoverRayDistance:0.00}");
+                return false;
+            }
+
+            var bodyFoliageBlockage = FoliageBlockage(bodyOrigin, aimPoint, maxCoverRayDistance);
 
             double bodyHitDistance;
             var hasSolidBodyBlocker = TryGetBlockingHitDistance(
@@ -731,6 +751,7 @@ namespace Si.UtilityAI
                 aimPoint,
                 context.Entity,
                 threatEntity,
+                maxCoverRayDistance,
                 out bodyHitDistance);
             if (!hasSolidBodyBlocker && bodyFoliageBlockage <= 0)
             {
@@ -740,7 +761,13 @@ namespace Si.UtilityAI
             }
 
             double muzzleHitDistance;
-            if (TryGetBlockingHitDistance(muzzleOrigin, aimPoint, context.Entity, threatEntity, out muzzleHitDistance))
+            if (TryGetBlockingHitDistance(
+                    muzzleOrigin,
+                    aimPoint,
+                    context.Entity,
+                    threatEntity,
+                    maxCoverRayDistance,
+                    out muzzleHitDistance))
             {
                 SetRejectReason(
                     $"muzzle blocked stand={FormatVector(standPosition)} hitDistance={muzzleHitDistance:0.00}");
@@ -857,9 +884,12 @@ namespace Si.UtilityAI
             in Vector3D end,
             MyEntity self,
             MyEntity target,
+            double maxDistance,
             out double distance)
         {
             distance = 0;
+            if (!IsUsableRay(start, end, maxDistance))
+                return false;
 
             IHitInfo hit;
             if (!MyAPIGateway.Physics.CastRay(start, end, out hit)
@@ -873,8 +903,11 @@ namespace Si.UtilityAI
             return true;
         }
 
-        private static float FoliageBlockage(in Vector3D start, in Vector3D end)
+        private static float FoliageBlockage(in Vector3D start, in Vector3D end, double maxDistance)
         {
+            if (!IsUsableRay(start, end, maxDistance))
+                return 0;
+
             return MathHelper.Clamp(
                 MyFoliageRaycastEnvironmentModule.Intersect((Vector3)start, (Vector3)end),
                 0,
@@ -896,9 +929,40 @@ namespace Si.UtilityAI
         private static Vector3D ResolveUp(in Vector3D position, in Vector3D fallbackUp)
         {
             var gravity = MyGravityProviderSystem.CalculateTotalGravityInPoint(position);
-            if (gravity.LengthSquared() > 0.0001)
+            if (gravity.LengthSquared() > MinimumDirectionLengthSquared)
                 return -Vector3D.Normalize(gravity);
             return SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(fallbackUp, Vector3D.Up);
+        }
+
+        private double ResolveMaxCoverRayDistance()
+        {
+            return Math.Max(25d, _definition.SearchRadius * 3d);
+        }
+
+        private static bool IsUsableRay(in Vector3D start, in Vector3D end, double maxDistance)
+        {
+            if (!IsFiniteVector(start) || !IsFiniteVector(end))
+                return false;
+
+            var delta = end - start;
+            var lengthSquared = delta.LengthSquared();
+            if (double.IsNaN(lengthSquared) || double.IsInfinity(lengthSquared))
+                return false;
+            if (lengthSquared <= MinimumRayLengthSquared)
+                return false;
+
+            var maxDistanceSquared = maxDistance * maxDistance;
+            return lengthSquared <= maxDistanceSquared;
+        }
+
+        private static bool IsFiniteVector(in Vector3D value)
+        {
+            return !(double.IsNaN(value.X)
+                     || double.IsInfinity(value.X)
+                     || double.IsNaN(value.Y)
+                     || double.IsInfinity(value.Y)
+                     || double.IsNaN(value.Z)
+                     || double.IsInfinity(value.Z));
         }
 
         private void ReleaseCover(SiNpcSessionComponent session, SiUtilityContext context)
