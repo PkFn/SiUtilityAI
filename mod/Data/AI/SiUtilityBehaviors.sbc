@@ -20,6 +20,13 @@
     <DistanceExponent>1.5</DistanceExponent>
   </Definition>
 
+  <Definition xsi:type="MyObjectBuilder_SiUseTransportSeatsBehaviorDefinition">
+    <Id Type="MyObjectBuilder_SiUseTransportSeatsBehavior" Subtype="SiTrooperUseTransportSeats" />
+    <InstantMountDistance>2.25</InstantMountDistance>
+    <WaypointRefreshDistance>0.75</WaypointRefreshDistance>
+    <ExitArrivalDistance>1.25</ExitArrivalDistance>
+  </Definition>
+
   <Definition xsi:type="MyObjectBuilder_SiTakeCoverBehaviorDefinition">
     <Id Type="MyObjectBuilder_SiTakeCoverBehavior" Subtype="SiTrooperTakeCover" />
     <SearchRadius>50</SearchRadius>

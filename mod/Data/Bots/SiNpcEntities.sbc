@@ -9,6 +9,7 @@
     <Component Type="EntityTerrainHeightProvider" />
     <Component Type="SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
     <Component Type="MyObjectBuilder_PAX_CharacterUniformEquipment" />
+    <Component Type="MyObjectBuilder_EquiEntityControllerComponent" />
     <Component Type="EntityOwnershipComponent" />
     <Component Type="EntityStateComponent" Subtype="CharacterStances" />
     <Component Type="RagdollComponent" Subtype="Humanoid" />
@@ -27,6 +28,7 @@
     <Component Type="DeathComponent" Subtype="Medieval_male_noApron" />
     <Component Type="EntityFXComponent" Subtype="Medieval_male" />
     <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
+    <Component Type="SiUseTransportSeatsBehavior" Subtype="SiTrooperUseTransportSeats" />
     <Component Type="SiTakeCoverBehavior" Subtype="SiTrooperTakeCover" />
     <Component Type="SiTakePlainViewBehavior" Subtype="SiTrooperTakePlainView" />
   </Definition>

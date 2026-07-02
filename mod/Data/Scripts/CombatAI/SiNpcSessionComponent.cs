@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Xml.Serialization;
+using Equinox76561198048419394.Core.Controller;
 using Medieval.GameSystems.Factions;
 using Sandbox.Definitions.Chat;
+using Sandbox.Game.Entities;
 using Sandbox.Game.GameSystems.Chat;
 using Sandbox.Game.Players;
 using Sandbox.ModAPI;
@@ -56,6 +58,8 @@ namespace Si.UtilityAI
             new Dictionary<long, SiMotionState>();
         private readonly Dictionary<long, SiMotionState> _npcMotionStates =
             new Dictionary<long, SiMotionState>();
+        private readonly Dictionary<long, SiTransportNpcState> _transportNpcStates =
+            new Dictionary<long, SiTransportNpcState>();
         private readonly Dictionary<long, SiCoverReservation> _coverReservations =
             new Dictionary<long, SiCoverReservation>();
         private readonly Dictionary<SiCoverScanCacheKey, SiCoverScanCacheEntry> _coverScanCache =
@@ -136,6 +140,7 @@ namespace Si.UtilityAI
             _squadCombatStates.Clear();
             _leaderMotionStates.Clear();
             _npcMotionStates.Clear();
+            _transportNpcStates.Clear();
             _coverReservations.Clear();
             _coverScanCache.Clear();
             _coverSearchCache.Clear();
@@ -161,6 +166,7 @@ namespace Si.UtilityAI
                 UpdateTrackedMotionStates();
                 UpdateSquadOrders();
                 UpdateCombatStances();
+                CleanupTransportStates();
                 CleanupExpiredCoverScanCache();
                 CleanupExpiredCoverSearchCache();
                 CleanupCoverReservations();
@@ -268,6 +274,120 @@ namespace Si.UtilityAI
             SiSquadCommandState state;
             return _squadOrders.TryGetValue(assignment.Leader.Id, out state)
                    && state.Mode == SiSquadOrderMode.Follow;
+        }
+
+        internal bool TryGetTransportMode(SiNpc npc, out SiSquadTransportMode mode)
+        {
+            mode = SiSquadTransportMode.None;
+            if (npc == null || Squads == null)
+                return false;
+
+            SiAssignedNpc assignment;
+            if (!Squads.TryGetAssignment(npc.EntityId, out assignment)
+                || assignment.Leader.Kind != SiSquadLeaderKind.Player)
+                return false;
+
+            SiSquadCommandState state;
+            if (!_squadOrders.TryGetValue(assignment.Leader.Id, out state)
+                || state.TransportMode == SiSquadTransportMode.None
+                || state.TransportVehicleEntityId == 0)
+                return false;
+
+            if (MyEntities.GetEntityByIdOrDefault(state.TransportVehicleEntityId) == null)
+            {
+                state.TransportMode = SiSquadTransportMode.None;
+                state.TransportVehicleEntityId = 0;
+                return false;
+            }
+
+            mode = state.TransportMode;
+            return true;
+        }
+
+        internal bool TryGetAssignedTransportSeat(
+            SiNpc npc,
+            out EquiPlayerAttachmentComponent.Slot slot)
+        {
+            slot = null;
+            if (npc == null || npc.Entity == null || npc.Entity.Closed || npc.Entity.MarkedForClose || Squads == null)
+                return false;
+
+            SiAssignedNpc assignment;
+            if (!Squads.TryGetAssignment(npc.EntityId, out assignment)
+                || assignment.Leader.Kind != SiSquadLeaderKind.Player)
+                return false;
+
+            SiSquadCommandState order;
+            if (!_squadOrders.TryGetValue(assignment.Leader.Id, out order)
+                || order.TransportMode == SiSquadTransportMode.None
+                || order.TransportVehicleEntityId == 0)
+                return false;
+
+            if (!TryAssignTransportSeat(npc, order.TransportVehicleEntityId, out var state))
+                return false;
+
+            return TryResolveTransportSeat(state, out slot);
+        }
+
+        internal bool IsAssignedTransportSeat(SiNpc npc, EquiPlayerAttachmentComponent.Slot slot)
+        {
+            if (npc == null || slot == null)
+                return false;
+            if (!_transportNpcStates.TryGetValue(npc.EntityId, out var state))
+                return false;
+
+            return state.SeatEntityId == (slot.Controllable?.Entity?.EntityId ?? 0)
+                   && string.Equals(state.SeatSlotName, slot.Definition.Name, StringComparison.Ordinal);
+        }
+
+        internal void RecordTransportExitPosition(SiNpc npc, in Vector3D worldPosition)
+        {
+            if (npc == null)
+                return;
+            if (!_transportNpcStates.TryGetValue(npc.EntityId, out var state))
+                return;
+            if (!TryGetTransportVehicleEntity(state.VehicleEntityId, out var vehicle))
+                return;
+
+            state.ExitLocalPosition = Vector3D.Transform(worldPosition, vehicle.PositionComp.WorldMatrixInvScaled);
+            state.HasExitLocalPosition = true;
+        }
+
+        internal bool TryGetTransportExitWorldPosition(SiNpc npc, out Vector3D worldPosition)
+        {
+            worldPosition = Vector3D.Zero;
+            if (npc == null)
+                return false;
+            if (!_transportNpcStates.TryGetValue(npc.EntityId, out var state) || !state.HasExitLocalPosition)
+                return false;
+            if (!TryGetTransportVehicleEntity(state.VehicleEntityId, out var vehicle))
+                return false;
+
+            worldPosition = Vector3D.Transform(state.ExitLocalPosition, vehicle.PositionComp.WorldMatrix);
+            return true;
+        }
+
+        internal void CompleteTransportOrder(SiNpc npc)
+        {
+            if (npc == null || Squads == null)
+                return;
+
+            SiAssignedNpc assignment;
+            if (!Squads.TryGetAssignment(npc.EntityId, out assignment)
+                || assignment.Leader.Kind != SiSquadLeaderKind.Player)
+            {
+                _transportNpcStates.Remove(npc.EntityId);
+                return;
+            }
+
+            _transportNpcStates.Remove(npc.EntityId);
+            if (!HasActiveTransportStateForLeader(assignment.Leader.Id)
+                && _squadOrders.TryGetValue(assignment.Leader.Id, out var state)
+                && state.TransportMode != SiSquadTransportMode.None)
+            {
+                state.TransportMode = SiSquadTransportMode.None;
+                state.TransportVehicleEntityId = 0;
+            }
         }
 
         internal bool TryGetLeaderPosition(SiNpc npc, out Vector3D position)
@@ -713,8 +833,10 @@ namespace Si.UtilityAI
                         true);
                     return;
                 case SiUtilityCommandMenuCommand.TransportationGetIn:
+                    MountSquad(sender, player, leaderIdentityId);
+                    return;
                 case SiUtilityCommandMenuCommand.TransportationDisembark:
-                    Respond(sender, "Transportation commands are not implemented yet.");
+                    DisembarkSquad(sender, leaderIdentityId);
                     return;
                 case SiUtilityCommandMenuCommand.ToggleUi:
                 case SiUtilityCommandMenuCommand.ToggleSquadChatter:
@@ -740,13 +862,14 @@ namespace Si.UtilityAI
             var state = GetSquadOrder(leaderIdentityId);
             Respond(
                 sender,
-                $"Order: {OrderName(state.Mode)}, formation {FormationName(state.Formation)}, engagement {EngagementName(state.EngagementStance)}, combat {CombatStanceName(GetCombatStance(PlayerLeaderKey(leaderIdentityId)))}.");
+                $"Order: {OrderName(state.Mode)}, formation {FormationName(state.Formation)}, engagement {EngagementName(state.EngagementStance)}, combat {CombatStanceName(GetCombatStance(PlayerLeaderKey(leaderIdentityId)))}, transport {TransportModeName(state.TransportMode)}.");
         }
 
         private void StopSquad(ulong sender, long leaderIdentityId)
         {
             var state = GetSquadOrder(leaderIdentityId);
             state.Mode = SiSquadOrderMode.Stopped;
+            CancelTransportOverride(leaderIdentityId, state);
             var cleared = ClearLeaderWaypoints(leaderIdentityId);
         }
 
@@ -754,6 +877,7 @@ namespace Si.UtilityAI
         {
             var state = GetSquadOrder(leaderIdentityId);
             state.Mode = SiSquadOrderMode.Follow;
+            CancelTransportOverride(leaderIdentityId, state);
 
             string failure;
             var ordered = ApplyFollowOrder(leaderIdentityId, state, true, out failure);
@@ -764,6 +888,7 @@ namespace Si.UtilityAI
             var state = GetSquadOrder(leaderIdentityId);
             state.Formation = formation;
             state.Mode = SiSquadOrderMode.Follow;
+            CancelTransportOverride(leaderIdentityId, state);
 
             string failure;
             var ordered = ApplyFollowOrder(leaderIdentityId, state, true, out failure);
@@ -773,6 +898,280 @@ namespace Si.UtilityAI
         {
             var state = GetSquadOrder(leaderIdentityId);
             state.EngagementStance = engagementStance;
+        }
+
+        private void CancelTransportOverride(long leaderIdentityId, SiSquadCommandState state)
+        {
+            if (state == null)
+                return;
+
+            ReleaseLeaderTransportSeats(leaderIdentityId);
+            state.TransportMode = SiSquadTransportMode.None;
+            state.TransportVehicleEntityId = 0;
+            RemoveTransportStatesForLeader(leaderIdentityId);
+        }
+
+        private bool TryGetMountedVehicle(MyPlayer player, out MyEntity vehicle, out string failure)
+        {
+            vehicle = null;
+            failure = null;
+
+            var controlledEntity = player?.ControlledEntity as MyEntity;
+            var controller = controlledEntity?.Components.Get<EquiEntityControllerComponent>();
+            var seat = controller?.Controlled;
+            if (seat?.Controllable?.Entity == null)
+            {
+                failure = "You must be sitting in a vehicle seat to issue Mount up.";
+                return false;
+            }
+
+            vehicle = ResolveVehicleRoot(seat.Controllable.Entity);
+            if (vehicle == null)
+            {
+                failure = "Failed to resolve the current vehicle grid.";
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool HasActiveTransportStateForLeader(long leaderIdentityId)
+        {
+            if (leaderIdentityId == 0 || Squads == null || Npcs == null)
+                return false;
+
+            foreach (var npc in Squads.GetLeaderNpcs(Npcs, leaderIdentityId))
+                if (npc != null && _transportNpcStates.ContainsKey(npc.EntityId))
+                    return true;
+            return false;
+        }
+
+        private void RemoveTransportStatesForLeader(long leaderIdentityId)
+        {
+            if (leaderIdentityId == 0 || Squads == null || Npcs == null)
+                return;
+
+            foreach (var npc in Squads.GetLeaderNpcs(Npcs, leaderIdentityId))
+                if (npc != null)
+                    _transportNpcStates.Remove(npc.EntityId);
+        }
+
+        private void ReleaseLeaderTransportSeats(long leaderIdentityId)
+        {
+            if (leaderIdentityId == 0 || Squads == null || Npcs == null)
+                return;
+
+            foreach (var npc in Squads.GetLeaderNpcs(Npcs, leaderIdentityId))
+            {
+                var controller = npc?.Entity?.Components.Get<EquiEntityControllerComponent>();
+                if (controller?.Controlled != null)
+                    controller.ReleaseControl();
+            }
+        }
+
+        private void TrimTransportStatesForLeader(long leaderIdentityId, long vehicleEntityId)
+        {
+            if (leaderIdentityId == 0 || vehicleEntityId == 0 || Squads == null || Npcs == null)
+                return;
+
+            foreach (var npc in Squads.GetLeaderNpcs(Npcs, leaderIdentityId))
+            {
+                if (npc == null)
+                    continue;
+                if (_transportNpcStates.TryGetValue(npc.EntityId, out var state)
+                    && state.VehicleEntityId != vehicleEntityId)
+                    _transportNpcStates.Remove(npc.EntityId);
+            }
+        }
+
+        private bool TryAssignTransportSeat(
+            SiNpc npc,
+            long vehicleEntityId,
+            out SiTransportNpcState assignedState)
+        {
+            assignedState = null;
+            if (npc?.Entity == null || vehicleEntityId == 0)
+                return false;
+            if (!TryGetTransportVehicleEntity(vehicleEntityId, out var vehicle))
+                return false;
+
+            if (_transportNpcStates.TryGetValue(npc.EntityId, out var existing)
+                && existing.VehicleEntityId == vehicleEntityId
+                && TryResolveTransportSeat(existing, out var currentSeat)
+                && (currentSeat.AttachedCharacter == null || currentSeat.AttachedCharacter == npc.Entity))
+            {
+                assignedState = existing;
+                return true;
+            }
+
+            EquiPlayerAttachmentComponent.Slot bestSeat = null;
+            var bestDistanceSquared = double.MaxValue;
+            foreach (var seat in EnumerateVehicleSeats(vehicle))
+            {
+                if (seat?.Controllable?.Entity == null)
+                    continue;
+                if (seat.AttachedCharacter != null && seat.AttachedCharacter != npc.Entity)
+                    continue;
+                if (IsSeatAssignedToOtherNpc(npc.EntityId, seat))
+                    continue;
+
+                var distanceSquared = Vector3D.DistanceSquared(
+                    npc.Entity.WorldMatrix.Translation,
+                    seat.Controllable.Entity.WorldMatrix.Translation);
+                if (distanceSquared >= bestDistanceSquared)
+                    continue;
+
+                bestDistanceSquared = distanceSquared;
+                bestSeat = seat;
+            }
+
+            if (bestSeat == null)
+                return false;
+
+            if (existing == null)
+            {
+                existing = new SiTransportNpcState();
+                _transportNpcStates[npc.EntityId] = existing;
+            }
+
+            existing.VehicleEntityId = vehicleEntityId;
+            existing.SeatEntityId = bestSeat.Controllable.Entity.EntityId;
+            existing.SeatSlotName = bestSeat.Definition.Name;
+            assignedState = existing;
+            return true;
+        }
+
+        private bool TryResolveTransportSeat(
+            SiTransportNpcState state,
+            out EquiPlayerAttachmentComponent.Slot slot)
+        {
+            slot = null;
+            if (state == null || state.SeatEntityId == 0 || string.IsNullOrWhiteSpace(state.SeatSlotName))
+                return false;
+
+            var entity = MyEntities.GetEntityByIdOrDefault(state.SeatEntityId);
+            if (entity == null || entity.Closed || entity.MarkedForClose)
+                return false;
+
+            return (slot = entity.Components.Get<EquiPlayerAttachmentComponent>()?.GetSlotOrDefault(state.SeatSlotName)) != null;
+        }
+
+        private bool TryGetTransportVehicleEntity(long vehicleEntityId, out MyEntity vehicle)
+        {
+            vehicle = MyEntities.GetEntityByIdOrDefault(vehicleEntityId);
+            return vehicle != null && !vehicle.Closed && !vehicle.MarkedForClose;
+        }
+
+        private bool IsSeatAssignedToOtherNpc(long npcEntityId, EquiPlayerAttachmentComponent.Slot seat)
+        {
+            foreach (var entry in _transportNpcStates)
+            {
+                if (entry.Key == npcEntityId)
+                    continue;
+
+                var state = entry.Value;
+                if (state == null)
+                    continue;
+                if (state.SeatEntityId != (seat?.Controllable?.Entity?.EntityId ?? 0))
+                    continue;
+                if (string.Equals(state.SeatSlotName, seat.Definition.Name, StringComparison.Ordinal))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private IEnumerable<EquiPlayerAttachmentComponent.Slot> EnumerateVehicleSeats(MyEntity vehicle)
+        {
+            if (vehicle?.Scene == null)
+                yield break;
+
+            var seenEntities = new HashSet<long>();
+            foreach (var group in vehicle.Scene.GetEntityGroups(vehicle.Id))
+            foreach (var entity in group.Entities)
+            {
+                if (entity == null || !seenEntities.Add(entity.EntityId))
+                    continue;
+                if (!ReferenceEquals(ResolveVehicleRoot(entity), vehicle))
+                    continue;
+
+                var attachment = entity.Components.Get<EquiPlayerAttachmentComponent>();
+                if (attachment == null)
+                    continue;
+
+                foreach (var slot in attachment.GetSlots())
+                    yield return slot;
+            }
+
+            if (!seenEntities.Contains(vehicle.EntityId))
+            {
+                var attachment = vehicle.Components.Get<EquiPlayerAttachmentComponent>();
+                if (attachment != null)
+                    foreach (var slot in attachment.GetSlots())
+                        yield return slot;
+            }
+        }
+
+        private static MyEntity ResolveVehicleRoot(MyEntity entity)
+        {
+            while (entity?.Parent != null)
+                entity = entity.Parent;
+            return entity;
+        }
+
+        private void MountSquad(ulong sender, MyPlayer player, long leaderIdentityId)
+        {
+            string failure;
+            MyEntity vehicle;
+            if (!TryGetMountedVehicle(player, out vehicle, out failure))
+            {
+                Respond(sender, failure ?? "You must sit in a vehicle seat to issue Mount up.");
+                return;
+            }
+
+            var troops = Squads?.GetLeaderNpcs(Npcs, leaderIdentityId);
+            if (troops == null || troops.Count == 0)
+            {
+                Respond(sender, "Your squad has no utility AI troops.");
+                return;
+            }
+
+            var state = GetSquadOrder(leaderIdentityId);
+            state.TransportMode = SiSquadTransportMode.Mount;
+            state.TransportVehicleEntityId = vehicle.EntityId;
+
+            ClearLeaderWaypoints(leaderIdentityId);
+            TrimTransportStatesForLeader(leaderIdentityId, vehicle.EntityId);
+
+            var assigned = 0;
+            for (var i = 0; i < troops.Count; i++)
+                if (TryAssignTransportSeat(troops[i], vehicle.EntityId, out var ignored))
+                    assigned++;
+
+            if (assigned == 0)
+            {
+                state.TransportMode = SiSquadTransportMode.None;
+                state.TransportVehicleEntityId = 0;
+                Respond(sender, "No free transport seats were found on the current vehicle.");
+                return;
+            }
+
+            Respond(sender, $"Mount up: assigned {assigned} seat(s) on the current vehicle.");
+        }
+
+        private void DisembarkSquad(ulong sender, long leaderIdentityId)
+        {
+            var state = GetSquadOrder(leaderIdentityId);
+            if (!HasActiveTransportStateForLeader(leaderIdentityId))
+            {
+                state.TransportMode = SiSquadTransportMode.None;
+                state.TransportVehicleEntityId = 0;
+                Respond(sender, "No squad members are currently assigned to transport seats.");
+                return;
+            }
+
+            state.TransportMode = SiSquadTransportMode.Disembark;
+            Respond(sender, "Disembark order issued.");
         }
 
         private void UpdateCombatStances()
@@ -1285,7 +1684,7 @@ namespace Si.UtilityAI
             foreach (var entry in _squadOrders)
             {
                 var state = entry.Value;
-                if (state.Mode != SiSquadOrderMode.Follow)
+                if (state.Mode != SiSquadOrderMode.Follow || state.TransportMode != SiSquadTransportMode.None)
                     continue;
                 var leader = PlayerLeaderKey(entry.Key);
                 var combatStance = GetCombatStance(leader);
@@ -1295,6 +1694,34 @@ namespace Si.UtilityAI
                 string failure;
                 ApplyFollowOrder(entry.Key, state, false, out failure);
             }
+        }
+
+        private void CleanupTransportStates()
+        {
+            if (_transportNpcStates.Count == 0 || Npcs == null)
+                return;
+
+            _staleCoverReservationIds.Clear();
+            foreach (var entry in _transportNpcStates)
+            {
+                if (!Npcs.Npcs.TryGetValue(entry.Key, out var npc)
+                    || npc?.Entity == null
+                    || npc.Entity.Closed
+                    || npc.Entity.MarkedForClose
+                    || npc.IsDead)
+                {
+                    _staleCoverReservationIds.Add(entry.Key);
+                    continue;
+                }
+
+                var vehicleId = entry.Value?.VehicleEntityId ?? 0;
+                if (vehicleId == 0 || MyEntities.GetEntityByIdOrDefault(vehicleId) == null)
+                    _staleCoverReservationIds.Add(entry.Key);
+            }
+
+            for (var i = 0; i < _staleCoverReservationIds.Count; i++)
+                _transportNpcStates.Remove(_staleCoverReservationIds[i]);
+            _staleCoverReservationIds.Clear();
         }
 
         private void CleanupCoverReservations()
@@ -1760,6 +2187,19 @@ namespace Si.UtilityAI
         private static string OrderName(SiSquadOrderMode mode) =>
             mode == SiSquadOrderMode.Follow ? "Follow" : "Stopped";
 
+        private static string TransportModeName(SiSquadTransportMode mode)
+        {
+            switch (mode)
+            {
+                case SiSquadTransportMode.Mount:
+                    return "Mount";
+                case SiSquadTransportMode.Disembark:
+                    return "Disembark";
+                default:
+                    return "None";
+            }
+        }
+
         private static string FormationName(SiSquadFormation formation)
         {
             switch (formation)
@@ -1925,6 +2365,8 @@ namespace Si.UtilityAI
                     Mode = (byte)entry.Value.Mode,
                     Formation = (byte)entry.Value.Formation,
                     EngagementStance = (byte)entry.Value.EngagementStance,
+                    TransportMode = (byte)entry.Value.TransportMode,
+                    TransportVehicleEntityId = entry.Value.TransportVehicleEntityId,
                     CombatStance = (byte)GetCombatStance(PlayerLeaderKey(entry.Key)),
                 });
             return saved;
@@ -2078,6 +2520,7 @@ namespace Si.UtilityAI
                     || !Enum.IsDefined(typeof(SiSquadOrderMode), (int)saved.Mode)
                     || !Enum.IsDefined(typeof(SiSquadFormation), (int)saved.Formation)
                     || !Enum.IsDefined(typeof(SiSquadEngagementStance), (int)saved.EngagementStance)
+                    || !Enum.IsDefined(typeof(SiSquadTransportMode), (int)saved.TransportMode)
                     || !Enum.IsDefined(typeof(SiSquadCombatStance), (int)saved.CombatStance))
                     continue;
 
@@ -2086,6 +2529,8 @@ namespace Si.UtilityAI
                     Mode = (SiSquadOrderMode)saved.Mode,
                     Formation = (SiSquadFormation)saved.Formation,
                     EngagementStance = (SiSquadEngagementStance)saved.EngagementStance,
+                    TransportMode = SiSquadTransportMode.None,
+                    TransportVehicleEntityId = 0,
                 };
                 _squadCombatStates[PlayerLeaderKey(saved.LeaderIdentityId)] = new SiSquadCombatState
                 {
@@ -2485,6 +2930,12 @@ namespace Si.UtilityAI
             public byte EngagementStance;
 
             [XmlAttribute]
+            public byte TransportMode;
+
+            [XmlAttribute]
+            public long TransportVehicleEntityId;
+
+            [XmlAttribute]
             public byte CombatStance;
         }
     }
@@ -2493,6 +2944,13 @@ namespace Si.UtilityAI
     {
         Stopped,
         Follow,
+    }
+
+    internal enum SiSquadTransportMode
+    {
+        None,
+        Mount,
+        Disembark,
     }
 
     internal enum SiSquadFormation
@@ -2530,6 +2988,8 @@ namespace Si.UtilityAI
         public SiSquadOrderMode Mode { get; set; }
         public SiSquadFormation Formation { get; set; }
         public SiSquadEngagementStance EngagementStance { get; set; }
+        public SiSquadTransportMode TransportMode { get; set; }
+        public long TransportVehicleEntityId { get; set; }
     }
 
     internal sealed class SiSquadCombatState
@@ -2547,6 +3007,15 @@ namespace Si.UtilityAI
         public bool HasPosition { get; set; }
         public Vector3D Position { get; set; }
         public Vector3D Direction { get; set; }
+    }
+
+    internal sealed class SiTransportNpcState
+    {
+        public long VehicleEntityId { get; set; }
+        public long SeatEntityId { get; set; }
+        public string SeatSlotName { get; set; }
+        public bool HasExitLocalPosition { get; set; }
+        public Vector3D ExitLocalPosition { get; set; }
     }
 
     internal struct SiCoverReservation
