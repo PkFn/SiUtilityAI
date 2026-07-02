@@ -20,8 +20,8 @@
 
     <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
         <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityCommandMenuRootButtons" />
-        <Columns>6</Columns>
-        <Rows>1</Rows>
+        <Columns>3</Columns>
+        <Rows>2</Rows>
         <ButtonStyleId>ButtonListWide</ButtonStyleId>
         <Buttons>
             <Button StyleName="ContextButtonSliced">
@@ -207,7 +207,7 @@
 				<Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandTransportationGetIn" />
 			</Button>
 			<Button StyleName="ContextButtonSliced">
-				<Text>Disembark</Text>
+				<Text>Get Out</Text>
 				<Tooltip>Order embarked units to disembark.</Tooltip>
 				<Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandTransportationDisembark" />
 			</Button>
