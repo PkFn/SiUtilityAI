@@ -32,6 +32,7 @@ namespace Si.UtilityAI
     {
         public SerializableDefinitionId? Uniform;
         public string DefaultHelmet;
+        public string DefaultBackpack;
         [XmlArrayItem("Helmet")]
         public List<string> Helmets = new List<string>();
         [XmlArrayItem("Uniform")]
@@ -43,6 +44,7 @@ namespace Si.UtilityAI
     {
         public SerializableDefinitionId? Uniform { get; private set; }
         public string DefaultHelmet { get; private set; }
+        public string DefaultBackpack { get; private set; }
         public IReadOnlyDictionary<string, string> HelmetsByUniformTexture { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
@@ -70,6 +72,7 @@ namespace Si.UtilityAI
             }
 
             DefaultHelmet = string.IsNullOrWhiteSpace(ob.DefaultHelmet) ? null : ob.DefaultHelmet;
+            DefaultBackpack = string.IsNullOrWhiteSpace(ob.DefaultBackpack) ? null : ob.DefaultBackpack;
             HelmetsByUniformTexture = helmetsByUniformTexture;
         }
     }
@@ -117,6 +120,7 @@ namespace Si.UtilityAI
             if (uniformEquipment.IsEquipped(uniformDefinition.Material))
             {
                 EquipConfiguredHelmet(uniformDefinition);
+                EquipConfiguredBackpack();
                 return;
             }
 
@@ -132,6 +136,7 @@ namespace Si.UtilityAI
                 uniformDefinition.RequiredCharacter);
 
             EquipConfiguredHelmet(uniformDefinition);
+            EquipConfiguredBackpack();
         }
 
         private void EquipConfiguredHelmet(MyPAX_UniformEquipmentDefinition uniformDefinition)
@@ -140,13 +145,26 @@ namespace Si.UtilityAI
             if (string.IsNullOrWhiteSpace(helmetSubtype))
                 return;
 
+            EnsureEquipmentItemEquipped(helmetSubtype);
+        }
+
+        private void EquipConfiguredBackpack()
+        {
+            if (string.IsNullOrWhiteSpace(_definition.DefaultBackpack))
+                return;
+
+            EnsureEquipmentItemEquipped(_definition.DefaultBackpack);
+        }
+
+        private void EnsureEquipmentItemEquipped(string equipmentSubtype)
+        {
             var equipment = Entity.Components.Get<MyEntityEquipmentComponent>();
             if (equipment != null)
             {
                 foreach (var equippedItem in equipment.EquippedItems)
                 {
                     if (equippedItem is MyEquipmentItem item
-                        && string.Equals(item.Subtype.String, helmetSubtype, StringComparison.OrdinalIgnoreCase))
+                        && string.Equals(item.Subtype.String, equipmentSubtype, StringComparison.OrdinalIgnoreCase))
                         return;
                 }
             }
@@ -155,35 +173,35 @@ namespace Si.UtilityAI
             if (inventory == null)
                 return;
 
-            MyEquipmentItem helmetItem = null;
+            MyEquipmentItem targetItem = null;
             foreach (var item in inventory.Items)
             {
                 if (item is MyEquipmentItem equipmentItem
-                    && string.Equals(equipmentItem.Subtype.String, helmetSubtype, StringComparison.OrdinalIgnoreCase))
+                    && string.Equals(equipmentItem.Subtype.String, equipmentSubtype, StringComparison.OrdinalIgnoreCase))
                 {
-                    helmetItem = equipmentItem;
+                    targetItem = equipmentItem;
                     break;
                 }
             }
 
-            if (helmetItem == null)
+            if (targetItem == null)
             {
-                if (!inventory.AddItems(new MyDefinitionId(typeof(MyObjectBuilder_EquipmentItem), helmetSubtype), 1, MyInventoryBase.NewItemParams.ForcedInsertion))
+                if (!inventory.AddItems(new MyDefinitionId(typeof(MyObjectBuilder_EquipmentItem), equipmentSubtype), 1, MyInventoryBase.NewItemParams.ForcedInsertion))
                     return;
 
                 foreach (var item in inventory.Items)
                 {
                     if (item is MyEquipmentItem equipmentItem
-                        && string.Equals(equipmentItem.Subtype.String, helmetSubtype, StringComparison.OrdinalIgnoreCase))
+                        && string.Equals(equipmentItem.Subtype.String, equipmentSubtype, StringComparison.OrdinalIgnoreCase))
                     {
-                        helmetItem = equipmentItem;
+                        targetItem = equipmentItem;
                         break;
                     }
                 }
             }
 
-            if (helmetItem != null && equipment != null)
-                equipment.EquipItem(helmetItem);
+            if (targetItem != null && equipment != null)
+                equipment.EquipItem(targetItem);
         }
 
         private string ResolveHelmetSubtype(MyPAX_UniformEquipmentDefinition uniformDefinition)
