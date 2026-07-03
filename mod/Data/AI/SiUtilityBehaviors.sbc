@@ -174,42 +174,22 @@
   <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Garand" />
     <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
-    <MagazineCount>8</MagazineCount>
-    <MagazineReloadMilliseconds>7500</MagazineReloadMilliseconds>
-    <MagazineReloadSoundName>M1_Garand_Reload</MagazineReloadSoundName>
-    <ShootSoundName>M1_Garand_Shot_Holder</ShootSoundName>
-    <ShootSoundMid>M1_Garand_Shot_Mid</ShootSoundMid>
-    <ShootSoundMidFront>M1_Garand_Shot_Mid_Front</ShootSoundMidFront>
-    <ShootSoundFar>M1_Garand_Shot_Far</ShootSoundFar>
-    <ShootSoundFarFront>M1_Garand_Shot_Far_Front</ShootSoundFarFront>
+    <HeldItem Type="HandItemWithVariable" Subtype="M1_Garand" />
+    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="M1_GarandScript" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_K98" />
     <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
-    <MagazineCount>5</MagazineCount>
-    <MagazineReloadMilliseconds>4500</MagazineReloadMilliseconds>
-    <ReloadSoundName>Kar98k_Cycle</ReloadSoundName>
-    <MagazineReloadSoundName>Kar98k_Reload</MagazineReloadSoundName>
-    <ShootSoundName>K98_Shot_Holder</ShootSoundName>
-    <ShootSoundMid>K98_Shot_Mid</ShootSoundMid>
-    <ShootSoundMidFront>K98_Shot_Mid_Front</ShootSoundMidFront>
-    <ShootSoundFar>K98_Shot_Far</ShootSoundFar>
-    <ShootSoundFarFront>K98_Shot_Far_Front</ShootSoundFarFront>
+    <HeldItem Type="HandItemWithVariable" Subtype="Kar98k" />
+    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="Kar98kScript" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Mosin" />
     <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
-    <MagazineCount>5</MagazineCount>
-    <MagazineReloadMilliseconds>4500</MagazineReloadMilliseconds>
-    <ReloadSoundName>Mosin_Cycle</ReloadSoundName>
-    <MagazineReloadSoundName>Mosin_Reload</MagazineReloadSoundName>
-    <ShootSoundName>Mosin_Shot_Holder</ShootSoundName>
-    <ShootSoundMid>Mosin_Shot_Mid</ShootSoundMid>
-    <ShootSoundMidFront>Mosin_Shot_Mid_Front</ShootSoundMidFront>
-    <ShootSoundFar>Mosin_Shot_Far</ShootSoundFar>
-    <ShootSoundFarFront>Mosin_Shot_Far_Front</ShootSoundFarFront>
+    <HeldItem Type="HandItemWithVariable" Subtype="Mosin" />
+    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="MosinScript" />
   </Definition>
 
   <!-- Shared SMG burst profile; magazine size differences are balanced through reload time. -->
@@ -246,39 +226,21 @@
   <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Mp40" />
     <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiSmgTrooperSharedWeaponBalance" />
-    <MagazineCount>32</MagazineCount>
-    <MagazineReloadMilliseconds>2600</MagazineReloadMilliseconds>
-    <MagazineReloadSoundName>MP-40_Reload</MagazineReloadSoundName>
-    <ShootSoundName>MP-40_Shot_Holder</ShootSoundName>
-    <ShootSoundMid>MP-40_Shot_Mid</ShootSoundMid>
-    <ShootSoundMidFront>MP-40_Shot_Mid_Front</ShootSoundMidFront>
-    <ShootSoundFar>MP-40_Shot_Far</ShootSoundFar>
-    <ShootSoundFarFront>MP-40_Shot_Far_Front</ShootSoundFarFront>
+    <HeldItem Type="HandItemWithVariable" Subtype="MP-40" />
+    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="MP-40Script" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Thompson" />
     <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiSmgTrooperSharedWeaponBalance" />
-    <MagazineCount>30</MagazineCount>
-    <MagazineReloadMilliseconds>2720</MagazineReloadMilliseconds>
-    <MagazineReloadSoundName>Thompson_Reload</MagazineReloadSoundName>
-    <ShootSoundName>Thompson_Shot_Holder</ShootSoundName>
-    <ShootSoundMid>Thompson_Shot_Mid</ShootSoundMid>
-    <ShootSoundMidFront>Thompson_Shot_Mid_Front</ShootSoundMidFront>
-    <ShootSoundFar>Thompson_Shot_Far</ShootSoundFar>
-    <ShootSoundFarFront>Thompson_Shot_Far_Front</ShootSoundFarFront>
+    <HeldItem Type="HandItemWithVariable" Subtype="Thompson_M1A1" />
+    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="Thompson_M1A1Script" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Ppsh" />
     <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiSmgTrooperSharedWeaponBalance" />
-    <MagazineCount>35</MagazineCount>
-    <MagazineReloadMilliseconds>3080</MagazineReloadMilliseconds>
-    <MagazineReloadSoundName>PPSh-41_Reload</MagazineReloadSoundName>
-    <ShootSoundName>PPSH_Shot_Holder</ShootSoundName>
-    <ShootSoundMid>PPSH_Shot_Mid</ShootSoundMid>
-    <ShootSoundMidFront>PPSH_Shot_Mid_Front</ShootSoundMidFront>
-    <ShootSoundFar>PPSH_Shot_Far</ShootSoundFar>
-    <ShootSoundFarFront>PPSH_Shot_Far_Front</ShootSoundFarFront>
+    <HeldItem Type="HandItemWithVariable" Subtype="PPSh-41" />
+    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="PPSh-41Script" />
   </Definition>
 </Definitions>

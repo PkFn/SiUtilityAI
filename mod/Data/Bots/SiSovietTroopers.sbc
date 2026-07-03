@@ -5,8 +5,8 @@
     <Id Type="EntityBase" Subtype="SiTrooper_Soviet_Rifle" />
     <CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_Soviet_Rifle" />
+    <Component Type="SiNpcLoadoutComponent" Subtype="Webbing_Soviet_Rifle" />
     <Component Type="SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Rifle_Uniform" />
-    <Component Type="SiNpcHeldWeaponVisualComponent" Subtype="SiTrooperHeldWeapon_Mosin" />
     <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mosin" />
     <Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Mosin" />
   </Definition>
@@ -15,8 +15,8 @@
     <Id Type="EntityBase" Subtype="SiTrooper_Soviet_Rifle_Paratrooper" />
     <CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
     <Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_Soviet_Rifle_Paratrooper" />
+    <Component Type="SiNpcLoadoutComponent" Subtype="Webbing_Soviet_Rifle" />
     <Component Type="SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Rifle_Paratrooper_Uniform" />
-    <Component Type="SiNpcHeldWeaponVisualComponent" Subtype="SiTrooperHeldWeapon_Mosin" />
     <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mosin" />
     <Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Mosin" />
   </Definition>
@@ -25,8 +25,8 @@
 		<Id Type="EntityBase" Subtype="SiTrooper_Soviet_Smg" />
 		<CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
 		<Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_Soviet_Smg" />
+		<Component Type="SiNpcLoadoutComponent" Subtype="Webbing_Soviet_Smg" />
 		<Component Type="SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Smg_Uniform" />
-		<Component Type="SiNpcHeldWeaponVisualComponent" Subtype="SiTrooperHeldWeapon_Ppsh" />
 		<Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Ppsh" />
 		<Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Ppsh" />
 	</Definition>
@@ -35,8 +35,8 @@
 		<Id Type="EntityBase" Subtype="SiTrooper_Soviet_Smg_Paratrooper" />
 		<CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
 		<Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_Soviet_Smg_Paratrooper" />
+		<Component Type="SiNpcLoadoutComponent" Subtype="Webbing_Soviet_Smg" />
 		<Component Type="SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Smg_Paratrooper_Uniform" />
-		<Component Type="SiNpcHeldWeaponVisualComponent" Subtype="SiTrooperHeldWeapon_Ppsh" />
 		<Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Ppsh" />
 		<Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Ppsh" />
 	</Definition>
@@ -44,10 +44,6 @@
 	<Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
 		<Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Rifle_Uniform" />
 		<Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_Soviet_Khaki" />
-		<DefaultHelmet>PAX_Helmet_Soviet_Green</DefaultHelmet>
-		<Helmets>
-			<Helmet>PAX_Helmet_Soviet_Green</Helmet>
-		</Helmets>
 		<UniformMatch>
 			<Uniform>Uniform_Soviet_Khaki_upper_cm</Uniform>
 		</UniformMatch>
@@ -56,10 +52,6 @@
 	<Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
 		<Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Smg_Uniform" />
 		<Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_Soviet_Khaki" />
-		<DefaultHelmet>PAX_Helmet_Soviet_Green</DefaultHelmet>
-		<Helmets>
-			<Helmet>PAX_Helmet_Soviet_Green</Helmet>
-		</Helmets>
 		<UniformMatch>
 			<Uniform>Uniform_Soviet_Khaki_upper_cm</Uniform>
 		</UniformMatch>

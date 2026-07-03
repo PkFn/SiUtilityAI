@@ -10,8 +10,10 @@ using VRage.Game.Components;
 using VRage.Game.Definitions;
 using VRage.Game.Entity;
 using VRage.Game.ObjectBuilders.ComponentSystem;
+using VRage.Inventory;
 using VRage.Network;
 using VRage.ObjectBuilders;
+using VRage.ObjectBuilders.Inventory;
 using VRage.Utils;
 using VRageMath;
 using VRageRender;
@@ -29,6 +31,8 @@ namespace Si.UtilityAI
     public class MyObjectBuilder_SiNpcRangedWeaponComponentDefinition : MyObjectBuilder_EntityComponentDefinition
     {
         public SerializableDefinitionId? Balance;
+        public SerializableDefinitionId? HeldItem;
+        public SerializableDefinitionId? WeaponBehavior;
 
         public int FireCooldownMilliseconds;
         public int BurstCount;
@@ -170,9 +174,20 @@ namespace Si.UtilityAI
     [MyDefinitionType(typeof(MyObjectBuilder_SiNpcRangedWeaponComponentDefinition))]
     public class SiNpcRangedWeaponComponentDefinition : MyEntityComponentDefinition
     {
+        private static readonly string[] EmptyStrings = new string[0];
         private SerializableDefinitionId? _balanceId;
+        private SerializableDefinitionId? _weaponBehaviorId;
         private bool _balanceResolved;
+        private bool _weaponBehaviorResolved;
 
+        public SerializableDefinitionId? HeldItem { get; private set; }
+        public SerializableDefinitionId? WeaponBehavior { get; private set; }
+        public bool ConsumeAmmo { get; private set; }
+        public bool InternallyLoaded { get; private set; }
+        public string[] AcceptedCartridges { get; private set; }
+        public string[] AcceptedMagazines { get; private set; }
+        public string ShootEffectName { get; private set; }
+        public float ShootEffectScale { get; private set; }
         public int FireCooldownMilliseconds { get; private set; }
         public int BurstCount { get; private set; }
         public int BurstCooldownMilliseconds { get; private set; }
@@ -215,19 +230,33 @@ namespace Si.UtilityAI
             var ob = (MyObjectBuilder_SiNpcRangedWeaponComponentDefinition)builder;
 
             _balanceId = ob.Balance;
+            _weaponBehaviorId = ob.WeaponBehavior;
             _balanceResolved = false;
+            _weaponBehaviorResolved = false;
+            HeldItem = ob.HeldItem;
+            WeaponBehavior = ob.WeaponBehavior;
             InitFromBuilder(ob);
             ResolveBalance();
+            ResolveWeaponBehavior();
 
-            MagazineCount = Math.Max(1, ob.MagazineCount);
-            MagazineReloadMilliseconds = Math.Max(0, ob.MagazineReloadMilliseconds);
-            ReloadSoundName = ob.ReloadSoundName;
-            MagazineReloadSoundName = ob.MagazineReloadSoundName;
-            ShootSoundName = ob.ShootSoundName;
-            ShootSoundMid = ob.ShootSoundMid;
-            ShootSoundMidFront = ob.ShootSoundMidFront;
-            ShootSoundFar = ob.ShootSoundFar;
-            ShootSoundFarFront = ob.ShootSoundFarFront;
+            if (ob.MagazineCount > 0)
+                MagazineCount = Math.Max(1, ob.MagazineCount);
+            if (ob.MagazineReloadMilliseconds > 0)
+                MagazineReloadMilliseconds = Math.Max(0, ob.MagazineReloadMilliseconds);
+            if (!string.IsNullOrWhiteSpace(ob.ReloadSoundName))
+                ReloadSoundName = ob.ReloadSoundName;
+            if (!string.IsNullOrWhiteSpace(ob.MagazineReloadSoundName))
+                MagazineReloadSoundName = ob.MagazineReloadSoundName;
+            if (!string.IsNullOrWhiteSpace(ob.ShootSoundName))
+                ShootSoundName = ob.ShootSoundName;
+            if (!string.IsNullOrWhiteSpace(ob.ShootSoundMid))
+                ShootSoundMid = ob.ShootSoundMid;
+            if (!string.IsNullOrWhiteSpace(ob.ShootSoundMidFront))
+                ShootSoundMidFront = ob.ShootSoundMidFront;
+            if (!string.IsNullOrWhiteSpace(ob.ShootSoundFar))
+                ShootSoundFar = ob.ShootSoundFar;
+            if (!string.IsNullOrWhiteSpace(ob.ShootSoundFarFront))
+                ShootSoundFarFront = ob.ShootSoundFarFront;
         }
 
         internal void ResolveBalance()
@@ -241,6 +270,19 @@ namespace Si.UtilityAI
 
             InitFromBalance(balance);
             _balanceResolved = true;
+        }
+
+        internal void ResolveWeaponBehavior()
+        {
+            if (_weaponBehaviorResolved || !_weaponBehaviorId.HasValue)
+                return;
+
+            var behavior = LoadWeaponBehavior(_weaponBehaviorId);
+            if (behavior == null)
+                return;
+
+            InitFromWeaponBehavior(behavior);
+            _weaponBehaviorResolved = true;
         }
 
         private void InitFromBuilder(MyObjectBuilder_SiNpcRangedWeaponComponentDefinition ob)
@@ -271,6 +313,21 @@ namespace Si.UtilityAI
             ElevationAiming = Math.Max(0.01f, ob.ElevationAiming);
             MuzzleForwardOffset = ob.MuzzleForwardOffset;
             MuzzleUpOffset = ob.MuzzleUpOffset;
+            MagazineCount = Math.Max(1, ob.MagazineCount);
+            MagazineReloadMilliseconds = Math.Max(0, ob.MagazineReloadMilliseconds);
+            ReloadSoundName = ob.ReloadSoundName;
+            MagazineReloadSoundName = ob.MagazineReloadSoundName;
+            ShootSoundName = ob.ShootSoundName;
+            ShootSoundMid = ob.ShootSoundMid;
+            ShootSoundMidFront = ob.ShootSoundMidFront;
+            ShootSoundFar = ob.ShootSoundFar;
+            ShootSoundFarFront = ob.ShootSoundFarFront;
+            ConsumeAmmo = false;
+            InternallyLoaded = false;
+            AcceptedCartridges = EmptyStrings;
+            AcceptedMagazines = EmptyStrings;
+            ShootEffectName = null;
+            ShootEffectScale = 1f;
         }
 
         private void InitFromBalance(SiNpcRangedWeaponBalanceDefinition balance)
@@ -303,6 +360,50 @@ namespace Si.UtilityAI
             MuzzleUpOffset = balance.MuzzleUpOffset;
         }
 
+        private void InitFromWeaponBehavior(MyPAX_HandheldGunDefinition behavior)
+        {
+            if (behavior == null)
+                return;
+
+            ConsumeAmmo = behavior.ConsumeAmmo;
+            InternallyLoaded = behavior.InternallyLoaded;
+            AcceptedCartridges = behavior.AcceptedCartridges ?? EmptyStrings;
+            AcceptedMagazines = behavior.AcceptedMagazines ?? EmptyStrings;
+            ShootEffectName = string.IsNullOrWhiteSpace(behavior.ShootEffect) ? null : behavior.ShootEffect;
+            ShootEffectScale = behavior.ShootEffectScale > 0 ? behavior.ShootEffectScale : 1f;
+
+            if (behavior.TimeBetweenShots > 0)
+                FireCooldownMilliseconds = (int)behavior.TimeBetweenShots;
+            if (behavior.ReloadTime > 0)
+                MagazineReloadMilliseconds = (int)behavior.ReloadTime;
+            if (behavior.ClipSize > 0)
+                MagazineCount = behavior.ClipSize;
+            if (!string.IsNullOrWhiteSpace(behavior.GunCycleSound))
+                ReloadSoundName = behavior.GunCycleSound;
+            if (!string.IsNullOrWhiteSpace(behavior.ReloadSoundName))
+                MagazineReloadSoundName = behavior.ReloadSoundName;
+            if (!string.IsNullOrWhiteSpace(behavior.ShootSoundName))
+                ShootSoundName = behavior.ShootSoundName;
+            if (!string.IsNullOrWhiteSpace(behavior.ShootSoundMid))
+                ShootSoundMid = behavior.ShootSoundMid;
+            if (!string.IsNullOrWhiteSpace(behavior.ShootSoundMidFront))
+                ShootSoundMidFront = behavior.ShootSoundMidFront;
+            if (!string.IsNullOrWhiteSpace(behavior.ShootSoundFar))
+                ShootSoundFar = behavior.ShootSoundFar;
+            if (!string.IsNullOrWhiteSpace(behavior.ShootSoundFarFront))
+                ShootSoundFarFront = behavior.ShootSoundFarFront;
+            if (behavior.MaxSyncedCreationDistance > 0)
+                ProjectileSyncDistance = behavior.MaxSyncedCreationDistance;
+            if (behavior.VelocityMultiplier > 0)
+                ProjectileVelocityMultiplier = behavior.VelocityMultiplier;
+            if (behavior.AccuracyMultiplier > 0)
+                ProjectileAccuracyMultiplier = behavior.AccuracyMultiplier;
+            if (behavior.CharacterDamageMultiplier > 0)
+                CharacterDamageMultiplier = behavior.CharacterDamageMultiplier;
+            if (AcceptedCartridges.Length > 0)
+                Projectile = AcceptedCartridges[0];
+        }
+
         private static SiNpcRangedWeaponBalanceDefinition LoadBalance(SerializableDefinitionId? balanceId)
         {
             if (!balanceId.HasValue)
@@ -317,6 +418,25 @@ namespace Si.UtilityAI
                 return null;
 
             foreach (var candidate in MyDefinitionManager.GetOfType<SiNpcRangedWeaponBalanceDefinition>())
+                if (string.Equals(candidate.Id.SubtypeName, subtype, StringComparison.OrdinalIgnoreCase))
+                    return candidate;
+            return null;
+        }
+
+        private static MyPAX_HandheldGunDefinition LoadWeaponBehavior(SerializableDefinitionId? weaponBehaviorId)
+        {
+            if (!weaponBehaviorId.HasValue)
+                return null;
+
+            MyPAX_HandheldGunDefinition behavior;
+            if (MyDefinitionManager.TryGet(weaponBehaviorId.Value, out behavior))
+                return behavior;
+
+            var subtype = weaponBehaviorId.Value.SubtypeId;
+            if (string.IsNullOrWhiteSpace(subtype))
+                return null;
+
+            foreach (var candidate in MyDefinitionManager.GetOfType<MyPAX_HandheldGunDefinition>())
                 if (string.Equals(candidate.Id.SubtypeName, subtype, StringComparison.OrdinalIgnoreCase))
                     return candidate;
             return null;
@@ -364,16 +484,28 @@ namespace Si.UtilityAI
             base.Init(definition);
             _definition = (SiNpcRangedWeaponComponentDefinition)definition;
             _definition.ResolveBalance();
+            _definition.ResolveWeaponBehavior();
             ResetState();
+        }
+
+        public override void OnAddedToScene()
+        {
+            base.OnAddedToScene();
+
+            if (MyAPIGateway.Multiplayer != null && !MyAPIGateway.Multiplayer.IsServer)
+                return;
+
+            AddScheduledCallback(EnsureHeldWeaponEquipped, 1);
         }
 
         internal void ResetState()
         {
             _fireCooldown = 0;
-            _shotsRemainingInMagazine = Math.Max(1, _definition?.MagazineCount ?? 1);
+            _shotsRemainingInMagazine = 0;
             _shotsRemainingInBurst = Math.Max(1, _definition?.BurstCount ?? 1);
             _pendingShotSounds.Clear();
             _pendingWeaponSounds.Clear();
+            TryReloadMagazineFromInventory();
         }
 
         internal void Advance(long elapsedMilliseconds)
@@ -400,6 +532,12 @@ namespace Si.UtilityAI
             if (_fireCooldown > 0)
             {
                 LogFireDeniedWithCooldown("weapon-cooldown", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
+                return false;
+            }
+
+            if (!EnsureLoadedAmmo())
+            {
+                LogFireDeniedWithCooldown("out-of-ammo", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
                 return false;
             }
 
@@ -542,8 +680,6 @@ namespace Si.UtilityAI
 
         private ShotFeedback ConsumeShot()
         {
-            if (_shotsRemainingInMagazine <= 0)
-                _shotsRemainingInMagazine = Math.Max(1, _definition.MagazineCount);
             if (_shotsRemainingInBurst <= 0)
                 _shotsRemainingInBurst = Math.Max(1, _definition.BurstCount);
 
@@ -553,17 +689,16 @@ namespace Si.UtilityAI
             var magazineEmpty = _shotsRemainingInMagazine <= 0;
             var burstFinished = _shotsRemainingInBurst <= 0;
 
-            if (magazineEmpty)
-                _shotsRemainingInMagazine = Math.Max(1, _definition.MagazineCount);
             if (burstFinished || magazineEmpty)
                 _shotsRemainingInBurst = Math.Max(1, _definition.BurstCount);
 
             if (magazineEmpty)
             {
+                var reloaded = TryReloadMagazineFromInventory();
                 return new ShotFeedback
                 {
-                    CooldownMilliseconds = _definition.MagazineReloadMilliseconds,
-                    PlayMagazineReloadSound = !string.IsNullOrWhiteSpace(_definition.MagazineReloadSoundName),
+                    CooldownMilliseconds = reloaded ? _definition.MagazineReloadMilliseconds : _definition.FireCooldownMilliseconds,
+                    PlayMagazineReloadSound = reloaded && !string.IsNullOrWhiteSpace(_definition.MagazineReloadSoundName),
                 };
             }
 
@@ -643,6 +778,19 @@ namespace Si.UtilityAI
 
         private void PlayMuzzleEffect(MatrixD projectileMatrix)
         {
+            if (!string.IsNullOrWhiteSpace(_definition.ShootEffectName))
+            {
+                MyParticleEffect directEffect;
+                if (MyParticlesManager.TryCreateParticleEffect(MyStringHash.GetOrCompute(_definition.ShootEffectName), out directEffect, false)
+                    && directEffect != null)
+                {
+                    directEffect.WorldMatrix = projectileMatrix;
+                    directEffect.UserScale *= _definition.ShootEffectScale;
+                }
+
+                return;
+            }
+
             if (!_definition.ShootEffect.HasValue)
                 return;
 
@@ -885,6 +1033,110 @@ namespace Si.UtilityAI
             return MyDefinitionManager.TryGet(
                 new MyDefinitionId(typeof(MyObjectBuilder_EntityBase), subtype),
                 out ignored);
+        }
+
+        [Update(false)]
+        private void EnsureHeldWeaponEquipped(long delta)
+        {
+            if (Entity == null || Entity.Closed || Entity.MarkedForClose || !_definition.HeldItem.HasValue)
+                return;
+
+            if (!TryGetInventory(out var inventory))
+                return;
+
+            var heldItemId = (MyDefinitionId)_definition.HeldItem.Value;
+            var equipment = Entity.Components.Get<Sandbox.Entities.Components.MyEntityEquipmentComponent>();
+            if (equipment != null && equipment.IsEquipped(heldItemId) && inventory.FindItem(heldItemId) != null)
+                return;
+
+            string failure;
+            SiNpcEquipmentHelper.TryEnsureEquipmentItemEquipped(Entity, heldItemId, out failure, 2);
+        }
+
+        private bool EnsureLoadedAmmo()
+        {
+            if (_shotsRemainingInMagazine > 0)
+                return true;
+
+            return TryReloadMagazineFromInventory();
+        }
+
+        private bool TryReloadMagazineFromInventory()
+        {
+            if (_definition == null)
+                return false;
+
+            if (!_definition.ConsumeAmmo)
+            {
+                _shotsRemainingInMagazine = Math.Max(1, _definition.MagazineCount);
+                return true;
+            }
+
+            if (!TryGetInventory(out var inventory))
+                return false;
+
+            if (_definition.InternallyLoaded || _definition.AcceptedMagazines.Length == 0)
+                return TryLoadLooseCartridges(inventory);
+
+            return TryLoadMagazineItem(inventory);
+        }
+
+        private bool TryLoadLooseCartridges(MyInventoryBase inventory)
+        {
+            var clipSize = Math.Max(1, _definition.MagazineCount);
+            var available = 0;
+            for (var i = 0; i < _definition.AcceptedCartridges.Length; i++)
+            {
+                var id = new MyDefinitionId(typeof(MyObjectBuilder_InventoryItem), _definition.AcceptedCartridges[i]);
+                available += Math.Max(0, inventory.GetItemAmount(id));
+                if (available >= clipSize)
+                    break;
+            }
+
+            if (available <= 0)
+                return false;
+
+            var toLoad = Math.Min(clipSize, available);
+            for (var i = 0; i < _definition.AcceptedCartridges.Length && toLoad > 0; i++)
+            {
+                var id = new MyDefinitionId(typeof(MyObjectBuilder_InventoryItem), _definition.AcceptedCartridges[i]);
+                var count = Math.Max(0, inventory.GetItemAmount(id));
+                if (count <= 0)
+                    continue;
+
+                var take = Math.Min(toLoad, count);
+                if (!inventory.RemoveItems(id, take))
+                    continue;
+
+                toLoad -= take;
+            }
+
+            var loaded = Math.Min(clipSize, available);
+            _shotsRemainingInMagazine = loaded - toLoad;
+            return _shotsRemainingInMagazine > 0;
+        }
+
+        private bool TryLoadMagazineItem(MyInventoryBase inventory)
+        {
+            for (var i = 0; i < _definition.AcceptedMagazines.Length; i++)
+            {
+                var subtype = _definition.AcceptedMagazines[i];
+                var id = new MyDefinitionId(typeof(Sandbox.Game.EntityComponents.MyObjectBuilder_MagazineItem), subtype);
+                if (!inventory.RemoveItems(id, 1))
+                    continue;
+
+                _shotsRemainingInMagazine = Math.Max(1, _definition.MagazineCount);
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryGetInventory(out MyInventoryBase inventory)
+        {
+            string ignored;
+            inventory = SiNpcEquipmentHelper.FindInventory(Entity, out ignored);
+            return inventory != null;
         }
 
         private struct PendingShotSound
