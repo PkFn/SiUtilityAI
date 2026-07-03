@@ -4,7 +4,6 @@ using System.Xml.Serialization;
 using Medieval.Constants;
 using Pax.Equipment;
 using Sandbox.Entities.Components;
-using Sandbox.Game.Inventory;
 using Sandbox.ModAPI;
 using VRage.Components;
 using VRage.Game.Entity;
@@ -158,50 +157,14 @@ namespace Si.UtilityAI
 
         private void EnsureEquipmentItemEquipped(string equipmentSubtype)
         {
-            var equipment = Entity.Components.Get<MyEntityEquipmentComponent>();
-            if (equipment != null)
-            {
-                foreach (var equippedItem in equipment.EquippedItems)
-                {
-                    if (equippedItem is MyEquipmentItem item
-                        && string.Equals(item.Subtype.String, equipmentSubtype, StringComparison.OrdinalIgnoreCase))
-                        return;
-                }
-            }
-
-            var inventory = Entity.Components.Get<MyInventoryBase>(MyCharacterConstants.MainInventory);
-            if (inventory == null)
+            if (SiNpcEquipmentHelper.HasEquippedSubtype(Entity, equipmentSubtype))
                 return;
 
-            MyEquipmentItem targetItem = null;
-            foreach (var item in inventory.Items)
-            {
-                if (item is MyEquipmentItem equipmentItem
-                    && string.Equals(equipmentItem.Subtype.String, equipmentSubtype, StringComparison.OrdinalIgnoreCase))
-                {
-                    targetItem = equipmentItem;
-                    break;
-                }
-            }
-
-            if (targetItem == null)
-            {
-                if (!inventory.AddItems(new MyDefinitionId(typeof(MyObjectBuilder_EquipmentItem), equipmentSubtype), 1, MyInventoryBase.NewItemParams.ForcedInsertion))
-                    return;
-
-                foreach (var item in inventory.Items)
-                {
-                    if (item is MyEquipmentItem equipmentItem
-                        && string.Equals(equipmentItem.Subtype.String, equipmentSubtype, StringComparison.OrdinalIgnoreCase))
-                    {
-                        targetItem = equipmentItem;
-                        break;
-                    }
-                }
-            }
-
-            if (targetItem != null && equipment != null)
-                equipment.EquipItem(targetItem);
+            string failure;
+            SiNpcEquipmentHelper.TryEnsureEquipmentItemEquipped(
+                Entity,
+                new MyDefinitionId(typeof(MyObjectBuilder_EquipmentItem), equipmentSubtype),
+                out failure);
         }
 
         private string ResolveHelmetSubtype(MyPAX_UniformEquipmentDefinition uniformDefinition)

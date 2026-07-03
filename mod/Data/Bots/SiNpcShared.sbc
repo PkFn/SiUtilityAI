@@ -12,6 +12,7 @@
     <Component Type="MyObjectBuilder_EquiEntityControllerComponent" />
     <Component Type="EntityOwnershipComponent" />
     <Component Type="EntityStateComponent" Subtype="CharacterStances" />
+    <Component Type="Inventory" Subtype="Internal" />
     <Component Type="RagdollComponent" Subtype="Humanoid" />
     <Component Type="CharacterMovementComponent" Subtype="SiTrooperMovement" />
     <Component Type="ModelComponent" Subtype="Medieval_male_noApron" />

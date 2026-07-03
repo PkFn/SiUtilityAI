@@ -1,9 +1,7 @@
 using System.Linq;
 using System.Xml.Serialization;
 using Equinox76561198048419394.Core.Util;
-using Medieval.Constants;
 using Sandbox.Entities.Components;
-using Sandbox.Game.Inventory;
 using Sandbox.ModAPI;
 using SiCore.Core.Debug;
 using VRage.Components;
@@ -54,12 +52,6 @@ namespace Si.UtilityAI
         private static readonly MyStringHash MainHandSlot = MyStringHash.GetOrCompute("MainHand");
         private static readonly MyStringHash OffHandSlot = MyStringHash.GetOrCompute("OffHand");
         private static readonly MyStringHash GhostHandSlot = MyStringHash.GetOrCompute("GhostHand");
-        private static readonly MyStringHash InternalInventory = MyStringHash.GetOrCompute("Internal");
-        private static readonly MyStringHash[] InventoryNames =
-        {
-            MyCharacterConstants.MainInventory,
-            InternalInventory,
-        };
 
         private const int MainHandSlotIndex = 2;
         private const int RetryDelayFrames = 16;
@@ -95,54 +87,28 @@ namespace Si.UtilityAI
             if (Entity == null || Entity.Closed || Entity.MarkedForClose || !_definition.HeldItem.HasValue)
                 return;
 
-            if (!TryGetEquipmentContext(out var equipment, out var inventory, out var inventorySource))
+            MyEntityEquipmentComponent equipment;
+            MyInventoryBase inventory;
+            string inventorySource;
+            if (!SiNpcEquipmentHelper.TryGetEquipmentContext(Entity, out equipment, out inventory, out inventorySource))
             {
                 Retry();
+                LogMissingComponents(equipment != null, inventory != null, inventorySource);
                 return;
             }
 
             if (!TryResolveHeldItem(out var heldItemId))
                 return;
 
-            if (equipment.IsEquipped(heldItemId))
+            if (equipment.IsEquipped(heldItemId) && inventory.FindItem(heldItemId) != null)
                 return;
 
-            if (!TryEnsureItemInInventory(inventory, heldItemId, out var item))
-            {
-                Retry();
-                return;
-            }
-
-            var equipmentItem = item as MyEquipmentItem;
-            if (equipmentItem == null)
-            {
-                Log($"Inventory item {heldItemId.SubtypeName} is not a MyEquipmentItem. Runtime type={item.GetType().FullName}.");
-                Retry();
-                return;
-            }
-
-            if (equipment.EquipItem(equipmentItem, MainHandSlotIndex))
+            string failure;
+            if (SiNpcEquipmentHelper.TryEnsureEquipmentItemEquipped(Entity, heldItemId, out failure, MainHandSlotIndex))
                 return;
 
-            var activateHandler = equipment as IMyItemActivateHandler;
-            var canHandle = activateHandler != null && activateHandler.CanHandle(item);
-            var activated = canHandle && activateHandler.Activate(Entity, inventory, item, true);
-            if (activated)
-                return;
-
-            Log($"Failed to equip {heldItemId.SubtypeName}. handler={activateHandler != null}, canHandle={canHandle}. Slots: {DescribeSlots(equipment)}");
+            Log($"{failure} Slots: {DescribeSlots(equipment)}");
             Retry();
-        }
-
-        private bool TryGetEquipmentContext(out MyEntityEquipmentComponent equipment, out MyInventoryBase inventory, out string inventorySource)
-        {
-            equipment = Entity.Components.Get<MyEntityEquipmentComponent>();
-            inventory = FindInventory(out inventorySource);
-            if (equipment != null && inventory != null)
-                return true;
-
-            LogMissingComponents(equipment != null, inventory != null, inventorySource);
-            return false;
         }
 
         private bool TryResolveHeldItem(out MyDefinitionId heldItemId)
@@ -158,26 +124,6 @@ namespace Si.UtilityAI
             }
 
             Log($"Failed to resolve held item definition {heldItemId.TypeId}/{heldItemId.SubtypeName}.");
-            return false;
-        }
-
-        private bool TryEnsureItemInInventory(MyInventoryBase inventory, MyDefinitionId heldItemId, out MyInventoryItem item)
-        {
-            item = inventory.FindItem(heldItemId);
-            if (item != null)
-                return true;
-
-            if (!inventory.AddItems(heldItemId, 1, MyInventoryBase.NewItemParams.ForcedInsertion))
-            {
-                Log($"Failed to add {heldItemId.SubtypeName} to inventory.");
-                return false;
-            }
-
-            item = inventory.FindItem(heldItemId);
-            if (item != null)
-                return true;
-
-            Log($"Inventory still does not contain {heldItemId.SubtypeName} after add attempt.");
             return false;
         }
 
@@ -203,22 +149,6 @@ namespace Si.UtilityAI
         {
             var item = equipment.GetItemForSlot(slot);
             return item == null ? "empty" : $"{item.DefinitionId.SubtypeName}@{slot.String}";
-        }
-
-        private MyInventoryBase FindInventory(out string source)
-        {
-            foreach (var inventoryName in InventoryNames)
-            {
-                var inventory = Entity.Components.Get<MyInventoryBase>(inventoryName);
-                if (inventory != null)
-                {
-                    source = inventoryName.String;
-                    return inventory;
-                }
-            }
-
-            source = "none";
-            return null;
         }
 
         private void LogMissingComponents(bool hasEquipment, bool hasInventory, string inventorySource)
