@@ -458,7 +458,7 @@ namespace Si.UtilityAI
         private long _fireCooldown;
         private long _lastFireDenyLogTime = -1;
         private long _lastFireIntentTime = long.MinValue;
-        private long _scheduledFireToken;
+        private bool _scheduledFireQueued;
         private MyEntity _fireIntentTarget;
         private Vector3D _fireIntentTargetVelocity;
 
@@ -515,7 +515,6 @@ namespace Si.UtilityAI
         {
             _fireCooldown = 0;
             _lastFireIntentTime = long.MinValue;
-            _scheduledFireToken++;
             _fireIntentTarget = null;
             _fireIntentTargetVelocity = Vector3D.Zero;
         }
@@ -580,7 +579,6 @@ namespace Si.UtilityAI
         internal void ClearFireIntent()
         {
             _lastFireIntentTime = long.MinValue;
-            _scheduledFireToken++;
             _fireIntentTarget = null;
             _fireIntentTargetVelocity = Vector3D.Zero;
         }
@@ -656,15 +654,18 @@ namespace Si.UtilityAI
 
         private void StartScheduledFiring()
         {
-            var token = ++_scheduledFireToken;
+            if (_scheduledFireQueued)
+                return;
+
+            _scheduledFireQueued = true;
             var delay = Math.Max(1L, EffectiveFireIntervalMilliseconds);
-            AddScheduledCallback(dt => ContinueScheduledFiring(dt, token), delay);
+            AddScheduledCallback(ContinueScheduledFiring, delay);
         }
 
-        private void ContinueScheduledFiring(long _, long token)
+        [Update(false)]
+        private void ContinueScheduledFiring(long _)
         {
-            if (token != _scheduledFireToken)
-                return;
+            _scheduledFireQueued = false;
             if (Entity == null || Entity.Closed || Entity.MarkedForClose)
                 return;
             if (!IsOperational)
