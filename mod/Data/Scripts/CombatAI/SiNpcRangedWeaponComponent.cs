@@ -380,10 +380,8 @@ namespace Si.UtilityAI
                 MagazineCount = behavior.ClipSize;
             if (!string.IsNullOrWhiteSpace(behavior.GunCycleSound))
                 ReloadSoundName = behavior.GunCycleSound;
-            if (!string.IsNullOrWhiteSpace(behavior.ReloadSoundName))
-                MagazineReloadSoundName = behavior.ReloadSoundName;
-            if (!string.IsNullOrWhiteSpace(behavior.ShootSoundName))
-                ShootSoundName = behavior.ShootSoundName;
+            if (!string.IsNullOrWhiteSpace(behavior.LauncherReloadSoundName))
+                MagazineReloadSoundName = behavior.LauncherReloadSoundName;
             if (!string.IsNullOrWhiteSpace(behavior.ShootSoundMid))
                 ShootSoundMid = behavior.ShootSoundMid;
             if (!string.IsNullOrWhiteSpace(behavior.ShootSoundMidFront))
@@ -392,6 +390,8 @@ namespace Si.UtilityAI
                 ShootSoundFar = behavior.ShootSoundFar;
             if (!string.IsNullOrWhiteSpace(behavior.ShootSoundFarFront))
                 ShootSoundFarFront = behavior.ShootSoundFarFront;
+            if (string.IsNullOrWhiteSpace(ShootSoundName) && !string.IsNullOrWhiteSpace(ShootSoundMid))
+                ShootSoundName = ShootSoundMid;
             if (behavior.MaxSyncedCreationDistance > 0)
                 ProjectileSyncDistance = behavior.MaxSyncedCreationDistance;
             if (behavior.VelocityMultiplier > 0)

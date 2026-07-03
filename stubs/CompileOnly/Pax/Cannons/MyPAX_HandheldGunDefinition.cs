@@ -27,13 +27,12 @@ namespace Pax.Cannons
         public float CharacterDamageMultiplier { get; set; }
         public string[] AcceptedCartridges { get; set; }
         public string[] AcceptedMagazines { get; set; }
-        public string ShootSoundName { get; set; }
         public string ShootSoundMid { get; set; }
         public string ShootSoundMidFront { get; set; }
         public string ShootSoundFar { get; set; }
         public string ShootSoundFarFront { get; set; }
-        public string ReloadSoundName { get; set; }
         public string GunCycleSound { get; set; }
+        public string LauncherReloadSoundName { get; set; }
         public string ShootEffect { get; set; }
         public float ShootEffectScale { get; set; }
         public float FrontOfBarrelOffset { get; set; }
