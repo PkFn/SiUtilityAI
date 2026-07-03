@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Xml.Serialization;
 using Pax.Cannons;
+using Sandbox.Game.EntityComponents.Character;
 using Sandbox.ModAPI;
 using SiCore.Core.Debug;
 using VRage.Components;
@@ -449,19 +450,12 @@ namespace Si.UtilityAI
     public class SiNpcRangedWeaponComponent : MyEntityComponent
     {
         private const long FireDenyLogCooldownMilliseconds = 1000;
-        private static readonly Random ShotSpreadRandom = new Random();
-        private static readonly object ShotSpreadRandomLock = new object();
-
-        private readonly List<PendingShotSound> _pendingShotSounds = new List<PendingShotSound>();
-        private readonly List<PendingWeaponSound> _pendingWeaponSounds = new List<PendingWeaponSound>();
         private readonly SiGameLog _log = new SiGameLog(nameof(SiNpcRangedWeaponComponent), "[SiShoot]");
 
         private SiNpcRangedWeaponComponentDefinition _definition;
         private SiNpcRangedWeaponComponentDefinition _runtimeDefinition;
         private long _fireCooldown;
         private long _lastFireDenyLogTime = -1;
-        private int _shotsRemainingInMagazine;
-        private int _shotsRemainingInBurst;
 
         public override bool IsSerialized => false;
         public SiNpcRangedWeaponComponentDefinition Definition => _runtimeDefinition ?? _definition;
@@ -471,12 +465,10 @@ namespace Si.UtilityAI
             get
             {
                 Definition.ResolveBalance();
-                return !string.IsNullOrWhiteSpace(Definition.Projectile)
-                       && Definition.ProjectileVelocityMultiplier > 0
-                       && Definition.ProjectileAccuracyMultiplier > 0
-                       && Definition.ProjectileSyncDistance > 0
-                       && SiPaxProjectileSpawner.IsAvailable
-                       && ProjectileDefinitionExists(Definition.Projectile);
+                Definition.ResolveWeaponBehavior();
+                return Definition.HeldItem.HasValue
+                       && Definition.WeaponBehavior.HasValue
+                       && GetHeldGunBehavior() != null;
             }
         }
 
@@ -517,11 +509,6 @@ namespace Si.UtilityAI
         internal void ResetState()
         {
             _fireCooldown = 0;
-            _shotsRemainingInMagazine = 0;
-            _shotsRemainingInBurst = Math.Max(1, Definition?.BurstCount ?? 1);
-            _pendingShotSounds.Clear();
-            _pendingWeaponSounds.Clear();
-            TryReloadMagazineFromInventory();
         }
 
         internal void Advance(long elapsedMilliseconds)
@@ -551,51 +538,30 @@ namespace Si.UtilityAI
                 return false;
             }
 
-            if (!EnsureLoadedAmmo())
-            {
-                LogFireDeniedWithCooldown("out-of-ammo", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
-                return false;
-            }
-
             if (context?.Entity == null || targetEntity == null)
             {
                 LogFireDeniedWithCooldown("missing-entity-context", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
                 return false;
             }
 
-            if (!TryCreateShot(context.Entity, targetEntity, targetVelocity, out var projectileMatrix))
+            var heldGun = GetHeldGunBehavior();
+            if (heldGun == null)
+            {
+                LogFireDeniedWithCooldown("held-gun-missing", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
+                return false;
+            }
+
+            Quaternion direction;
+            if (!TryCreateShotDirection(context.Entity, targetEntity, targetVelocity, out direction))
             {
                 LogFireDeniedWithCooldown("shot-creation-failed", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
                 return false;
             }
 
-            var projectileAccuracyMultiplier = ComputeProjectileAccuracyMultiplier(
-                detectionScore,
-                detectionAccuracyWorseningMultiplier);
-
-            if (!SiPaxProjectileSpawner.TryCreateSyncedProjectile(
-                    Definition.Projectile,
-                    projectileMatrix,
-                    Definition.ProjectileVelocityMultiplier,
-                    projectileAccuracyMultiplier,
-                    Vector3.Zero,
-                    Definition.ProjectileSyncDistance,
-                    Definition.CharacterDamageMultiplier,
-                    context.EntityId))
-            {
-                LogFireDeniedWithCooldown("projectile-spawn-failed", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
-                return false;
-            }
-
-            var shotFeedback = ConsumeShot();
-            _fireCooldown = shotFeedback.CooldownMilliseconds;
+            MyPAX_HandheldGun.ServerGunShootEvent(context.EntityId, direction);
+            _fireCooldown = Math.Max(1, Definition.FireCooldownMilliseconds);
             SiNpcSessionComponent.Instance?.ReportNpcFiredShot(context.EntityId);
             SiNpcSessionComponent.Instance?.Spotting?.ReportShot(context.EntityId, context.Entity);
-            PlayShotFeedback(
-                context.EntityId,
-                projectileMatrix,
-                shotFeedback.PlayReloadSound,
-                shotFeedback.PlayMagazineReloadSound);
             return true;
         }
 
@@ -611,26 +577,16 @@ namespace Si.UtilityAI
                 return;
 
             _lastFireDenyLogTime = now;
-            _log.Warning($"entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} definition={DefinitionId.SubtypeName} debug fire-denied outcome={outcome} targetId={targetEntity?.EntityId ?? 0} targetName={targetEntity?.Name ?? "null"} cooldownMs={_fireCooldown} magazineRemaining={_shotsRemainingInMagazine} burstRemaining={_shotsRemainingInBurst} projectile={_definition?.Projectile ?? "null"} projectileVelocityMultiplier={_definition?.ProjectileVelocityMultiplier ?? 0:0.000} projectileAccuracyMultiplier={_definition?.ProjectileAccuracyMultiplier ?? 0:0.000} projectileSyncDistance={_definition?.ProjectileSyncDistance ?? 0:0.000} detectionScore={detectionScore:0.000} detectionAccuracyWorseningMultiplier={detectionAccuracyWorseningMultiplier:0.000} contextEntityId={context?.EntityId ?? 0}"); // AGENT-DEBUG-LOG
+            _log.Warning($"entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} definition={DefinitionId.SubtypeName} debug fire-denied outcome={outcome} targetId={targetEntity?.EntityId ?? 0} targetName={targetEntity?.Name ?? "null"} cooldownMs={_fireCooldown} heldItem={Definition?.HeldItem?.SubtypeId ?? "null"} weaponBehavior={Definition?.WeaponBehavior?.SubtypeId ?? "null"} detectionScore={detectionScore:0.000} detectionAccuracyWorseningMultiplier={detectionAccuracyWorseningMultiplier:0.000} contextEntityId={context?.EntityId ?? 0}"); // AGENT-DEBUG-LOG
         }
 
-        private float ComputeProjectileAccuracyMultiplier(
-            float detectionScore,
-            float detectionAccuracyWorseningMultiplier)
-        {
-            var clampedScore = MathHelper.Clamp(detectionScore, 0, 1);
-            var worseningMultiplier = Math.Max(1, detectionAccuracyWorseningMultiplier);
-            var blendedMultiplier = MathHelper.Lerp(worseningMultiplier, 1f, clampedScore);
-            return Definition.ProjectileAccuracyMultiplier * blendedMultiplier;
-        }
-
-        private bool TryCreateShot(
+        private bool TryCreateShotDirection(
             MyEntity shooter,
             MyEntity targetEntity,
             Vector3D targetVelocity,
-            out MatrixD projectileMatrix)
+            out Quaternion direction)
         {
-            projectileMatrix = MatrixD.Identity;
+            direction = Quaternion.Identity;
             if (shooter == null || targetEntity == null)
                 return false;
 
@@ -654,376 +610,12 @@ namespace Si.UtilityAI
             var shotDirection = SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(
                 aimPoint - initialMuzzle,
                 shooterWorld.Forward);
-            shotDirection = ApplySpread(shotDirection, shooterUp);
-            var muzzlePosition = shooterWorld.Translation
-                                 + shotDirection * Definition.MuzzleForwardOffset
-                                 + shooterUp * Definition.MuzzleUpOffset;
             var shotUp = RejectOrFallback(
                 shooterUp,
                 shotDirection,
                 Vector3D.CalculatePerpendicularVector(shotDirection));
-            projectileMatrix = MatrixD.CreateWorld(muzzlePosition, shotDirection, shotUp);
+            direction = Quaternion.CreateFromRotationMatrix(MatrixD.CreateWorld(Vector3D.Zero, shotDirection, shotUp));
             return true;
-        }
-
-        private Vector3D ApplySpread(in Vector3D shotDirection, in Vector3D fallbackUp)
-        {
-            var spreadRadians = MathHelper.ToRadians(Definition.ShootingSpreadDegrees);
-            if (spreadRadians <= 0)
-                return shotDirection;
-
-            double yaw;
-            double pitch;
-            lock (ShotSpreadRandomLock)
-            {
-                yaw = (ShotSpreadRandom.NextDouble() * 2 - 1) * spreadRadians;
-                pitch = (ShotSpreadRandom.NextDouble() * 2 - 1) * spreadRadians;
-            }
-
-            var spreadRight = RejectOrFallback(
-                Vector3D.CalculatePerpendicularVector(shotDirection),
-                shotDirection,
-                Vector3D.Right);
-            var spreadUp = RejectOrFallback(
-                fallbackUp,
-                shotDirection,
-                Vector3D.Cross(spreadRight, shotDirection));
-            var spreadDirection = shotDirection
-                                  + spreadRight * Math.Tan(yaw)
-                                  + spreadUp * Math.Tan(pitch);
-            return SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(spreadDirection, shotDirection);
-        }
-
-        private ShotFeedback ConsumeShot()
-        {
-            if (_shotsRemainingInBurst <= 0)
-                _shotsRemainingInBurst = Math.Max(1, Definition.BurstCount);
-
-            _shotsRemainingInMagazine = Math.Max(0, _shotsRemainingInMagazine - 1);
-            _shotsRemainingInBurst = Math.Max(0, _shotsRemainingInBurst - 1);
-
-            var magazineEmpty = _shotsRemainingInMagazine <= 0;
-            var burstFinished = _shotsRemainingInBurst <= 0;
-
-            if (burstFinished || magazineEmpty)
-                _shotsRemainingInBurst = Math.Max(1, Definition.BurstCount);
-
-            if (magazineEmpty)
-            {
-                var reloaded = TryReloadMagazineFromInventory();
-                return new ShotFeedback
-                {
-                    CooldownMilliseconds = reloaded ? Definition.MagazineReloadMilliseconds : Definition.FireCooldownMilliseconds,
-                    PlayMagazineReloadSound = reloaded && !string.IsNullOrWhiteSpace(Definition.MagazineReloadSoundName),
-                };
-            }
-
-            if (Definition.BurstCount > 1 && !burstFinished)
-                return new ShotFeedback { CooldownMilliseconds = Definition.FireCooldownMilliseconds };
-
-            return new ShotFeedback
-            {
-                CooldownMilliseconds = Definition.BurstCount > 1
-                    ? Definition.BurstCooldownMilliseconds
-                    : Definition.FireCooldownMilliseconds,
-                PlayReloadSound = Definition.BurstCount <= 1
-                                  && !string.IsNullOrWhiteSpace(Definition.ReloadSoundName),
-            };
-        }
-
-        private void PlayShotFeedback(
-            long entityId,
-            MatrixD projectileMatrix,
-            bool playReloadSound,
-            bool playMagazineReloadSound)
-        {
-            PlayShotFeedbackLocal(projectileMatrix, playReloadSound, playMagazineReloadSound);
-            if (MyMultiplayerModApi.Static != null && MyMultiplayerModApi.Static.IsServer)
-                MyMultiplayerModApi.Static.RaiseStaticEvent(
-                    x => PlayShotFeedbackClient,
-                    entityId,
-                    projectileMatrix,
-                    playReloadSound,
-                    playMagazineReloadSound);
-        }
-
-        [Event, Reliable, Broadcast]
-        private static void PlayShotFeedbackClient(
-            long entityId,
-            MatrixD projectileMatrix,
-            bool playReloadSound,
-            bool playMagazineReloadSound)
-        {
-            if (MyMultiplayerModApi.Static != null && MyMultiplayerModApi.Static.IsServer)
-                return;
-
-            var manager = SiNpcSessionComponent.Instance?.Npcs;
-            if (manager == null)
-                return;
-            if (!manager.Npcs.TryGetValue(entityId, out var npc))
-                return;
-
-            npc.Entity?.Components
-                .Get<SiNpcRangedWeaponComponent>()
-                ?.PlayShotFeedbackLocal(projectileMatrix, playReloadSound, playMagazineReloadSound);
-        }
-
-        private void PlayShotFeedbackLocal(
-            MatrixD projectileMatrix,
-            bool playReloadSound,
-            bool playMagazineReloadSound)
-        {
-            if (_definition == null)
-                return;
-
-            PlayMuzzleEffect(projectileMatrix);
-            QueueShotSound(projectileMatrix);
-
-            var position = projectileMatrix.Translation;
-            if (playReloadSound)
-                QueueWeaponSound(
-                    Definition.ReloadSoundName,
-                    position,
-                    Math.Min(500, Definition.FireCooldownMilliseconds / 3));
-            if (playMagazineReloadSound)
-                QueueWeaponSound(
-                    Definition.MagazineReloadSoundName,
-                    position,
-                    Math.Min(900, Definition.MagazineReloadMilliseconds / 4));
-        }
-
-        private void PlayMuzzleEffect(MatrixD projectileMatrix)
-        {
-            if (!string.IsNullOrWhiteSpace(Definition.ShootEffectName))
-            {
-                MyParticleEffect directEffect;
-                if (MyParticlesManager.TryCreateParticleEffect(MyStringHash.GetOrCompute(Definition.ShootEffectName), out directEffect, false)
-                    && directEffect != null)
-                {
-                    directEffect.WorldMatrix = projectileMatrix;
-                    directEffect.UserScale *= Definition.ShootEffectScale;
-                }
-
-                return;
-            }
-
-            if (!Definition.ShootEffect.HasValue)
-                return;
-
-            MyEffectDefinition effectDefinition;
-            try
-            {
-                effectDefinition = MyDefinitionManager.Get<MyEffectDefinition>(Definition.ShootEffect.Value);
-            }
-            catch
-            {
-                return;
-            }
-
-            if (effectDefinition == null || effectDefinition.ParticleId == MyStringHash.NullOrEmpty)
-                return;
-
-            MyParticleEffect effect;
-            if (!MyParticlesManager.TryCreateParticleEffect(effectDefinition.ParticleId, out effect, false)
-                || effect == null)
-                return;
-
-            effect.WorldMatrix = projectileMatrix;
-            effect.UserScale *= effectDefinition.ParticleScale;
-        }
-
-        private void QueueShotSound(MatrixD projectileMatrix)
-        {
-            if (!HasAnyShootSound
-                || Definition.ShootSoundSpeedMetersPerSecond <= 0
-                || Definition.ShootSoundFalloffMilliseconds <= 0)
-                return;
-
-            var camera = MyAPIGateway.Session?.Camera;
-            if (camera == null)
-                return;
-
-            var position = projectileMatrix.Translation;
-            var toCamera = camera.WorldMatrix.Translation - position;
-            var distanceSquared = toCamera.LengthSquared();
-            var distance = distanceSquared > 0.0001 ? Math.Sqrt(distanceSquared) : 0;
-            var delayMilliseconds = (long)(distance * 1000 / Definition.ShootSoundSpeedMetersPerSecond);
-            if (Definition.ShootSoundMaxDelayMilliseconds > 0
-                && delayMilliseconds >= Definition.ShootSoundMaxDelayMilliseconds)
-                return;
-
-            var frontAngle = 0f;
-            if (distance > 0.0001)
-            {
-                var shotDirection = SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(
-                    projectileMatrix.Forward,
-                    Vector3D.Forward);
-                frontAngle = (float)Vector3D.Dot(shotDirection, toCamera / distance);
-            }
-
-            _pendingShotSounds.Add(new PendingShotSound
-            {
-                Position = position,
-                DelayMilliseconds = delayMilliseconds,
-                DueTimeMilliseconds = CurrentTimeMilliseconds() + delayMilliseconds,
-                FrontAngle = frontAngle,
-            });
-
-            if (delayMilliseconds <= 0)
-                PlayDelayedShotSound(0);
-            else
-                AddScheduledCallback(PlayDelayedShotSound, delayMilliseconds);
-        }
-
-        private void QueueWeaponSound(string cue, Vector3D position, long actionDelayMilliseconds)
-        {
-            if (string.IsNullOrWhiteSpace(cue))
-                return;
-
-            var delayMilliseconds = Math.Max(0, actionDelayMilliseconds + SoundTravelDelayMilliseconds(position));
-            _pendingWeaponSounds.Add(new PendingWeaponSound
-            {
-                Cue = cue,
-                Position = position,
-                DueTimeMilliseconds = CurrentTimeMilliseconds() + delayMilliseconds,
-            });
-
-            if (delayMilliseconds <= 0)
-                PlayDelayedWeaponSound(0);
-            else
-                AddScheduledCallback(PlayDelayedWeaponSound, delayMilliseconds);
-        }
-
-        [Update(false)]
-        private void PlayDelayedWeaponSound(long elapsedMilliseconds)
-        {
-            if (_pendingWeaponSounds.Count == 0)
-                return;
-
-            var index = PendingWeaponSoundIndex();
-            var pending = _pendingWeaponSounds[index];
-            _pendingWeaponSounds.RemoveAt(index);
-            PlayWorldSound(pending.Cue, pending.Position, 1f);
-        }
-
-        [Update(false)]
-        private void PlayDelayedShotSound(long elapsedMilliseconds)
-        {
-            if (_pendingShotSounds.Count == 0)
-                return;
-
-            var index = PendingShotSoundIndex();
-            var pending = _pendingShotSounds[index];
-            _pendingShotSounds.RemoveAt(index);
-
-            var distancePower = 1f - pending.DelayMilliseconds / Definition.ShootSoundFalloffMilliseconds;
-            if (distancePower > 0)
-                distancePower = distancePower * distancePower * distancePower;
-            if (distancePower <= 0)
-                return;
-
-            if (pending.DelayMilliseconds > Definition.ShootSoundDirectMaximumDelayMilliseconds
-                && HasDistanceShootSounds)
-            {
-                var angleRange = 2 * Definition.ShootSoundFrontAngleBlendRange;
-                var angleWeight = MathHelper.Clamp(
-                    (pending.FrontAngle
-                     - Definition.ShootSoundFrontAngleThreshold
-                     + Definition.ShootSoundFrontAngleBlendRange)
-                    / angleRange,
-                    0,
-                    1);
-                var distanceWeight = MathHelper.Clamp(
-                    (pending.DelayMilliseconds - Definition.ShootSoundDistanceBlendStartMilliseconds)
-                    / Definition.ShootSoundDistanceBlendRangeMilliseconds,
-                    0,
-                    1);
-
-                var closeVolume = MathHelper.Clamp(1f - distanceWeight, 0, 1);
-                var farVolume = MathHelper.Clamp(distanceWeight, 0, 1);
-                var frontVolume = MathHelper.Clamp(angleWeight, 0, 1);
-                var backVolume = MathHelper.Clamp(1f - angleWeight, 0, 1);
-
-                PlayWorldSound(Definition.ShootSoundMidFront, pending.Position, distancePower * closeVolume * frontVolume);
-                PlayWorldSound(Definition.ShootSoundMid, pending.Position, distancePower * closeVolume * backVolume);
-                PlayWorldSound(Definition.ShootSoundFarFront, pending.Position, distancePower * farVolume * frontVolume);
-                PlayWorldSound(Definition.ShootSoundFar, pending.Position, distancePower * farVolume * backVolume);
-                return;
-            }
-
-            PlayWorldSound(Definition.ShootSoundName, pending.Position, distancePower);
-        }
-
-        private int PendingShotSoundIndex()
-        {
-            var bestIndex = 0;
-            var bestDueTime = _pendingShotSounds[0].DueTimeMilliseconds;
-            for (var i = 1; i < _pendingShotSounds.Count; i++)
-            {
-                var dueTime = _pendingShotSounds[i].DueTimeMilliseconds;
-                if (dueTime >= bestDueTime)
-                    continue;
-
-                bestIndex = i;
-                bestDueTime = dueTime;
-            }
-
-            return bestIndex;
-        }
-
-        private int PendingWeaponSoundIndex()
-        {
-            var bestIndex = 0;
-            var bestDueTime = _pendingWeaponSounds[0].DueTimeMilliseconds;
-            for (var i = 1; i < _pendingWeaponSounds.Count; i++)
-            {
-                var dueTime = _pendingWeaponSounds[i].DueTimeMilliseconds;
-                if (dueTime >= bestDueTime)
-                    continue;
-
-                bestIndex = i;
-                bestDueTime = dueTime;
-            }
-
-            return bestIndex;
-        }
-
-        private bool HasAnyShootSound =>
-            !string.IsNullOrEmpty(Definition.ShootSoundName)
-            || HasDistanceShootSounds;
-
-        private bool HasDistanceShootSounds =>
-            !string.IsNullOrEmpty(Definition.ShootSoundMid)
-            && !string.IsNullOrEmpty(Definition.ShootSoundMidFront)
-            && !string.IsNullOrEmpty(Definition.ShootSoundFar)
-            && !string.IsNullOrEmpty(Definition.ShootSoundFarFront)
-            && Definition.ShootSoundFrontAngleBlendRange > 0
-            && Definition.ShootSoundDistanceBlendRangeMilliseconds > 0;
-
-        private static void PlayWorldSound(string cue, Vector3D position, float volume)
-        {
-            if (string.IsNullOrEmpty(cue) || volume <= 0)
-                return;
-
-            var audio = Sandbox.Game.World.MyAudioComponent.Instance;
-            if (audio == null)
-                return;
-
-            audio.TryPlayOneOffSound(new VRage.Audio.MyCueId(cue), position, volume, null, null);
-        }
-
-        private long SoundTravelDelayMilliseconds(Vector3D position)
-        {
-            if (Definition == null || Definition.ShootSoundSpeedMetersPerSecond <= 0)
-                return 0;
-
-            var camera = MyAPIGateway.Session?.Camera;
-            if (camera == null)
-                return 0;
-
-            var distanceSquared = Vector3D.DistanceSquared(position, camera.WorldMatrix.Translation);
-            var distance = distanceSquared > 0.0001 ? Math.Sqrt(distanceSquared) : 0;
-            return (long)(distance * 1000 / Definition.ShootSoundSpeedMetersPerSecond);
         }
 
         private static long CurrentTimeMilliseconds()
@@ -1069,85 +661,6 @@ namespace Si.UtilityAI
             SiNpcEquipmentHelper.TryEnsureEquipmentItemEquipped(Entity, heldItemId, out failure, 2);
         }
 
-        private bool EnsureLoadedAmmo()
-        {
-            if (_shotsRemainingInMagazine > 0)
-                return true;
-
-            return TryReloadMagazineFromInventory();
-        }
-
-        private bool TryReloadMagazineFromInventory()
-        {
-            if (_definition == null)
-                return false;
-
-            if (!Definition.ConsumeAmmo)
-            {
-                _shotsRemainingInMagazine = Math.Max(1, Definition.MagazineCount);
-                return true;
-            }
-
-            if (!TryGetInventory(out var inventory))
-                return false;
-
-            if (Definition.InternallyLoaded || Definition.AcceptedMagazines.Length == 0)
-                return TryLoadLooseCartridges(inventory);
-
-            return TryLoadMagazineItem(inventory);
-        }
-
-        private bool TryLoadLooseCartridges(MyInventoryBase inventory)
-        {
-            var clipSize = Math.Max(1, Definition.MagazineCount);
-            var available = 0;
-            for (var i = 0; i < Definition.AcceptedCartridges.Length; i++)
-            {
-                var id = new MyDefinitionId(typeof(MyObjectBuilder_InventoryItem), Definition.AcceptedCartridges[i]);
-                available += Math.Max(0, inventory.GetItemAmount(id));
-                if (available >= clipSize)
-                    break;
-            }
-
-            if (available <= 0)
-                return false;
-
-            var toLoad = Math.Min(clipSize, available);
-            for (var i = 0; i < Definition.AcceptedCartridges.Length && toLoad > 0; i++)
-            {
-                var id = new MyDefinitionId(typeof(MyObjectBuilder_InventoryItem), Definition.AcceptedCartridges[i]);
-                var count = Math.Max(0, inventory.GetItemAmount(id));
-                if (count <= 0)
-                    continue;
-
-                var take = Math.Min(toLoad, count);
-                if (!inventory.RemoveItems(id, take))
-                    continue;
-
-                toLoad -= take;
-            }
-
-            var loaded = Math.Min(clipSize, available);
-            _shotsRemainingInMagazine = loaded - toLoad;
-            return _shotsRemainingInMagazine > 0;
-        }
-
-        private bool TryLoadMagazineItem(MyInventoryBase inventory)
-        {
-            for (var i = 0; i < Definition.AcceptedMagazines.Length; i++)
-            {
-                var subtype = Definition.AcceptedMagazines[i];
-                var id = new MyDefinitionId(typeof(Sandbox.Game.EntityComponents.MyObjectBuilder_MagazineItem), subtype);
-                if (!inventory.RemoveItems(id, 1))
-                    continue;
-
-                _shotsRemainingInMagazine = Math.Max(1, Definition.MagazineCount);
-                return true;
-            }
-
-            return false;
-        }
-
         private bool TryGetInventory(out MyInventoryBase inventory)
         {
             string ignored;
@@ -1155,60 +668,11 @@ namespace Si.UtilityAI
             return inventory != null;
         }
 
-        private struct PendingShotSound
+        private MyPAX_HandheldGun GetHeldGunBehavior()
         {
-            public Vector3D Position;
-            public long DelayMilliseconds;
-            public long DueTimeMilliseconds;
-            public float FrontAngle;
-        }
-
-        private struct PendingWeaponSound
-        {
-            public string Cue;
-            public Vector3D Position;
-            public long DueTimeMilliseconds;
-        }
-
-        private struct ShotFeedback
-        {
-            public long CooldownMilliseconds;
-            public bool PlayReloadSound;
-            public bool PlayMagazineReloadSound;
-        }
-    }
-
-    internal static class SiPaxProjectileSpawner
-    {
-        public static bool IsAvailable => true;
-
-        public static bool TryCreateSyncedProjectile(
-            string projectile,
-            MatrixD matrix,
-            float velocity,
-            float accuracy,
-            Vector3 gridVelocity,
-            float maxDistance,
-            float characterDamageMultiplier,
-            long ownerId)
-        {
-            try
-            {
-                PAX_Projectile_Spawner.ServerCreateSyncedProjectile(
-                    projectile,
-                    matrix,
-                    velocity,
-                    accuracy,
-                    gridVelocity,
-                    maxDistance,
-                    characterDamageMultiplier,
-                    ownerId);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
+            return Entity?.Components
+                .Get<MyCharacterHandItemsComponent>()
+                ?.GetBehavior<MyPAX_HandheldGun>();
         }
     }
 }

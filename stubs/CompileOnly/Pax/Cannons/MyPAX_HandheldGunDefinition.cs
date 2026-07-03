@@ -1,4 +1,7 @@
 using System.Xml.Serialization;
+using Sandbox.Definitions.Equipment;
+using Sandbox.Game.EntityComponents.Character;
+using Sandbox.Game.Inventory;
 using VRage.Game;
 using VRage.Game.Definitions;
 using VRage.ObjectBuilders;
@@ -39,5 +42,33 @@ namespace Pax.Cannons
         public Vector2 ProjectilePositionOffset { get; set; }
         public Vector3 ShootEffectPositionOffset { get; set; }
         public float MaxSyncedCreationDistance { get; set; }
+    }
+
+    public class MyPAX_HandheldGun : MyHandItemBehaviorBase
+    {
+        public override float TargetingDistance => -1;
+
+        public override bool SetSecondary(MyHandItem secondaryItem, MyHandItemBehaviorDefinition secondaryDefinition)
+        {
+            return false;
+        }
+
+        public override bool SetTarget()
+        {
+            return true;
+        }
+
+        public override StartActionResponse StartAction(MyHandItemActionEnum action)
+        {
+            return StartActionResponse.Handled;
+        }
+
+        public override void EndAction(MyHandItemActionEnum action)
+        {
+        }
+
+        public static void ServerGunShootEvent(long holderId, Quaternion direction)
+        {
+        }
     }
 }
