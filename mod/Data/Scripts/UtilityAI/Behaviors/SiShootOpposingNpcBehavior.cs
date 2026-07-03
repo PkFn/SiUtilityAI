@@ -311,12 +311,14 @@ namespace Si.UtilityAI
             var runningToCover = _takeCoverBehavior?.IsRunningToCover(context) ?? false;
             if (weapon == null || !weapon.IsOperational)
             {
+                weapon?.ClearFireIntent();
                 LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, null, "weapon-unavailable", 0, SiSpottingObservation.None, weapon);
                 return;
             }
 
             if (stance == SiSquadEngagementStance.HoldFire)
             {
+                weapon.ClearFireIntent();
                 LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, _target, "hold-fire", 0, SiSpottingObservation.None, weapon);
                 return;
             }
@@ -324,6 +326,7 @@ namespace Si.UtilityAI
             var target = GetTrackedTarget(context, false, out var distance);
             if (!IsValidTarget(context.Agent, target))
             {
+                weapon.ClearFireIntent();
                 LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, target, "no-valid-target", distance, SiSpottingObservation.None, weapon);
                 return;
             }
@@ -336,6 +339,7 @@ namespace Si.UtilityAI
 
             if (Definition.RequireLineOfSight && !HasLineOfSight(context.Entity, targetEntity, weapon.Definition.AimTargetHeight))
             {
+                weapon.ClearFireIntent();
                 LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, target, "line-of-sight-blocked", distance, SiSpottingObservation.None, weapon);
                 return;
             }
@@ -343,6 +347,7 @@ namespace Si.UtilityAI
             var observation = TryReportSpotting(context, target, distance);
             if (!observation.IsSpotted)
             {
+                weapon.ClearFireIntent();
                 LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, target, runningToCover ? "running-to-cover" : "spotting-not-confirmed", distance, observation, weapon);
                 return;
             }
@@ -360,6 +365,7 @@ namespace Si.UtilityAI
             _target = null;
             _nextTargetEvaluationTime = -1;
             _lastSpottedTargetId = 0;
+            GetWeapon()?.ClearFireIntent();
             GetWeapon()?.ResetState();
         }
 

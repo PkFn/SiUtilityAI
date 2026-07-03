@@ -450,12 +450,17 @@ namespace Si.UtilityAI
     public class SiNpcRangedWeaponComponent : MyEntityComponent
     {
         private const long FireDenyLogCooldownMilliseconds = 1000;
+        private const long FireIntentGraceMilliseconds = 500;
         private readonly SiGameLog _log = new SiGameLog(nameof(SiNpcRangedWeaponComponent), "[SiShoot]");
 
         private SiNpcRangedWeaponComponentDefinition _definition;
         private SiNpcRangedWeaponComponentDefinition _runtimeDefinition;
         private long _fireCooldown;
         private long _lastFireDenyLogTime = -1;
+        private long _lastFireIntentTime = long.MinValue;
+        private long _scheduledFireToken;
+        private MyEntity _fireIntentTarget;
+        private Vector3D _fireIntentTargetVelocity;
 
         public override bool IsSerialized => false;
         public SiNpcRangedWeaponComponentDefinition Definition => _runtimeDefinition ?? _definition;
@@ -509,6 +514,10 @@ namespace Si.UtilityAI
         internal void ResetState()
         {
             _fireCooldown = 0;
+            _lastFireIntentTime = long.MinValue;
+            _scheduledFireToken++;
+            _fireIntentTarget = null;
+            _fireIntentTargetVelocity = Vector3D.Zero;
         }
 
         internal void Advance(long elapsedMilliseconds)
@@ -551,18 +560,29 @@ namespace Si.UtilityAI
                 return false;
             }
 
-            Quaternion direction;
-            if (!TryCreateShotDirection(context.Entity, targetEntity, targetVelocity, out direction))
+            _fireIntentTarget = targetEntity;
+            _fireIntentTargetVelocity = targetVelocity;
+            _lastFireIntentTime = CurrentTimeMilliseconds();
+
+            if (_fireCooldown > 0)
+                return true;
+
+            if (!TryFireSingleShot(context.Entity, targetEntity, targetVelocity))
             {
                 LogFireDeniedWithCooldown("shot-creation-failed", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
                 return false;
             }
 
-            MyPAX_HandheldGun.ServerGunShootEvent(context.EntityId, direction);
-            _fireCooldown = Math.Max(1, Definition.FireCooldownMilliseconds);
-            SiNpcSessionComponent.Instance?.ReportNpcFiredShot(context.EntityId);
-            SiNpcSessionComponent.Instance?.Spotting?.ReportShot(context.EntityId, context.Entity);
+            StartScheduledFiring();
             return true;
+        }
+
+        internal void ClearFireIntent()
+        {
+            _lastFireIntentTime = long.MinValue;
+            _scheduledFireToken++;
+            _fireIntentTarget = null;
+            _fireIntentTargetVelocity = Vector3D.Zero;
         }
 
         private void LogFireDeniedWithCooldown(
@@ -616,6 +636,66 @@ namespace Si.UtilityAI
                 Vector3D.CalculatePerpendicularVector(shotDirection));
             direction = Quaternion.CreateFromRotationMatrix(MatrixD.CreateWorld(Vector3D.Zero, shotDirection, shotUp));
             return true;
+        }
+
+        private bool TryFireSingleShot(
+            MyEntity shooter,
+            MyEntity targetEntity,
+            Vector3D targetVelocity)
+        {
+            Quaternion direction;
+            if (!TryCreateShotDirection(shooter, targetEntity, targetVelocity, out direction))
+                return false;
+
+            MyPAX_HandheldGun.ServerGunShootEvent(shooter.EntityId, direction);
+            _fireCooldown = EffectiveFireIntervalMilliseconds;
+            SiNpcSessionComponent.Instance?.ReportNpcFiredShot(shooter.EntityId);
+            SiNpcSessionComponent.Instance?.Spotting?.ReportShot(shooter.EntityId, shooter);
+            return true;
+        }
+
+        private void StartScheduledFiring()
+        {
+            var token = ++_scheduledFireToken;
+            var delay = Math.Max(1L, EffectiveFireIntervalMilliseconds);
+            AddScheduledCallback(dt => ContinueScheduledFiring(dt, token), delay);
+        }
+
+        private void ContinueScheduledFiring(long _, long token)
+        {
+            if (token != _scheduledFireToken)
+                return;
+            if (Entity == null || Entity.Closed || Entity.MarkedForClose)
+                return;
+            if (!IsOperational)
+                return;
+
+            var now = CurrentTimeMilliseconds();
+            if (now - _lastFireIntentTime > FireIntentGraceMilliseconds)
+                return;
+
+            var target = _fireIntentTarget;
+            if (target == null || target.Closed || target.MarkedForClose)
+                return;
+
+            if (_fireCooldown > 0)
+                _fireCooldown = 0;
+
+            if (!TryFireSingleShot(Entity, target, _fireIntentTargetVelocity))
+                return;
+
+            StartScheduledFiring();
+        }
+
+        private int EffectiveFireIntervalMilliseconds
+        {
+            get
+            {
+                var interval = Definition.FireCooldownMilliseconds;
+                if (interval > 0)
+                    return interval;
+                return 1;
+            }
         }
 
         private static long CurrentTimeMilliseconds()
