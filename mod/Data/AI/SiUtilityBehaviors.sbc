@@ -25,6 +25,7 @@
     <InstantMountDistance>5.25</InstantMountDistance>
     <WaypointRefreshDistance>0.75</WaypointRefreshDistance>
     <ExitArrivalDistance>1.25</ExitArrivalDistance>
+    <ActionIntervalMilliseconds>500</ActionIntervalMilliseconds>
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiTakeCoverBehaviorDefinition">

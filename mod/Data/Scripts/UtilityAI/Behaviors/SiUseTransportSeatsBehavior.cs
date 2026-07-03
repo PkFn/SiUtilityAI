@@ -31,6 +31,9 @@ namespace Si.UtilityAI
 
         [DefaultValue(1.25f)]
         public float ExitArrivalDistance = 1.25f;
+
+        [DefaultValue(500L)]
+        public long ActionIntervalMilliseconds = 500L;
     }
 
     [MyDefinitionType(typeof(MyObjectBuilder_SiUseTransportSeatsBehaviorDefinition))]
@@ -39,6 +42,7 @@ namespace Si.UtilityAI
         public float InstantMountDistance { get; private set; }
         public float WaypointRefreshDistance { get; private set; }
         public float ExitArrivalDistance { get; private set; }
+        public long ActionIntervalMilliseconds { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
         {
@@ -47,6 +51,7 @@ namespace Si.UtilityAI
             InstantMountDistance = Math.Max(0.25f, ob.InstantMountDistance);
             WaypointRefreshDistance = Math.Max(0.05f, ob.WaypointRefreshDistance);
             ExitArrivalDistance = Math.Max(0.1f, ob.ExitArrivalDistance);
+            ActionIntervalMilliseconds = Math.Max(0L, ob.ActionIntervalMilliseconds);
         }
     }
 
@@ -170,6 +175,12 @@ namespace Si.UtilityAI
             if (Vector3D.DistanceSquared(context.Position, seatPosition)
                 <= _definition.InstantMountDistance * _definition.InstantMountDistance)
             {
+                if (!session.TryConsumeTransportActionSlot(
+                    context.Agent,
+                    SiSquadTransportMode.Mount,
+                    _definition.ActionIntervalMilliseconds))
+                    return;
+
                 session.RecordTransportExitPosition(context.Agent, context.Position);
                 controller.RequestControl(assignedSeat);
                 if (context.HasWaypoint)
@@ -191,6 +202,12 @@ namespace Si.UtilityAI
 
             if (controller?.Controlled != null)
             {
+                if (!session.TryConsumeTransportActionSlot(
+                    context.Agent,
+                    SiSquadTransportMode.Disembark,
+                    _definition.ActionIntervalMilliseconds))
+                    return;
+
                 controller.ReleaseControl();
                 if (hasExitPosition)
                     context.TrySetWaypoint(exitPosition);

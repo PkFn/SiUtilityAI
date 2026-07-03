@@ -310,6 +310,39 @@ namespace Si.UtilityAI
             return true;
         }
 
+        internal bool TryConsumeTransportActionSlot(
+            SiNpc npc,
+            SiSquadTransportMode mode,
+            long intervalMilliseconds)
+        {
+            if (npc == null || mode == SiSquadTransportMode.None || Squads == null)
+                return false;
+
+            SiAssignedNpc assignment;
+            if (!Squads.TryGetAssignment(npc.EntityId, out assignment)
+                || assignment.Leader.Kind != SiSquadLeaderKind.Player)
+                return false;
+
+            if (!_squadOrders.TryGetValue(assignment.Leader.Id, out var state)
+                || state == null
+                || state.TransportMode != mode
+                || state.TransportVehicleEntityId == 0)
+                return false;
+
+            if (state.TransportCadenceMode != mode)
+            {
+                state.TransportCadenceMode = mode;
+                state.NextTransportActionTimeMilliseconds = 0;
+            }
+
+            var now = CurrentTimeMilliseconds();
+            if (state.NextTransportActionTimeMilliseconds > now)
+                return false;
+
+            state.NextTransportActionTimeMilliseconds = now + Math.Max(0L, intervalMilliseconds);
+            return true;
+        }
+
         internal bool TryGetAssignedTransportSeat(
             SiNpc npc,
             out EquiPlayerAttachmentComponent.Slot slot)
@@ -393,6 +426,7 @@ namespace Si.UtilityAI
             {
                 state.TransportMode = SiSquadTransportMode.None;
                 state.TransportVehicleEntityId = 0;
+                ResetTransportCadence(state);
             }
         }
 
@@ -977,6 +1011,7 @@ namespace Si.UtilityAI
             ReleaseLeaderTransportSeats(leaderIdentityId);
             state.TransportMode = SiSquadTransportMode.None;
             state.TransportVehicleEntityId = 0;
+            ResetTransportCadence(state);
             RemoveTransportStatesForLeader(leaderIdentityId);
         }
 
@@ -1013,6 +1048,15 @@ namespace Si.UtilityAI
                 if (npc != null && _transportNpcStates.ContainsKey(npc.EntityId))
                     return true;
             return false;
+        }
+
+        private static void ResetTransportCadence(SiSquadCommandState state)
+        {
+            if (state == null)
+                return;
+
+            state.TransportCadenceMode = SiSquadTransportMode.None;
+            state.NextTransportActionTimeMilliseconds = 0;
         }
 
         private void RemoveTransportStatesForLeader(long leaderIdentityId)
@@ -1179,6 +1223,7 @@ namespace Si.UtilityAI
             var state = GetSquadOrder(leaderIdentityId);
             state.TransportMode = SiSquadTransportMode.Mount;
             state.TransportVehicleEntityId = vehicle.EntityId;
+            ResetTransportCadence(state);
 
             ClearLeaderWaypoints(leaderIdentityId);
             TrimTransportStatesForLeader(leaderIdentityId, vehicle.EntityId);
@@ -1192,6 +1237,7 @@ namespace Si.UtilityAI
             {
                 state.TransportMode = SiSquadTransportMode.None;
                 state.TransportVehicleEntityId = 0;
+                ResetTransportCadence(state);
                 Respond(sender, "No free transport seats were found on the current vehicle.");
                 return;
             }
@@ -1204,11 +1250,13 @@ namespace Si.UtilityAI
             {
                 state.TransportMode = SiSquadTransportMode.None;
                 state.TransportVehicleEntityId = 0;
+                ResetTransportCadence(state);
                 Respond(sender, "No squad members are currently assigned to transport seats.");
                 return;
             }
 
             state.TransportMode = SiSquadTransportMode.Disembark;
+            ResetTransportCadence(state);
         }
 
         private void UpdateCombatStances()
@@ -3117,6 +3165,8 @@ namespace Si.UtilityAI
         public SiSquadEngagementStance EngagementStance { get; set; }
         public SiSquadTransportMode TransportMode { get; set; }
         public long TransportVehicleEntityId { get; set; }
+        public SiSquadTransportMode TransportCadenceMode { get; set; }
+        public long NextTransportActionTimeMilliseconds { get; set; }
     }
 
     internal sealed class SiSquadCombatState
