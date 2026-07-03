@@ -75,6 +75,7 @@ namespace Si.UtilityAI
         private readonly List<SiCoverSearchCacheKey> _expiredCoverSearchCacheKeys =
             new List<SiCoverSearchCacheKey>();
         private readonly List<long> _staleCoverReservationIds = new List<long>();
+        private readonly List<long> _pendingTransportSeatRestoreNpcIds = new List<long>();
         private List<MyObjectBuilder_SiNpcSessionComponent.SavedNpc> _savedNpcs;
         private List<MyObjectBuilder_SiNpcSessionComponent.SquadOrder> _savedSquadOrders;
 
@@ -152,6 +153,7 @@ namespace Si.UtilityAI
             _expiredCoverScanCacheKeys.Clear();
             _expiredCoverSearchCacheKeys.Clear();
             _staleCoverReservationIds.Clear();
+            _pendingTransportSeatRestoreNpcIds.Clear();
             Spotting?.Clear();
             Spotting = null;
             _savedNpcs = null;
@@ -176,6 +178,7 @@ namespace Si.UtilityAI
                 CleanupExpiredCoverScanCache();
                 CleanupExpiredCoverSearchCache();
                 CleanupCoverReservations();
+                RestorePendingTransportSeats();
             }
             Npcs?.Update(elapsedMilliseconds);
             if (IsAuthoritative)
@@ -2590,6 +2593,7 @@ namespace Si.UtilityAI
             else
                 RestoreSquadAssignment(saved, npc);
 
+            RestoreTransportState(saved, npc);
             if (saved.HasWaypoint)
                 Npcs.ApplyWaypoint(saved.EntityId, saved.Waypoint);
         }
@@ -2724,6 +2728,7 @@ namespace Si.UtilityAI
             SiAssignedNpc assignment = null;
             var hasAssignment = _instance?.Squads != null
                                 && _instance.Squads.TryGetAssignment(npc.EntityId, out assignment);
+            var transportState = _instance?.CreateSavedTransportState(npc);
             return new MyObjectBuilder_SiNpcSessionComponent.SavedNpc
             {
                 EntityId = npc.EntityId,
@@ -2739,7 +2744,100 @@ namespace Si.UtilityAI
                 IsSquadLeader = hasAssignment && assignment.IsLeader,
                 LeaderName = hasAssignment ? assignment.LeaderName : null,
                 DiplomaticIdentityId = npc.DiplomaticIdentityId,
+                HasTransportState = transportState != null,
+                TransportVehicleEntityId = transportState?.VehicleEntityId ?? 0,
+                SeatEntityId = transportState?.SeatEntityId ?? 0,
+                SeatSlotName = transportState?.SeatSlotName,
+                HasTransportExitLocalPosition = transportState?.HasExitLocalPosition ?? false,
+                TransportExitLocalPosition = (SerializableVector3D)(transportState?.ExitLocalPosition ?? Vector3D.Zero),
+                WasInTransportSeat = _instance?.IsNpcMountedInAssignedTransportSeat(npc, transportState) ?? false,
             };
+        }
+
+        private void RestoreTransportState(MyObjectBuilder_SiNpcSessionComponent.SavedNpc saved, SiNpc npc)
+        {
+            if (saved == null || npc?.Entity == null || !saved.HasTransportState)
+                return;
+
+            if (saved.TransportVehicleEntityId == 0
+                || saved.SeatEntityId == 0
+                || string.IsNullOrWhiteSpace(saved.SeatSlotName))
+                return;
+
+            _transportNpcStates[npc.EntityId] = new SiTransportNpcState
+            {
+                VehicleEntityId = saved.TransportVehicleEntityId,
+                SeatEntityId = saved.SeatEntityId,
+                SeatSlotName = saved.SeatSlotName,
+                HasExitLocalPosition = saved.HasTransportExitLocalPosition,
+                ExitLocalPosition = saved.TransportExitLocalPosition,
+            };
+
+            if (saved.WasInTransportSeat && !_pendingTransportSeatRestoreNpcIds.Contains(npc.EntityId))
+                _pendingTransportSeatRestoreNpcIds.Add(npc.EntityId);
+        }
+
+        private SiTransportNpcState CreateSavedTransportState(SiNpc npc)
+        {
+            if (npc == null)
+                return null;
+            return _transportNpcStates.TryGetValue(npc.EntityId, out var state)
+                ? state
+                : null;
+        }
+
+        private bool IsNpcMountedInAssignedTransportSeat(SiNpc npc, SiTransportNpcState transportState)
+        {
+            if (npc?.Entity == null || transportState == null)
+                return false;
+
+            var controller = npc.Entity.Components.Get<EquiEntityControllerComponent>();
+            var controlledSeat = controller?.Controlled;
+            return controlledSeat != null
+                   && transportState.SeatEntityId == (controlledSeat.Controllable?.Entity?.EntityId ?? 0)
+                   && string.Equals(transportState.SeatSlotName, controlledSeat.Definition.Name, StringComparison.Ordinal);
+        }
+
+        private void RestorePendingTransportSeats()
+        {
+            if (_pendingTransportSeatRestoreNpcIds.Count == 0 || Npcs == null)
+                return;
+
+            for (var i = _pendingTransportSeatRestoreNpcIds.Count - 1; i >= 0; i--)
+            {
+                var npcEntityId = _pendingTransportSeatRestoreNpcIds[i];
+                if (!Npcs.Npcs.TryGetValue(npcEntityId, out var npc) || npc?.Entity == null)
+                {
+                    _pendingTransportSeatRestoreNpcIds.RemoveAt(i);
+                    continue;
+                }
+
+                if (TryRestoreTransportSeat(npc))
+                    _pendingTransportSeatRestoreNpcIds.RemoveAt(i);
+            }
+        }
+
+        private bool TryRestoreTransportSeat(SiNpc npc)
+        {
+            if (npc?.Entity == null)
+                return false;
+
+            var controller = npc.Entity.Components.Get<EquiEntityControllerComponent>();
+            if (controller == null)
+                return false;
+
+            if (controller.Controlled != null)
+                return IsAssignedTransportSeat(npc, controller.Controlled);
+
+            if (!_transportNpcStates.TryGetValue(npc.EntityId, out var state))
+                return false;
+            if (!TryResolveTransportSeat(state, out var slot))
+                return false;
+            if (slot.AttachedCharacter != null && slot.AttachedCharacter != npc.Entity)
+                return false;
+
+            controller.RequestControl(slot);
+            return controller.Controlled != null && IsAssignedTransportSeat(npc, controller.Controlled);
         }
 
         private static SiNpcSnapshot CreateSnapshot(SiNpc npc)
@@ -3088,6 +3186,25 @@ namespace Si.UtilityAI
 
             [XmlAttribute]
             public long DiplomaticIdentityId;
+
+            [XmlAttribute]
+            public bool HasTransportState;
+
+            [XmlAttribute]
+            public long TransportVehicleEntityId;
+
+            [XmlAttribute]
+            public long SeatEntityId;
+
+            [XmlAttribute]
+            public string SeatSlotName;
+
+            public bool HasTransportExitLocalPosition;
+
+            public SerializableVector3D TransportExitLocalPosition;
+
+            [XmlAttribute]
+            public bool WasInTransportSeat;
         }
 
         public class SquadOrder
