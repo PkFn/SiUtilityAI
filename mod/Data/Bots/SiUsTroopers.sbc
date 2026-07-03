@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<Definition xsi:type="MyObjectBuilder_ContainerDefinition" Copy="Append">
+		<Id Type="EntityBase" Subtype="SiTrooper" />
+		<CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
+		<Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_US_Rifle" />
+		<Component Type="SiNpcUniformComponent" Subtype="SiTrooper_US_Rifle_Uniform" />
+		<Component Type="SiNpcHeldWeaponVisualComponent" Subtype="SiTrooperHeldWeapon_Garand" />
+		<Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Garand" />
+		<Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Garand" />
+	</Definition>
+
+	<Definition xsi:type="MyObjectBuilder_ContainerDefinition" Copy="Append">
+		<Id Type="EntityBase" Subtype="SiTrooper_US_Rifle_Paratrooper" />
+		<CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
+		<Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_US_Rifle_Paratrooper" />
+		<Component Type="SiNpcUniformComponent" Subtype="SiTrooper_US_Rifle_Paratrooper_Uniform" />
+		<Component Type="SiNpcHeldWeaponVisualComponent" Subtype="SiTrooperHeldWeapon_Garand" />
+		<Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Garand" />
+		<Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Garand" />
+	</Definition>
+
+	<Definition xsi:type="MyObjectBuilder_ContainerDefinition" Copy="Append">
+		<Id Type="EntityBase" Subtype="SiTrooper_US_Smg" />
+		<CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
+		<Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_US_Smg" />
+		<Component Type="SiNpcUniformComponent" Subtype="SiTrooper_US_Smg_Uniform" />
+		<Component Type="SiNpcHeldWeaponVisualComponent" Subtype="SiTrooperHeldWeapon_Thompson" />
+		<Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Thompson" />
+		<Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Thompson" />
+	</Definition>
+
+	<Definition xsi:type="MyObjectBuilder_ContainerDefinition" Copy="Append">
+		<Id Type="EntityBase" Subtype="SiTrooper_US_Smg_Paratrooper" />
+		<CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
+		<Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_US_Smg_Paratrooper" />
+		<Component Type="SiNpcUniformComponent" Subtype="SiTrooper_US_Smg_Paratrooper_Uniform" />
+		<Component Type="SiNpcHeldWeaponVisualComponent" Subtype="SiTrooperHeldWeapon_Thompson" />
+		<Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Thompson" />
+		<Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Thompson" />
+	</Definition>
+
+	<Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
+		<Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Rifle_Uniform" />
+		<Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_US_Olive" />
+		<DefaultHelmet>PAX_Helmet_M1_Green</DefaultHelmet>
+		<Helmets>
+			<Helmet>PAX_Helmet_M1_Green</Helmet>
+		</Helmets>
+		<UniformMatch>
+			<Uniform>Uniform_US_Olive_upper_cm</Uniform>
+		</UniformMatch>
+	</Definition>
+
+	<Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
+		<Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Smg_Uniform" />
+		<Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_US_Olive" />
+		<DefaultHelmet>PAX_Helmet_M1_Green</DefaultHelmet>
+		<Helmets>
+			<Helmet>PAX_Helmet_M1_Green</Helmet>
+		</Helmets>
+		<UniformMatch>
+			<Uniform>Uniform_US_Olive_upper_cm</Uniform>
+		</UniformMatch>
+	</Definition>
+
+	<Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
+		<Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Rifle_Paratrooper_Uniform" />
+		<Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_US_Tan" />
+		<DefaultHelmet>PAX_Helmet_M1_Net</DefaultHelmet>
+		<DefaultBackpack>PAX_ParachuteBackpack_CamoUS</DefaultBackpack>
+		<Helmets>
+			<Helmet>PAX_Helmet_M1_Net</Helmet>
+		</Helmets>
+		<UniformMatch>
+			<Uniform>Uniform_US_Tan_upper_cm</Uniform>
+		</UniformMatch>
+	</Definition>
+
+	<Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
+		<Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Smg_Paratrooper_Uniform" />
+		<Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_US_Tan" />
+		<DefaultHelmet>PAX_Helmet_M1_Net</DefaultHelmet>
+		<DefaultBackpack>PAX_ParachuteBackpack_CamoUS</DefaultBackpack>
+		<Helmets>
+			<Helmet>PAX_Helmet_M1_Net</Helmet>
+		</Helmets>
+		<UniformMatch>
+			<Uniform>Uniform_US_Tan_upper_cm</Uniform>
+		</UniformMatch>
+	</Definition>
+
+	<Definition xsi:type="MyObjectBuilder_SiNpcArchetypeComponentDefinition">
+		<Id Type="MyObjectBuilder_SiNpcArchetypeComponent" Subtype="SiTrooper_US_Rifle" />
+		<Archetype>us-rifle-trooper</Archetype>
+	</Definition>
+
+	<Definition xsi:type="MyObjectBuilder_SiNpcArchetypeComponentDefinition">
+		<Id Type="MyObjectBuilder_SiNpcArchetypeComponent" Subtype="SiTrooper_US_Rifle_Paratrooper" />
+		<Archetype>us-rifle-paratrooper</Archetype>
+	</Definition>
+
+	<Definition xsi:type="MyObjectBuilder_SiNpcArchetypeComponentDefinition">
+		<Id Type="MyObjectBuilder_SiNpcArchetypeComponent" Subtype="SiTrooper_US_Smg" />
+		<Archetype>us-smg-trooper</Archetype>
+	</Definition>
+
+	<Definition xsi:type="MyObjectBuilder_SiNpcArchetypeComponentDefinition">
+		<Id Type="MyObjectBuilder_SiNpcArchetypeComponent" Subtype="SiTrooper_US_Smg_Paratrooper" />
+		<Archetype>us-smg-paratrooper</Archetype>
+	</Definition>
+</Definitions>

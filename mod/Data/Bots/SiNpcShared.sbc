@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Definition xsi:type="MyObjectBuilder_ContainerDefinition" Abstract="true" Copy="Append">
+    <Id Type="EntityBase" Subtype="SiRifleTrooperBase" />
+    <CopyFrom Type="EntityBase" Subtype="Humanoid" />
+    <Tag>AI</Tag>
+    <Component Type="CharacterPhysics" Subtype="Humanoid" />
+    <Component Type="CharacterControllerComponent" />
+    <Component Type="EntityTerrainHeightProvider" />
+    <Component Type="SiGroundedNpcControllerComponent" Subtype="SiSoldierGroundedNpc" />
+    <Component Type="MyObjectBuilder_PAX_CharacterUniformEquipment" />
+    <Component Type="MyObjectBuilder_EquiEntityControllerComponent" />
+    <Component Type="EntityOwnershipComponent" />
+    <Component Type="EntityStateComponent" Subtype="CharacterStances" />
+    <Component Type="RagdollComponent" Subtype="Humanoid" />
+    <Component Type="CharacterMovementComponent" Subtype="SiTrooperMovement" />
+    <Component Type="ModelComponent" Subtype="Medieval_male_noApron" />
+    <Component Type="SkeletonComponent" Subtype="Medieval_male" />
+    <Component Type="AnimationCollisionComponent" Subtype="Medieval_male" />
+    <Component Type="CharacterAnimationControllerComponent" Subtype="Medieval_male" />
+    <Component Type="CharacterSoundComponent" Subtype="MedievalMale" />
+    <Component Type="RenderComponentCharacter" Subtype="Medieval_male" />
+    <Component Type="ThirdPersonCameraComponent" Subtype="DefaultThirdPerson" />
+    <Component Type="ThirdPersonControllerComponent" Subtype="DefaultThirdPerson" />
+    <Component Type="EntityStatComponent" Subtype="SiNpcStats" />
+    <Component Type="CharacterDamageComponent" Subtype="Humanoid" />
+    <Component Type="SiNpcCharacterDamageBridgeComponent" />
+    <Component Type="DeathComponent" Subtype="Medieval_male_noApron" />
+    <Component Type="EntityFXComponent" Subtype="Medieval_male" />
+    <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
+    <Component Type="SiUseTransportSeatsBehavior" Subtype="SiTrooperUseTransportSeats" />
+    <Component Type="SiTakeCoverBehavior" Subtype="SiTrooperTakeCover" />
+    <Component Type="SiTakePlainViewBehavior" Subtype="SiTrooperTakePlainView" />
+    <Component Type="SiSelfUnstuckTeleportBehavior" Subtype="SiTrooperSelfUnstuckTeleport" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcHeldWeaponVisualComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcHeldWeaponVisualComponent" Subtype="SiTrooperHeldWeapon_Garand" />
+    <HeldItem Type="HandItemWithVariable" Subtype="M1_Garand" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcHeldWeaponVisualComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcHeldWeaponVisualComponent" Subtype="SiTrooperHeldWeapon_K98" />
+    <HeldItem Type="HandItemWithVariable" Subtype="Kar98k" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcHeldWeaponVisualComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcHeldWeaponVisualComponent" Subtype="SiTrooperHeldWeapon_Mosin" />
+    <HeldItem Type="HandItemWithVariable" Subtype="Mosin" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcHeldWeaponVisualComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcHeldWeaponVisualComponent" Subtype="SiTrooperHeldWeapon_Thompson" />
+    <HeldItem Type="HandItemWithVariable" Subtype="Thompson_M1A1" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcHeldWeaponVisualComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcHeldWeaponVisualComponent" Subtype="SiTrooperHeldWeapon_Mp40" />
+    <HeldItem Type="HandItemWithVariable" Subtype="MP-40" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcHeldWeaponVisualComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcHeldWeaponVisualComponent" Subtype="SiTrooperHeldWeapon_Ppsh" />
+    <HeldItem Type="HandItemWithVariable" Subtype="PPSh-41" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_EntityStatComponentDefinition">
+    <Id Type="MyObjectBuilder_EntityStatComponent" Subtype="SiNpcStats" />
+    <Stat Type="MyObjectBuilder_EntityStatDefinition" Subtype="Health" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_CharacterMovementComponentDefinition">
+    <Id Type="CharacterMovementComponent" Subtype="SiTrooperMovement" />
+    <SprintSpeed Forward="7" Backward="0" Strafing="0" />
+    <RunSpeed Forward="4.5" Backward="3.55" Strafing="3.25" />
+    <WalkSpeed Forward="1.8" Backward="1.6" Strafing="1.45" />
+    <CrouchSpeed Forward="1.3" Backward="0.9" Strafing="0.9" />
+    <MaxSlope>70</MaxSlope>
+    <JumpForce>2.5</JumpForce>
+    <JumpForceForward>0.4</JumpForceForward>
+  </Definition>
+
+</Definitions>
