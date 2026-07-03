@@ -8,6 +8,7 @@ using VRage.Game.Components;
 using VRage.Game.Definitions;
 using VRage.Game.Entity;
 using VRage.Game.ObjectBuilders.ComponentSystem;
+using VRage.ModAPI;
 using VRage.ObjectBuilders;
 using VRageMath;
 
@@ -32,6 +33,7 @@ namespace Si.UtilityAI
         public float BaseScore = 0.35f;
         public float DistanceScore = 0.65f;
         public float DistanceExponent = 1f;
+        public float MinimumCachedPositionDistance = 2f;
     }
 
     [MyDefinitionType(typeof(MyObjectBuilder_SiTakePlainViewBehaviorDefinition))]
@@ -46,6 +48,7 @@ namespace Si.UtilityAI
         public float BaseScore { get; private set; }
         public float DistanceScore { get; private set; }
         public float DistanceExponent { get; private set; }
+        public float MinimumCachedPositionDistance { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
         {
@@ -60,6 +63,7 @@ namespace Si.UtilityAI
             BaseScore = Math.Max(0, ob.BaseScore);
             DistanceScore = Math.Max(0, ob.DistanceScore);
             DistanceExponent = Math.Max(0.01f, ob.DistanceExponent);
+            MinimumCachedPositionDistance = Math.Max(0, ob.MinimumCachedPositionDistance);
         }
     }
 
@@ -197,6 +201,10 @@ namespace Si.UtilityAI
 
         private void AssignPlainViewPosition(SiUtilityContext context, in Vector3D leaderPosition)
         {
+            var session = SiNpcSessionComponent.Instance;
+            if (context?.Agent == null || session == null)
+                return;
+
             var up = ResolveUp(context.Position, context.Entity?.WorldMatrix.Up ?? Vector3D.Up);
             var forward = Vector3D.Reject(context.Entity?.WorldMatrix.Forward ?? Vector3D.Forward, up);
             if (forward.LengthSquared() <= 0.0001)
@@ -217,24 +225,67 @@ namespace Si.UtilityAI
                 _definition.MinimumDistanceFromLeader,
                 _definition.MaximumDistanceFromLeader,
                 (float)normalizedRadius);
+            Vector3D candidatePosition;
 
             if (hasThreatDirection && _definition.ThreatFrontExclusionAngleDegrees > 0)
             {
                 var angle = ResolveAllowedSectorAngle(normalizedAngle);
-                _plainViewPosition = leaderPosition
-                                     + threatDirection * (Math.Cos(angle) * radius)
-                                     + threatRight * (Math.Sin(angle) * radius);
+                candidatePosition = leaderPosition
+                                    + threatDirection * (Math.Cos(angle) * radius)
+                                    + threatRight * (Math.Sin(angle) * radius);
             }
             else
             {
                 var angle = normalizedAngle * Math.PI * 2d;
-                _plainViewPosition = leaderPosition
-                                     + forward * (Math.Cos(angle) * radius)
-                                     + right * (Math.Sin(angle) * radius);
+                candidatePosition = leaderPosition
+                                    + forward * (Math.Cos(angle) * radius)
+                                    + right * (Math.Sin(angle) * radius);
             }
 
+            long ignoredBlockingEntityId;
+            if (session.HasNearbyCachedCombatPosition(
+                    context.Agent,
+                    candidatePosition,
+                    _definition.MinimumCachedPositionDistance,
+                    out ignoredBlockingEntityId))
+                return;
+
+            if (!HasClearImmediateMovementProbe(context, candidatePosition, up))
+                return;
+
+            _plainViewPosition = candidatePosition;
             _hasPlainViewPosition = true;
-            SiNpcSessionComponent.Instance?.CacheCombatPosition(context.Agent, SiCombatMovementRole.PlainView, _plainViewPosition);
+            session.CacheCombatPosition(context.Agent, SiCombatMovementRole.PlainView, _plainViewPosition);
+        }
+
+        private bool HasClearImmediateMovementProbe(
+            SiUtilityContext context,
+            in Vector3D candidatePosition,
+            in Vector3D up)
+        {
+            var entity = context?.Entity;
+            if (entity == null)
+                return false;
+
+            var movement = Vector3D.Reject(candidatePosition - context.Position, up);
+            var movementLengthSquared = movement.LengthSquared();
+            if (movementLengthSquared <= 0.0001)
+                return true;
+
+            var direction = movement / Math.Sqrt(movementLengthSquared);
+            var aabb = entity.PositionComp.WorldAABB;
+            var colliderLength = Math.Max(
+                0.5,
+                Math.Max(aabb.Size.X, Math.Max(aabb.Size.Y, aabb.Size.Z)));
+            var probeLength = Math.Min(colliderLength, Math.Sqrt(movementLengthSquared));
+            var rayStart = aabb.Center;
+            var rayEnd = rayStart + direction * probeLength;
+
+            IHitInfo hit;
+            if (!MyAPIGateway.Physics.CastRay(rayStart, rayEnd, out hit) || hit == null)
+                return true;
+
+            return hit.HitEntity == null || hit.HitEntity == entity;
         }
 
         private void RememberThreatDirectionIfAvailable(SiUtilityContext context, in Vector3D leaderPosition)

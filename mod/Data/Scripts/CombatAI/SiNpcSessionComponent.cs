@@ -499,6 +499,41 @@ namespace Si.UtilityAI
             ClearCachedPosition(entityId, ToCachedPositionKind(role));
         }
 
+        internal bool HasNearbyCachedCombatPosition(
+            SiNpc requester,
+            in Vector3D position,
+            double minimumDistance,
+            out long blockingEntityId)
+        {
+            blockingEntityId = 0;
+            if (minimumDistance <= 0 || _positionCache.Count == 0)
+                return false;
+
+            var requesterId = requester?.EntityId ?? 0;
+            var minimumDistanceSquared = minimumDistance * minimumDistance;
+            foreach (var entry in _positionCache)
+            {
+                if (entry.Key == requesterId || entry.Value == null)
+                    continue;
+
+                if (entry.Value.HasCover
+                    && Vector3D.DistanceSquared(entry.Value.CoverPosition, position) < minimumDistanceSquared)
+                {
+                    blockingEntityId = entry.Key;
+                    return true;
+                }
+
+                if (entry.Value.HasPlainView
+                    && Vector3D.DistanceSquared(entry.Value.PlainViewPosition, position) < minimumDistanceSquared)
+                {
+                    blockingEntityId = entry.Key;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         internal bool TryFollowCachedFormationPosition(SiNpc npc, double refreshDistanceSquared)
         {
             return TryFollowCachedPosition(npc, SiNpcCachedPositionKind.Formation, refreshDistanceSquared);

@@ -49,6 +49,7 @@
     <Id Type="MyObjectBuilder_SiTakePlainViewBehavior" Subtype="SiTrooperTakePlainView" />
     <MinimumDistanceFromLeader>4</MinimumDistanceFromLeader>
     <MaximumDistanceFromLeader>10</MaximumDistanceFromLeader>
+    <MinimumCachedPositionDistance>2</MinimumCachedPositionDistance>
     <ThreatFrontExclusionAngleDegrees>90</ThreatFrontExclusionAngleDegrees>
     <ArrivalDistance>1.25</ArrivalDistance>
     <WaypointRefreshDistance>0.75</WaypointRefreshDistance>
