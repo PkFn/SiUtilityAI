@@ -60,6 +60,8 @@ namespace Si.UtilityAI
             new Dictionary<long, SiMotionState>();
         private readonly Dictionary<long, SiMotionState> _npcMotionStates =
             new Dictionary<long, SiMotionState>();
+        private readonly Dictionary<long, SiNpcPositionCacheState> _positionCache =
+            new Dictionary<long, SiNpcPositionCacheState>();
         private readonly Dictionary<long, SiTransportNpcState> _transportNpcStates =
             new Dictionary<long, SiTransportNpcState>();
         private readonly Dictionary<long, SiCoverReservation> _coverReservations =
@@ -142,6 +144,7 @@ namespace Si.UtilityAI
             _squadCombatStates.Clear();
             _leaderMotionStates.Clear();
             _npcMotionStates.Clear();
+            _positionCache.Clear();
             _transportNpcStates.Clear();
             _coverReservations.Clear();
             _coverScanCache.Clear();
@@ -169,6 +172,7 @@ namespace Si.UtilityAI
                 UpdateSquadOrders();
                 UpdateCombatStances();
                 CleanupTransportStates();
+                CleanupPositionCache();
                 CleanupExpiredCoverScanCache();
                 CleanupExpiredCoverSearchCache();
                 CleanupCoverReservations();
@@ -478,6 +482,34 @@ namespace Si.UtilityAI
         {
             if (entityId != 0)
                 _coverReservations.Remove(entityId);
+        }
+
+        internal void CacheFormationPosition(SiNpc npc, in Vector3D position)
+        {
+            CachePosition(npc?.EntityId ?? 0, SiNpcCachedPositionKind.Formation, position);
+        }
+
+        internal void CacheCombatPosition(SiNpc npc, SiCombatMovementRole role, in Vector3D position)
+        {
+            CachePosition(npc?.EntityId ?? 0, ToCachedPositionKind(role), position);
+        }
+
+        internal void ClearCachedCombatPosition(long entityId, SiCombatMovementRole role)
+        {
+            ClearCachedPosition(entityId, ToCachedPositionKind(role));
+        }
+
+        internal bool TryFollowCachedFormationPosition(SiNpc npc, double refreshDistanceSquared)
+        {
+            return TryFollowCachedPosition(npc, SiNpcCachedPositionKind.Formation, refreshDistanceSquared);
+        }
+
+        internal bool TryFollowCachedCombatPosition(
+            SiNpc npc,
+            SiCombatMovementRole role,
+            double refreshDistanceSquared)
+        {
+            return TryFollowCachedPosition(npc, ToCachedPositionKind(role), refreshDistanceSquared);
         }
 
         internal bool TryGetCachedCoverSearch(
@@ -1694,6 +1726,31 @@ namespace Si.UtilityAI
             _staleCoverReservationIds.Clear();
         }
 
+        private void CleanupPositionCache()
+        {
+            if (_positionCache.Count == 0 || Npcs == null)
+                return;
+
+            _staleCoverReservationIds.Clear();
+            foreach (var entry in _positionCache)
+            {
+                if (!Npcs.Npcs.TryGetValue(entry.Key, out var npc)
+                    || npc?.Entity == null
+                    || npc.Entity.Closed
+                    || npc.Entity.MarkedForClose
+                    || npc.IsDead
+                    || entry.Value == null
+                    || entry.Value.IsEmpty)
+                {
+                    _staleCoverReservationIds.Add(entry.Key);
+                }
+            }
+
+            for (var i = 0; i < _staleCoverReservationIds.Count; i++)
+                _positionCache.Remove(_staleCoverReservationIds[i]);
+            _staleCoverReservationIds.Clear();
+        }
+
         private void CleanupCoverReservations()
         {
             if (_coverReservations.Count == 0 || Npcs == null)
@@ -1868,7 +1925,7 @@ namespace Si.UtilityAI
                         forward,
                         right,
                         definition);
-                    if (TryIssueFollowWaypoint(troops[i], target, refreshDistanceSquared))
+                    if (TryCacheAndIssueFollowWaypoint(troops[i], target, refreshDistanceSquared))
                         issued++;
                 }
             }
@@ -1897,7 +1954,7 @@ namespace Si.UtilityAI
             {
                 var gap = i == 0 ? definition.FollowDistance : followerGap;
                 var target = anchorPosition - anchorForward * gap;
-                if (TryIssueFollowWaypoint(troops[i], target, refreshDistanceSquared))
+                if (TryCacheAndIssueFollowWaypoint(troops[i], target, refreshDistanceSquared))
                     issued++;
 
                 var anchor = TryGetNpcFollowAnchor(troops[i], anchorForward);
@@ -1965,8 +2022,48 @@ namespace Si.UtilityAI
             return state;
         }
 
-        private bool TryIssueFollowWaypoint(SiNpc npc, in Vector3D target, double refreshDistanceSquared)
+        private bool TryCacheAndIssueFollowWaypoint(SiNpc npc, in Vector3D target, double refreshDistanceSquared)
         {
+            if (npc == null)
+                return false;
+
+            CacheFormationPosition(npc, target);
+            return TryFollowCachedFormationPosition(npc, refreshDistanceSquared);
+        }
+
+        private void CachePosition(long entityId, SiNpcCachedPositionKind kind, in Vector3D position)
+        {
+            if (entityId == 0)
+                return;
+
+            if (!_positionCache.TryGetValue(entityId, out var state) || state == null)
+                _positionCache[entityId] = state = new SiNpcPositionCacheState();
+
+            state.Set(kind, position);
+        }
+
+        private void ClearCachedPosition(long entityId, SiNpcCachedPositionKind kind)
+        {
+            if (entityId == 0)
+                return;
+            if (!_positionCache.TryGetValue(entityId, out var state) || state == null)
+                return;
+
+            state.Clear(kind);
+            if (state.IsEmpty)
+                _positionCache.Remove(entityId);
+        }
+
+        private bool TryFollowCachedPosition(
+            SiNpc npc,
+            SiNpcCachedPositionKind kind,
+            double refreshDistanceSquared)
+        {
+            if (npc == null || Npcs == null)
+                return false;
+            if (!TryGetCachedPosition(npc.EntityId, kind, out var target))
+                return false;
+
             var mover = npc as ISiWaypointMover;
             if (mover != null
                 && mover.HasWaypoint
@@ -1975,6 +2072,31 @@ namespace Si.UtilityAI
                 return true;
 
             return Npcs.TrySetWaypoint(npc.EntityId, target);
+        }
+
+        private bool TryGetCachedPosition(long entityId, SiNpcCachedPositionKind kind, out Vector3D position)
+        {
+            position = Vector3D.Zero;
+            if (entityId == 0)
+                return false;
+            if (!_positionCache.TryGetValue(entityId, out var state) || state == null)
+                return false;
+
+            return state.TryGet(kind, out position);
+        }
+
+        private static SiNpcCachedPositionKind ToCachedPositionKind(SiCombatMovementRole role)
+        {
+            switch (role)
+            {
+                case SiCombatMovementRole.Covered:
+                    return SiNpcCachedPositionKind.Cover;
+                case SiCombatMovementRole.PlainView:
+                    return SiNpcCachedPositionKind.PlainView;
+                case SiCombatMovementRole.None:
+                default:
+                    return SiNpcCachedPositionKind.None;
+            }
         }
 
         private static Vector3D FormationOffset(
@@ -3199,5 +3321,89 @@ namespace Si.UtilityAI
 
         public Vector3D Position { get; }
         public Vector3D Forward { get; }
+    }
+
+    internal enum SiNpcCachedPositionKind
+    {
+        None,
+        Formation,
+        Cover,
+        PlainView,
+    }
+
+    internal sealed class SiNpcPositionCacheState
+    {
+        public bool HasFormation { get; private set; }
+        public bool HasCover { get; private set; }
+        public bool HasPlainView { get; private set; }
+        public Vector3D FormationPosition { get; private set; }
+        public Vector3D CoverPosition { get; private set; }
+        public Vector3D PlainViewPosition { get; private set; }
+
+        public bool IsEmpty => !HasFormation && !HasCover && !HasPlainView;
+
+        public void Set(SiNpcCachedPositionKind kind, in Vector3D position)
+        {
+            switch (kind)
+            {
+                case SiNpcCachedPositionKind.Formation:
+                    FormationPosition = position;
+                    HasFormation = true;
+                    return;
+                case SiNpcCachedPositionKind.Cover:
+                    CoverPosition = position;
+                    HasCover = true;
+                    return;
+                case SiNpcCachedPositionKind.PlainView:
+                    PlainViewPosition = position;
+                    HasPlainView = true;
+                    return;
+                case SiNpcCachedPositionKind.None:
+                default:
+                    return;
+            }
+        }
+
+        public void Clear(SiNpcCachedPositionKind kind)
+        {
+            switch (kind)
+            {
+                case SiNpcCachedPositionKind.Formation:
+                    HasFormation = false;
+                    FormationPosition = Vector3D.Zero;
+                    return;
+                case SiNpcCachedPositionKind.Cover:
+                    HasCover = false;
+                    CoverPosition = Vector3D.Zero;
+                    return;
+                case SiNpcCachedPositionKind.PlainView:
+                    HasPlainView = false;
+                    PlainViewPosition = Vector3D.Zero;
+                    return;
+                case SiNpcCachedPositionKind.None:
+                default:
+                    return;
+            }
+        }
+
+        public bool TryGet(SiNpcCachedPositionKind kind, out Vector3D position)
+        {
+            position = Vector3D.Zero;
+            switch (kind)
+            {
+                case SiNpcCachedPositionKind.Formation:
+                    position = FormationPosition;
+                    return HasFormation;
+                case SiNpcCachedPositionKind.Cover:
+                    position = CoverPosition;
+                    return HasCover;
+                case SiNpcCachedPositionKind.PlainView:
+                    position = PlainViewPosition;
+                    return HasPlainView;
+                case SiNpcCachedPositionKind.None:
+                default:
+                    return false;
+            }
+        }
     }
 }

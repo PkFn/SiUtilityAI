@@ -163,7 +163,8 @@ namespace Si.UtilityAI
 
         private void ApplyMovement(SiUtilityContext context)
         {
-            if (context?.Agent == null)
+            var session = SiNpcSessionComponent.Instance;
+            if (context?.Agent == null || session == null)
                 return;
 
             if (!_hasPlainViewPosition)
@@ -180,10 +181,11 @@ namespace Si.UtilityAI
             }
 
             context.TrySetCrouch(false);
-            if (!context.HasWaypoint
-                || Vector3D.DistanceSquared(context.Waypoint, _plainViewPosition)
-                   > _definition.WaypointRefreshDistance * _definition.WaypointRefreshDistance)
-                context.TrySetWaypoint(_plainViewPosition);
+            session.CacheCombatPosition(context.Agent, SiCombatMovementRole.PlainView, _plainViewPosition);
+            session.TryFollowCachedCombatPosition(
+                context.Agent,
+                SiCombatMovementRole.PlainView,
+                _definition.WaypointRefreshDistance * _definition.WaypointRefreshDistance);
         }
 
         internal bool IsMovingToPlainView(SiUtilityContext context)
@@ -232,6 +234,7 @@ namespace Si.UtilityAI
             }
 
             _hasPlainViewPosition = true;
+            SiNpcSessionComponent.Instance?.CacheCombatPosition(context.Agent, SiCombatMovementRole.PlainView, _plainViewPosition);
         }
 
         private void RememberThreatDirectionIfAvailable(SiUtilityContext context, in Vector3D leaderPosition)
@@ -281,6 +284,7 @@ namespace Si.UtilityAI
 
         private void ResetState(SiUtilityContext context)
         {
+            SiNpcSessionComponent.Instance?.ClearCachedCombatPosition(context?.Agent?.EntityId ?? 0, SiCombatMovementRole.PlainView);
             _hasPlainViewPosition = false;
             _plainViewPosition = Vector3D.Zero;
             _activeCombatToken = long.MinValue;

@@ -209,11 +209,12 @@ namespace Si.UtilityAI
                 return;
 
             session.TryReserveCover(context.Agent, _reservedCoverPosition, _definition.CoverOccupancyRadius);
+            session.CacheCombatPosition(context.Agent, SiCombatMovementRole.Covered, _reservedStandPosition);
             context.TrySetCrouch(false);
-            if (!context.HasWaypoint
-                || Vector3D.DistanceSquared(context.Waypoint, _reservedStandPosition)
-                   > _definition.WaypointRefreshDistance * _definition.WaypointRefreshDistance)
-                context.TrySetWaypoint(_reservedStandPosition);
+            session.TryFollowCachedCombatPosition(
+                context.Agent,
+                SiCombatMovementRole.Covered,
+                _definition.WaypointRefreshDistance * _definition.WaypointRefreshDistance);
         }
 
         private void EnsureCombatState(long combatToken, SiNpcSessionComponent session, SiUtilityContext context)
@@ -226,6 +227,7 @@ namespace Si.UtilityAI
             _hasLastThreatDirection = false;
             _lastThreatDirection = Vector3D.Zero;
             context.TrySetCrouch(false);
+            session.ClearCachedCombatPosition(context.Agent.EntityId, SiCombatMovementRole.Covered);
             _activeCombatToken = combatToken;
             context.Agent.ClearCombatMovementRole();
         }
@@ -256,6 +258,7 @@ namespace Si.UtilityAI
             context.TrySetCrouch(false);
             if (context.HasWaypoint)
                 context.TryClearWaypoint();
+            session.ClearCachedCombatPosition(context.Agent.EntityId, SiCombatMovementRole.Covered);
             context.Agent.SetCombatMovementRole(combatToken, SiCombatMovementRole.None);
         }
 
@@ -295,11 +298,13 @@ namespace Si.UtilityAI
                 _reservedCoverPosition = coverPosition;
                 _reservedStandPosition = standPosition;
                 _hasReservedCover = true;
+                session.CacheCombatPosition(context.Agent, SiCombatMovementRole.Covered, _reservedStandPosition);
                 context.Agent.SetCombatMovementRole(combatToken, SiCombatMovementRole.Covered);
                 return SiCombatMovementRole.Covered;
             }
 
             _hasReservedCover = false;
+            session.ClearCachedCombatPosition(context.Agent.EntityId, SiCombatMovementRole.Covered);
             context.Agent.SetCombatMovementRole(combatToken, SiCombatMovementRole.PlainView);
             LogWithCooldown(
                 ref _lastNoCoverLogTime,
@@ -314,6 +319,7 @@ namespace Si.UtilityAI
             _hasLastThreatDirection = false;
             _lastThreatDirection = Vector3D.Zero;
             context.TrySetCrouch(false);
+            session.ClearCachedCombatPosition(context.Agent?.EntityId ?? 0, SiCombatMovementRole.Covered);
             context.Agent.ClearCombatMovementRole();
             _activeCombatToken = long.MinValue;
         }
@@ -798,6 +804,7 @@ namespace Si.UtilityAI
         {
             if (_hasReservedCover)
                 session.ReleaseCover(context.Agent.EntityId);
+            session.ClearCachedCombatPosition(context.Agent?.EntityId ?? 0, SiCombatMovementRole.Covered);
             _hasReservedCover = false;
             _reservedCoverPosition = Vector3D.Zero;
             _reservedStandPosition = Vector3D.Zero;
