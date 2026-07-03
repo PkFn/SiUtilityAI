@@ -140,6 +140,11 @@
     <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiSmgTrooperSharedBalance" />
   </Definition>
 
+  <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
+    <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Generic" />
+    <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />
+  </Definition>
+
   <!-- Shared firing profile for the rifle family. -->
   <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition">
     <Id Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
@@ -176,6 +181,20 @@
     <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
     <HeldItem Type="HandItemWithVariable" Subtype="M1_Garand" />
     <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="M1_GarandScript" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Gewehr43" />
+    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
+    <HeldItem Type="HandItemWithVariable" Subtype="Gewehr43" />
+    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="Gewehr43Script" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_M1Carbine" />
+    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
+    <HeldItem Type="HandItemWithVariable" Subtype="M1_Carbine" />
+    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="M1_CarbineScript" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
@@ -242,5 +261,10 @@
     <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiSmgTrooperSharedWeaponBalance" />
     <HeldItem Type="HandItemWithVariable" Subtype="PPSh-41" />
     <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="PPSh-41Script" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Generic" />
+    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
   </Definition>
 </Definitions>

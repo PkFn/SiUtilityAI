@@ -81,8 +81,12 @@ namespace Si.UtilityAI
     public class SiNpcUniformComponent : MyEntityComponent
     {
         private SiNpcUniformComponentDefinition _definition;
+        private SiNpcUniformComponentDefinition _runtimeDefinition;
 
         public override bool IsSerialized => false;
+        public string CurrentUniformSubtype => ActiveDefinition?.Id.SubtypeName;
+
+        private SiNpcUniformComponentDefinition ActiveDefinition => _runtimeDefinition ?? _definition;
 
         public override void Init(MyEntityComponentDefinition definition)
         {
@@ -100,10 +104,23 @@ namespace Si.UtilityAI
             AddScheduledCallback(ApplyUniform, 16);
         }
 
+        internal bool ApplyRuntimeDefinition(MyDefinitionId definitionId)
+        {
+            SiNpcUniformComponentDefinition runtimeDefinition;
+            if (!MyDefinitionManager.TryGet(definitionId, out runtimeDefinition) || runtimeDefinition == null)
+                return false;
+
+            _runtimeDefinition = runtimeDefinition;
+            if (Entity != null && Entity.InScene)
+                AddScheduledCallback(ApplyUniform, 1);
+            return true;
+        }
+
         [Update(false)]
         private void ApplyUniform(long delta)
         {
-            if (Entity == null || Entity.Closed || Entity.MarkedForClose || !_definition.Uniform.HasValue)
+            var definition = ActiveDefinition;
+            if (Entity == null || Entity.Closed || Entity.MarkedForClose || definition == null || !definition.Uniform.HasValue)
                 return;
 
             var uniformEquipment = Entity.Components.Get<MyPAX_CharacterUniformEquipment>();
@@ -111,7 +128,7 @@ namespace Si.UtilityAI
                 return;
 
             MyPAX_UniformEquipmentDefinition uniformDefinition;
-            if (!MyDefinitionManager.TryGet(_definition.Uniform.Value, out uniformDefinition)
+            if (!MyDefinitionManager.TryGet(definition.Uniform.Value, out uniformDefinition)
                 || uniformDefinition == null
                 || string.IsNullOrWhiteSpace(uniformDefinition.Material))
                 return;
@@ -140,7 +157,7 @@ namespace Si.UtilityAI
 
         private void EquipConfiguredHelmet(MyPAX_UniformEquipmentDefinition uniformDefinition)
         {
-            var helmetSubtype = ResolveHelmetSubtype(uniformDefinition);
+            var helmetSubtype = ResolveHelmetSubtype(ActiveDefinition, uniformDefinition);
             if (string.IsNullOrWhiteSpace(helmetSubtype))
                 return;
 
@@ -149,10 +166,11 @@ namespace Si.UtilityAI
 
         private void EquipConfiguredBackpack()
         {
-            if (string.IsNullOrWhiteSpace(_definition.DefaultBackpack))
+            var definition = ActiveDefinition;
+            if (string.IsNullOrWhiteSpace(definition?.DefaultBackpack))
                 return;
 
-            EnsureEquipmentItemEquipped(_definition.DefaultBackpack);
+            EnsureEquipmentItemEquipped(definition.DefaultBackpack);
         }
 
         private void EnsureEquipmentItemEquipped(string equipmentSubtype)
@@ -167,20 +185,22 @@ namespace Si.UtilityAI
                 out failure);
         }
 
-        private string ResolveHelmetSubtype(MyPAX_UniformEquipmentDefinition uniformDefinition)
+        private static string ResolveHelmetSubtype(
+            SiNpcUniformComponentDefinition definition,
+            MyPAX_UniformEquipmentDefinition uniformDefinition)
         {
-            if (_definition.HelmetsByUniformTexture != null
+            if (definition?.HelmetsByUniformTexture != null
                 && uniformDefinition != null
                 && !string.IsNullOrWhiteSpace(uniformDefinition.ColorMetal))
             {
-                foreach (var pair in _definition.HelmetsByUniformTexture)
+                foreach (var pair in definition.HelmetsByUniformTexture)
                 {
                     if (uniformDefinition.ColorMetal.IndexOf(pair.Key, StringComparison.OrdinalIgnoreCase) >= 0)
                         return pair.Value;
                 }
             }
 
-            return _definition.DefaultHelmet;
+            return definition?.DefaultHelmet;
         }
     }
 }

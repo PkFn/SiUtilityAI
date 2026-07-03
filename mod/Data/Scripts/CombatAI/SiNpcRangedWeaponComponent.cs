@@ -457,25 +457,26 @@ namespace Si.UtilityAI
         private readonly SiGameLog _log = new SiGameLog(nameof(SiNpcRangedWeaponComponent), "[SiShoot]");
 
         private SiNpcRangedWeaponComponentDefinition _definition;
+        private SiNpcRangedWeaponComponentDefinition _runtimeDefinition;
         private long _fireCooldown;
         private long _lastFireDenyLogTime = -1;
         private int _shotsRemainingInMagazine;
         private int _shotsRemainingInBurst;
 
         public override bool IsSerialized => false;
-        public SiNpcRangedWeaponComponentDefinition Definition => _definition;
+        public SiNpcRangedWeaponComponentDefinition Definition => _runtimeDefinition ?? _definition;
 
         public bool IsOperational
         {
             get
             {
-                _definition.ResolveBalance();
-                return !string.IsNullOrWhiteSpace(_definition.Projectile)
-                       && _definition.ProjectileVelocityMultiplier > 0
-                       && _definition.ProjectileAccuracyMultiplier > 0
-                       && _definition.ProjectileSyncDistance > 0
+                Definition.ResolveBalance();
+                return !string.IsNullOrWhiteSpace(Definition.Projectile)
+                       && Definition.ProjectileVelocityMultiplier > 0
+                       && Definition.ProjectileAccuracyMultiplier > 0
+                       && Definition.ProjectileSyncDistance > 0
                        && SiPaxProjectileSpawner.IsAvailable
-                       && ProjectileDefinitionExists(_definition.Projectile);
+                       && ProjectileDefinitionExists(Definition.Projectile);
             }
         }
 
@@ -486,6 +487,21 @@ namespace Si.UtilityAI
             _definition.ResolveBalance();
             _definition.ResolveWeaponBehavior();
             ResetState();
+        }
+
+        internal bool ApplyRuntimeDefinition(MyDefinitionId definitionId)
+        {
+            SiNpcRangedWeaponComponentDefinition runtimeDefinition;
+            if (!MyDefinitionManager.TryGet(definitionId, out runtimeDefinition) || runtimeDefinition == null)
+                return false;
+
+            runtimeDefinition.ResolveBalance();
+            runtimeDefinition.ResolveWeaponBehavior();
+            _runtimeDefinition = runtimeDefinition;
+            ResetState();
+            if (Entity != null && Entity.InScene && (MyAPIGateway.Multiplayer == null || MyAPIGateway.Multiplayer.IsServer))
+                AddScheduledCallback(EnsureHeldWeaponEquipped, 1);
+            return true;
         }
 
         public override void OnAddedToScene()
@@ -502,7 +518,7 @@ namespace Si.UtilityAI
         {
             _fireCooldown = 0;
             _shotsRemainingInMagazine = 0;
-            _shotsRemainingInBurst = Math.Max(1, _definition?.BurstCount ?? 1);
+            _shotsRemainingInBurst = Math.Max(1, Definition?.BurstCount ?? 1);
             _pendingShotSounds.Clear();
             _pendingWeaponSounds.Clear();
             TryReloadMagazineFromInventory();
@@ -558,13 +574,13 @@ namespace Si.UtilityAI
                 detectionAccuracyWorseningMultiplier);
 
             if (!SiPaxProjectileSpawner.TryCreateSyncedProjectile(
-                    _definition.Projectile,
+                    Definition.Projectile,
                     projectileMatrix,
-                    _definition.ProjectileVelocityMultiplier,
+                    Definition.ProjectileVelocityMultiplier,
                     projectileAccuracyMultiplier,
                     Vector3.Zero,
-                    _definition.ProjectileSyncDistance,
-                    _definition.CharacterDamageMultiplier,
+                    Definition.ProjectileSyncDistance,
+                    Definition.CharacterDamageMultiplier,
                     context.EntityId))
             {
                 LogFireDeniedWithCooldown("projectile-spawn-failed", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
@@ -605,7 +621,7 @@ namespace Si.UtilityAI
             var clampedScore = MathHelper.Clamp(detectionScore, 0, 1);
             var worseningMultiplier = Math.Max(1, detectionAccuracyWorseningMultiplier);
             var blendedMultiplier = MathHelper.Lerp(worseningMultiplier, 1f, clampedScore);
-            return _definition.ProjectileAccuracyMultiplier * blendedMultiplier;
+            return Definition.ProjectileAccuracyMultiplier * blendedMultiplier;
         }
 
         private bool TryCreateShot(
@@ -623,25 +639,25 @@ namespace Si.UtilityAI
             var targetWorld = targetEntity.WorldMatrix;
             var targetUp = SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(targetWorld.Up, shooterUp);
 
-            var initialMuzzle = shooterWorld.Translation + shooterUp * _definition.AimTargetHeight;
-            var aimPoint = targetWorld.Translation + targetUp * _definition.AimTargetHeight;
+            var initialMuzzle = shooterWorld.Translation + shooterUp * Definition.AimTargetHeight;
+            var aimPoint = targetWorld.Translation + targetUp * Definition.AimTargetHeight;
             var distance = (initialMuzzle - aimPoint).Length();
 
-            var closeRangeOffset = distance < _definition.AimCloseRangeDistance
-                ? _definition.AimCloseRangeHeightOffset
+            var closeRangeOffset = distance < Definition.AimCloseRangeDistance
+                ? Definition.AimCloseRangeHeightOffset
                 : 0;
-            aimPoint += targetUp * (_definition.AimExtraHeight
+            aimPoint += targetUp * (Definition.AimExtraHeight
                                     + closeRangeOffset
-                                    + distance * distance / _definition.ElevationAiming);
-            aimPoint += targetVelocity * (distance / _definition.ExpectedProjectileVelocity);
+                                    + distance * distance / Definition.ElevationAiming);
+            aimPoint += targetVelocity * (distance / Definition.ExpectedProjectileVelocity);
 
             var shotDirection = SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(
                 aimPoint - initialMuzzle,
                 shooterWorld.Forward);
             shotDirection = ApplySpread(shotDirection, shooterUp);
             var muzzlePosition = shooterWorld.Translation
-                                 + shotDirection * _definition.MuzzleForwardOffset
-                                 + shooterUp * _definition.MuzzleUpOffset;
+                                 + shotDirection * Definition.MuzzleForwardOffset
+                                 + shooterUp * Definition.MuzzleUpOffset;
             var shotUp = RejectOrFallback(
                 shooterUp,
                 shotDirection,
@@ -652,7 +668,7 @@ namespace Si.UtilityAI
 
         private Vector3D ApplySpread(in Vector3D shotDirection, in Vector3D fallbackUp)
         {
-            var spreadRadians = MathHelper.ToRadians(_definition.ShootingSpreadDegrees);
+            var spreadRadians = MathHelper.ToRadians(Definition.ShootingSpreadDegrees);
             if (spreadRadians <= 0)
                 return shotDirection;
 
@@ -681,7 +697,7 @@ namespace Si.UtilityAI
         private ShotFeedback ConsumeShot()
         {
             if (_shotsRemainingInBurst <= 0)
-                _shotsRemainingInBurst = Math.Max(1, _definition.BurstCount);
+                _shotsRemainingInBurst = Math.Max(1, Definition.BurstCount);
 
             _shotsRemainingInMagazine = Math.Max(0, _shotsRemainingInMagazine - 1);
             _shotsRemainingInBurst = Math.Max(0, _shotsRemainingInBurst - 1);
@@ -690,28 +706,28 @@ namespace Si.UtilityAI
             var burstFinished = _shotsRemainingInBurst <= 0;
 
             if (burstFinished || magazineEmpty)
-                _shotsRemainingInBurst = Math.Max(1, _definition.BurstCount);
+                _shotsRemainingInBurst = Math.Max(1, Definition.BurstCount);
 
             if (magazineEmpty)
             {
                 var reloaded = TryReloadMagazineFromInventory();
                 return new ShotFeedback
                 {
-                    CooldownMilliseconds = reloaded ? _definition.MagazineReloadMilliseconds : _definition.FireCooldownMilliseconds,
-                    PlayMagazineReloadSound = reloaded && !string.IsNullOrWhiteSpace(_definition.MagazineReloadSoundName),
+                    CooldownMilliseconds = reloaded ? Definition.MagazineReloadMilliseconds : Definition.FireCooldownMilliseconds,
+                    PlayMagazineReloadSound = reloaded && !string.IsNullOrWhiteSpace(Definition.MagazineReloadSoundName),
                 };
             }
 
-            if (_definition.BurstCount > 1 && !burstFinished)
-                return new ShotFeedback { CooldownMilliseconds = _definition.FireCooldownMilliseconds };
+            if (Definition.BurstCount > 1 && !burstFinished)
+                return new ShotFeedback { CooldownMilliseconds = Definition.FireCooldownMilliseconds };
 
             return new ShotFeedback
             {
-                CooldownMilliseconds = _definition.BurstCount > 1
-                    ? _definition.BurstCooldownMilliseconds
-                    : _definition.FireCooldownMilliseconds,
-                PlayReloadSound = _definition.BurstCount <= 1
-                                  && !string.IsNullOrWhiteSpace(_definition.ReloadSoundName),
+                CooldownMilliseconds = Definition.BurstCount > 1
+                    ? Definition.BurstCooldownMilliseconds
+                    : Definition.FireCooldownMilliseconds,
+                PlayReloadSound = Definition.BurstCount <= 1
+                                  && !string.IsNullOrWhiteSpace(Definition.ReloadSoundName),
             };
         }
 
@@ -766,38 +782,38 @@ namespace Si.UtilityAI
             var position = projectileMatrix.Translation;
             if (playReloadSound)
                 QueueWeaponSound(
-                    _definition.ReloadSoundName,
+                    Definition.ReloadSoundName,
                     position,
-                    Math.Min(500, _definition.FireCooldownMilliseconds / 3));
+                    Math.Min(500, Definition.FireCooldownMilliseconds / 3));
             if (playMagazineReloadSound)
                 QueueWeaponSound(
-                    _definition.MagazineReloadSoundName,
+                    Definition.MagazineReloadSoundName,
                     position,
-                    Math.Min(900, _definition.MagazineReloadMilliseconds / 4));
+                    Math.Min(900, Definition.MagazineReloadMilliseconds / 4));
         }
 
         private void PlayMuzzleEffect(MatrixD projectileMatrix)
         {
-            if (!string.IsNullOrWhiteSpace(_definition.ShootEffectName))
+            if (!string.IsNullOrWhiteSpace(Definition.ShootEffectName))
             {
                 MyParticleEffect directEffect;
-                if (MyParticlesManager.TryCreateParticleEffect(MyStringHash.GetOrCompute(_definition.ShootEffectName), out directEffect, false)
+                if (MyParticlesManager.TryCreateParticleEffect(MyStringHash.GetOrCompute(Definition.ShootEffectName), out directEffect, false)
                     && directEffect != null)
                 {
                     directEffect.WorldMatrix = projectileMatrix;
-                    directEffect.UserScale *= _definition.ShootEffectScale;
+                    directEffect.UserScale *= Definition.ShootEffectScale;
                 }
 
                 return;
             }
 
-            if (!_definition.ShootEffect.HasValue)
+            if (!Definition.ShootEffect.HasValue)
                 return;
 
             MyEffectDefinition effectDefinition;
             try
             {
-                effectDefinition = MyDefinitionManager.Get<MyEffectDefinition>(_definition.ShootEffect.Value);
+                effectDefinition = MyDefinitionManager.Get<MyEffectDefinition>(Definition.ShootEffect.Value);
             }
             catch
             {
@@ -819,8 +835,8 @@ namespace Si.UtilityAI
         private void QueueShotSound(MatrixD projectileMatrix)
         {
             if (!HasAnyShootSound
-                || _definition.ShootSoundSpeedMetersPerSecond <= 0
-                || _definition.ShootSoundFalloffMilliseconds <= 0)
+                || Definition.ShootSoundSpeedMetersPerSecond <= 0
+                || Definition.ShootSoundFalloffMilliseconds <= 0)
                 return;
 
             var camera = MyAPIGateway.Session?.Camera;
@@ -831,9 +847,9 @@ namespace Si.UtilityAI
             var toCamera = camera.WorldMatrix.Translation - position;
             var distanceSquared = toCamera.LengthSquared();
             var distance = distanceSquared > 0.0001 ? Math.Sqrt(distanceSquared) : 0;
-            var delayMilliseconds = (long)(distance * 1000 / _definition.ShootSoundSpeedMetersPerSecond);
-            if (_definition.ShootSoundMaxDelayMilliseconds > 0
-                && delayMilliseconds >= _definition.ShootSoundMaxDelayMilliseconds)
+            var delayMilliseconds = (long)(distance * 1000 / Definition.ShootSoundSpeedMetersPerSecond);
+            if (Definition.ShootSoundMaxDelayMilliseconds > 0
+                && delayMilliseconds >= Definition.ShootSoundMaxDelayMilliseconds)
                 return;
 
             var frontAngle = 0f;
@@ -900,26 +916,26 @@ namespace Si.UtilityAI
             var pending = _pendingShotSounds[index];
             _pendingShotSounds.RemoveAt(index);
 
-            var distancePower = 1f - pending.DelayMilliseconds / _definition.ShootSoundFalloffMilliseconds;
+            var distancePower = 1f - pending.DelayMilliseconds / Definition.ShootSoundFalloffMilliseconds;
             if (distancePower > 0)
                 distancePower = distancePower * distancePower * distancePower;
             if (distancePower <= 0)
                 return;
 
-            if (pending.DelayMilliseconds > _definition.ShootSoundDirectMaximumDelayMilliseconds
+            if (pending.DelayMilliseconds > Definition.ShootSoundDirectMaximumDelayMilliseconds
                 && HasDistanceShootSounds)
             {
-                var angleRange = 2 * _definition.ShootSoundFrontAngleBlendRange;
+                var angleRange = 2 * Definition.ShootSoundFrontAngleBlendRange;
                 var angleWeight = MathHelper.Clamp(
                     (pending.FrontAngle
-                     - _definition.ShootSoundFrontAngleThreshold
-                     + _definition.ShootSoundFrontAngleBlendRange)
+                     - Definition.ShootSoundFrontAngleThreshold
+                     + Definition.ShootSoundFrontAngleBlendRange)
                     / angleRange,
                     0,
                     1);
                 var distanceWeight = MathHelper.Clamp(
-                    (pending.DelayMilliseconds - _definition.ShootSoundDistanceBlendStartMilliseconds)
-                    / _definition.ShootSoundDistanceBlendRangeMilliseconds,
+                    (pending.DelayMilliseconds - Definition.ShootSoundDistanceBlendStartMilliseconds)
+                    / Definition.ShootSoundDistanceBlendRangeMilliseconds,
                     0,
                     1);
 
@@ -928,14 +944,14 @@ namespace Si.UtilityAI
                 var frontVolume = MathHelper.Clamp(angleWeight, 0, 1);
                 var backVolume = MathHelper.Clamp(1f - angleWeight, 0, 1);
 
-                PlayWorldSound(_definition.ShootSoundMidFront, pending.Position, distancePower * closeVolume * frontVolume);
-                PlayWorldSound(_definition.ShootSoundMid, pending.Position, distancePower * closeVolume * backVolume);
-                PlayWorldSound(_definition.ShootSoundFarFront, pending.Position, distancePower * farVolume * frontVolume);
-                PlayWorldSound(_definition.ShootSoundFar, pending.Position, distancePower * farVolume * backVolume);
+                PlayWorldSound(Definition.ShootSoundMidFront, pending.Position, distancePower * closeVolume * frontVolume);
+                PlayWorldSound(Definition.ShootSoundMid, pending.Position, distancePower * closeVolume * backVolume);
+                PlayWorldSound(Definition.ShootSoundFarFront, pending.Position, distancePower * farVolume * frontVolume);
+                PlayWorldSound(Definition.ShootSoundFar, pending.Position, distancePower * farVolume * backVolume);
                 return;
             }
 
-            PlayWorldSound(_definition.ShootSoundName, pending.Position, distancePower);
+            PlayWorldSound(Definition.ShootSoundName, pending.Position, distancePower);
         }
 
         private int PendingShotSoundIndex()
@@ -973,16 +989,16 @@ namespace Si.UtilityAI
         }
 
         private bool HasAnyShootSound =>
-            !string.IsNullOrEmpty(_definition.ShootSoundName)
+            !string.IsNullOrEmpty(Definition.ShootSoundName)
             || HasDistanceShootSounds;
 
         private bool HasDistanceShootSounds =>
-            !string.IsNullOrEmpty(_definition.ShootSoundMid)
-            && !string.IsNullOrEmpty(_definition.ShootSoundMidFront)
-            && !string.IsNullOrEmpty(_definition.ShootSoundFar)
-            && !string.IsNullOrEmpty(_definition.ShootSoundFarFront)
-            && _definition.ShootSoundFrontAngleBlendRange > 0
-            && _definition.ShootSoundDistanceBlendRangeMilliseconds > 0;
+            !string.IsNullOrEmpty(Definition.ShootSoundMid)
+            && !string.IsNullOrEmpty(Definition.ShootSoundMidFront)
+            && !string.IsNullOrEmpty(Definition.ShootSoundFar)
+            && !string.IsNullOrEmpty(Definition.ShootSoundFarFront)
+            && Definition.ShootSoundFrontAngleBlendRange > 0
+            && Definition.ShootSoundDistanceBlendRangeMilliseconds > 0;
 
         private static void PlayWorldSound(string cue, Vector3D position, float volume)
         {
@@ -998,7 +1014,7 @@ namespace Si.UtilityAI
 
         private long SoundTravelDelayMilliseconds(Vector3D position)
         {
-            if (_definition == null || _definition.ShootSoundSpeedMetersPerSecond <= 0)
+            if (Definition == null || Definition.ShootSoundSpeedMetersPerSecond <= 0)
                 return 0;
 
             var camera = MyAPIGateway.Session?.Camera;
@@ -1007,7 +1023,7 @@ namespace Si.UtilityAI
 
             var distanceSquared = Vector3D.DistanceSquared(position, camera.WorldMatrix.Translation);
             var distance = distanceSquared > 0.0001 ? Math.Sqrt(distanceSquared) : 0;
-            return (long)(distance * 1000 / _definition.ShootSoundSpeedMetersPerSecond);
+            return (long)(distance * 1000 / Definition.ShootSoundSpeedMetersPerSecond);
         }
 
         private static long CurrentTimeMilliseconds()
@@ -1038,13 +1054,13 @@ namespace Si.UtilityAI
         [Update(false)]
         private void EnsureHeldWeaponEquipped(long delta)
         {
-            if (Entity == null || Entity.Closed || Entity.MarkedForClose || !_definition.HeldItem.HasValue)
+            if (Entity == null || Entity.Closed || Entity.MarkedForClose || !Definition.HeldItem.HasValue)
                 return;
 
             if (!TryGetInventory(out var inventory))
                 return;
 
-            var heldItemId = (MyDefinitionId)_definition.HeldItem.Value;
+            var heldItemId = (MyDefinitionId)Definition.HeldItem.Value;
             var equipment = Entity.Components.Get<Sandbox.Entities.Components.MyEntityEquipmentComponent>();
             if (equipment != null && equipment.IsEquipped(heldItemId) && inventory.FindItem(heldItemId) != null)
                 return;
@@ -1066,16 +1082,16 @@ namespace Si.UtilityAI
             if (_definition == null)
                 return false;
 
-            if (!_definition.ConsumeAmmo)
+            if (!Definition.ConsumeAmmo)
             {
-                _shotsRemainingInMagazine = Math.Max(1, _definition.MagazineCount);
+                _shotsRemainingInMagazine = Math.Max(1, Definition.MagazineCount);
                 return true;
             }
 
             if (!TryGetInventory(out var inventory))
                 return false;
 
-            if (_definition.InternallyLoaded || _definition.AcceptedMagazines.Length == 0)
+            if (Definition.InternallyLoaded || Definition.AcceptedMagazines.Length == 0)
                 return TryLoadLooseCartridges(inventory);
 
             return TryLoadMagazineItem(inventory);
@@ -1083,11 +1099,11 @@ namespace Si.UtilityAI
 
         private bool TryLoadLooseCartridges(MyInventoryBase inventory)
         {
-            var clipSize = Math.Max(1, _definition.MagazineCount);
+            var clipSize = Math.Max(1, Definition.MagazineCount);
             var available = 0;
-            for (var i = 0; i < _definition.AcceptedCartridges.Length; i++)
+            for (var i = 0; i < Definition.AcceptedCartridges.Length; i++)
             {
-                var id = new MyDefinitionId(typeof(MyObjectBuilder_InventoryItem), _definition.AcceptedCartridges[i]);
+                var id = new MyDefinitionId(typeof(MyObjectBuilder_InventoryItem), Definition.AcceptedCartridges[i]);
                 available += Math.Max(0, inventory.GetItemAmount(id));
                 if (available >= clipSize)
                     break;
@@ -1097,9 +1113,9 @@ namespace Si.UtilityAI
                 return false;
 
             var toLoad = Math.Min(clipSize, available);
-            for (var i = 0; i < _definition.AcceptedCartridges.Length && toLoad > 0; i++)
+            for (var i = 0; i < Definition.AcceptedCartridges.Length && toLoad > 0; i++)
             {
-                var id = new MyDefinitionId(typeof(MyObjectBuilder_InventoryItem), _definition.AcceptedCartridges[i]);
+                var id = new MyDefinitionId(typeof(MyObjectBuilder_InventoryItem), Definition.AcceptedCartridges[i]);
                 var count = Math.Max(0, inventory.GetItemAmount(id));
                 if (count <= 0)
                     continue;
@@ -1118,14 +1134,14 @@ namespace Si.UtilityAI
 
         private bool TryLoadMagazineItem(MyInventoryBase inventory)
         {
-            for (var i = 0; i < _definition.AcceptedMagazines.Length; i++)
+            for (var i = 0; i < Definition.AcceptedMagazines.Length; i++)
             {
-                var subtype = _definition.AcceptedMagazines[i];
+                var subtype = Definition.AcceptedMagazines[i];
                 var id = new MyDefinitionId(typeof(Sandbox.Game.EntityComponents.MyObjectBuilder_MagazineItem), subtype);
                 if (!inventory.RemoveItems(id, 1))
                     continue;
 
-                _shotsRemainingInMagazine = Math.Max(1, _definition.MagazineCount);
+                _shotsRemainingInMagazine = Math.Max(1, Definition.MagazineCount);
                 return true;
             }
 

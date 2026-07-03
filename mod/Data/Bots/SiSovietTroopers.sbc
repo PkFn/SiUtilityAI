@@ -1,106 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-
-<Definition xsi:type="MyObjectBuilder_ContainerDefinition" Copy="Append">
-    <Id Type="EntityBase" Subtype="SiTrooper_Soviet_Rifle" />
-    <CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
-    <Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_Soviet_Rifle" />
-    <Component Type="SiNpcLoadoutComponent" Subtype="Webbing_Soviet_Rifle" />
-    <Component Type="SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Rifle_Uniform" />
-    <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mosin" />
-    <Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Mosin" />
+  <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Uniform" />
+    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_Soviet_Khaki" />
+    <UniformMatch>
+      <Uniform>Uniform_Soviet_Khaki_upper_cm</Uniform>
+    </UniformMatch>
   </Definition>
 
-  <Definition xsi:type="MyObjectBuilder_ContainerDefinition" Copy="Append">
-    <Id Type="EntityBase" Subtype="SiTrooper_Soviet_Rifle_Paratrooper" />
-    <CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
-    <Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_Soviet_Rifle_Paratrooper" />
-    <Component Type="SiNpcLoadoutComponent" Subtype="Webbing_Soviet_Rifle" />
-    <Component Type="SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Rifle_Paratrooper_Uniform" />
-    <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mosin" />
-    <Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Mosin" />
+  <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Paratrooper_Uniform" />
+    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_Soviet_Brown" />
+    <DefaultHelmet>PAX_Helmet_Soviet_Green_Star</DefaultHelmet>
+    <DefaultBackpack>PAX_ParachuteBackpack_White</DefaultBackpack>
+    <Helmets>
+      <Helmet>PAX_Helmet_Soviet_Green_Star</Helmet>
+    </Helmets>
+    <UniformMatch>
+      <Uniform>Uniform_Soviet_Brown_upper_cm</Uniform>
+    </UniformMatch>
   </Definition>
-
-	<Definition xsi:type="MyObjectBuilder_ContainerDefinition" Copy="Append">
-		<Id Type="EntityBase" Subtype="SiTrooper_Soviet_Smg" />
-		<CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
-		<Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_Soviet_Smg" />
-		<Component Type="SiNpcLoadoutComponent" Subtype="Webbing_Soviet_Smg" />
-		<Component Type="SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Smg_Uniform" />
-		<Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Ppsh" />
-		<Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Ppsh" />
-	</Definition>
-
-	<Definition xsi:type="MyObjectBuilder_ContainerDefinition" Copy="Append">
-		<Id Type="EntityBase" Subtype="SiTrooper_Soviet_Smg_Paratrooper" />
-		<CopyFrom Type="EntityBase" Subtype="SiRifleTrooperBase" />
-		<Component Type="SiNpcArchetypeComponent" Subtype="SiTrooper_Soviet_Smg_Paratrooper" />
-		<Component Type="SiNpcLoadoutComponent" Subtype="Webbing_Soviet_Smg" />
-		<Component Type="SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Smg_Paratrooper_Uniform" />
-		<Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Ppsh" />
-		<Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Ppsh" />
-	</Definition>
-
-	<Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
-		<Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Rifle_Uniform" />
-		<Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_Soviet_Khaki" />
-		<UniformMatch>
-			<Uniform>Uniform_Soviet_Khaki_upper_cm</Uniform>
-		</UniformMatch>
-	</Definition>
-
-	<Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
-		<Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Smg_Uniform" />
-		<Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_Soviet_Khaki" />
-		<UniformMatch>
-			<Uniform>Uniform_Soviet_Khaki_upper_cm</Uniform>
-		</UniformMatch>
-	</Definition>
-
-	<Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
-		<Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Rifle_Paratrooper_Uniform" />
-		<Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_Soviet_Brown" />
-		<DefaultHelmet>PAX_Helmet_Soviet_Green_Star</DefaultHelmet>
-		<DefaultBackpack>PAX_ParachuteBackpack_White</DefaultBackpack>
-		<Helmets>
-			<Helmet>PAX_Helmet_Soviet_Green_Star</Helmet>
-		</Helmets>
-		<UniformMatch>
-			<Uniform>Uniform_Soviet_Khaki_upper_cm</Uniform>
-		</UniformMatch>
-	</Definition>
-
-	<Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
-		<Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Smg_Paratrooper_Uniform" />
-		<Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_Soviet_Brown" />
-		<DefaultHelmet>PAX_Helmet_Soviet_Green_Star</DefaultHelmet>
-		<DefaultBackpack>PAX_ParachuteBackpack_White</DefaultBackpack>
-		<Helmets>
-			<Helmet>PAX_Helmet_Soviet_Green_Star</Helmet>
-		</Helmets>
-		<UniformMatch>
-			<Uniform>Uniform_Soviet_Khaki_upper_cm</Uniform>
-		</UniformMatch>
-	</Definition>
-
-	<Definition xsi:type="MyObjectBuilder_SiNpcArchetypeComponentDefinition">
-		<Id Type="MyObjectBuilder_SiNpcArchetypeComponent" Subtype="SiTrooper_Soviet_Rifle" />
-		<Archetype>soviet-rifle-trooper</Archetype>
-	</Definition>
-
-	<Definition xsi:type="MyObjectBuilder_SiNpcArchetypeComponentDefinition">
-		<Id Type="MyObjectBuilder_SiNpcArchetypeComponent" Subtype="SiTrooper_Soviet_Rifle_Paratrooper" />
-		<Archetype>soviet-rifle-paratrooper</Archetype>
-	</Definition>
-
-	<Definition xsi:type="MyObjectBuilder_SiNpcArchetypeComponentDefinition">
-		<Id Type="MyObjectBuilder_SiNpcArchetypeComponent" Subtype="SiTrooper_Soviet_Smg" />
-		<Archetype>soviet-smg-trooper</Archetype>
-	</Definition>
-
-	<Definition xsi:type="MyObjectBuilder_SiNpcArchetypeComponentDefinition">
-		<Id Type="MyObjectBuilder_SiNpcArchetypeComponent" Subtype="SiTrooper_Soviet_Smg_Paratrooper" />
-		<Archetype>soviet-smg-paratrooper</Archetype>
-	</Definition>
-
 </Definitions>

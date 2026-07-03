@@ -42,8 +42,12 @@ namespace Si.UtilityAI
     public class SiNpcLoadoutComponent : MyEntityComponent
     {
         private SiNpcLoadoutComponentDefinition _definition;
+        private SiNpcLoadoutComponentDefinition _runtimeDefinition;
 
         public override bool IsSerialized => false;
+        public string CurrentWebbingSubtype => ActiveDefinition?.Webbing?.SubtypeId;
+
+        private SiNpcLoadoutComponentDefinition ActiveDefinition => _runtimeDefinition ?? _definition;
 
         public override void Init(MyEntityComponentDefinition definition)
         {
@@ -61,13 +65,26 @@ namespace Si.UtilityAI
             AddScheduledCallback(EquipLoadout, 1);
         }
 
+        internal bool ApplyRuntimeDefinition(MyDefinitionId definitionId)
+        {
+            SiNpcLoadoutComponentDefinition runtimeDefinition;
+            if (!MyDefinitionManager.TryGet(definitionId, out runtimeDefinition) || runtimeDefinition == null)
+                return false;
+
+            _runtimeDefinition = runtimeDefinition;
+            if (Entity != null && Entity.InScene)
+                AddScheduledCallback(EquipLoadout, 1);
+            return true;
+        }
+
         [Update(false)]
         private void EquipLoadout(long delta)
         {
-            if (Entity == null || Entity.Closed || Entity.MarkedForClose || !_definition.Webbing.HasValue)
+            var definition = ActiveDefinition;
+            if (Entity == null || Entity.Closed || Entity.MarkedForClose || definition == null || !definition.Webbing.HasValue)
                 return;
 
-            var itemId = (MyDefinitionId)_definition.Webbing.Value;
+            var itemId = (MyDefinitionId)definition.Webbing.Value;
             if (SiNpcEquipmentHelper.HasEquippedSubtype(Entity, itemId.SubtypeName))
                 return;
 

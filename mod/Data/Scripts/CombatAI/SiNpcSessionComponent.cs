@@ -108,12 +108,12 @@ namespace Si.UtilityAI
             _chat?.RegisterChatCommand(
                 Command,
                 HandleCommand,
-                "Manage custom Si Utility AI NPCs. /si-npc spawn [archetype] | spawn-enemy | list | clear | utility-ai [toggle|on|off|status] | gamelog [toggle|on|off|status]",
+                "Manage custom Si Utility AI NPCs. /si-npc spawn <webbing> [paratrooper] [enemy] | spawn-enemy [webbing] | list | clear | utility-ai [toggle|on|off|status] | gamelog [toggle|on|off|status]",
                 MyChatCommandType.Server);
             _chat?.RegisterChatCommand(
                 EnemyCommand,
                 HandleEnemyCommand,
-                "Spawn a hostile test Si Utility AI trooper. /si-enemy [spawn]",
+                "Spawn a hostile test Si Utility AI trooper. /si-enemy [spawn] [webbing]",
                 MyChatCommandType.Server);
             _chat?.RegisterChatCommand(
                 SquadCommand,
@@ -1470,12 +1470,10 @@ namespace Si.UtilityAI
             switch (tokens[1].ToLowerInvariant())
             {
                 case "spawn":
-                    return SpawnFromCommand(sender, tokens.Length >= 3
-                        ? tokens[2]
-                        : SiNpcManager.SoldierArchetype);
+                    return SpawnFromCommand(sender, tokens);
                 case "spawn-enemy":
                 case "enemy":
-                    return SpawnFromCommand(sender, SiNpcManager.EnemyTrooperArchetype);
+                    return SpawnFromEnemyShortcut(sender, tokens);
                 case "list":
                     return Respond(sender, $"Custom NPCs alive: {Npcs.Npcs.Count}.");
                 case "clear":
@@ -1507,13 +1505,30 @@ namespace Si.UtilityAI
             if (tokens.Length > 1 && !string.Equals(tokens[1], "spawn", StringComparison.OrdinalIgnoreCase))
                 return Respond(sender, $"{EnemyCommand} [spawn]");
 
-            return SpawnFromCommand(sender, SiNpcManager.EnemyTrooperArchetype);
+            return SpawnFromEnemyShortcut(sender, tokens);
         }
 
-        private bool SpawnFromCommand(ulong sender, string archetype)
+        private bool SpawnFromEnemyShortcut(ulong sender, string[] tokens)
         {
-            if (!Npcs.IsKnownArchetype(archetype))
-                return Respond(sender, $"Unknown NPC archetype '{archetype}'. Available: {Npcs.KnownArchetypesText}.");
+            var webbing = tokens.Length >= 3 ? tokens[2] : "Webbing_German_Rifle";
+            return SpawnFromCommand(
+                sender,
+                new SiNpcSpawnRequest(webbing, false, true));
+        }
+
+        private bool SpawnFromCommand(ulong sender, string[] tokens)
+        {
+            if (!TryParseSpawnRequest(tokens, false, out var request, out var failure))
+                return Respond(sender, failure ?? HelpText());
+
+            return SpawnFromCommand(sender, request);
+        }
+
+        private bool SpawnFromCommand(ulong sender, SiNpcSpawnRequest request)
+        {
+            if (!SiNpcTrooperCatalog.TryGetLoadout(request.WebbingSubtype, out _)
+                || !SiNpcTrooperCatalog.TryGetWeaponBinding(request.WebbingSubtype, out _))
+                return Respond(sender, $"Unknown trooper webbing '{request.WebbingSubtype}'. Available: {KnownWebbingsText()}.");
 
             var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(sender, 0));
             var playerPosition = player?.ControlledEntity?.Get<MyPositionComponentBase>();
@@ -1522,34 +1537,143 @@ namespace Si.UtilityAI
 
             var transform = CreateSpawnTransform(playerPosition.WorldMatrix);
             var entityId = MyEntityIdentifier.AllocateId();
-            if (!Npcs.TrySpawn(archetype, entityId, transform, out var npc))
-                return Respond(sender, $"Failed to spawn custom NPC '{archetype}'; its model or entity definition could not be loaded.");
+            if (!Npcs.TrySpawnConfigured(
+                    SiNpcManager.SoldierArchetype,
+                    request.DisplayArchetype,
+                    entityId,
+                    transform,
+                    out var npc))
+                return Respond(sender, $"Failed to spawn custom NPC '{request.DisplayArchetype}'; its model or entity definition could not be loaded.");
 
             string failure;
-            if (!ConfigureSpawnedNpc(archetype, npc, player, out failure))
+            if (!ApplySpawnRequest(npc, request, out failure)
+                || !ConfigureSpawnedNpc(request, npc, player, out failure))
             {
                 Npcs.Close(entityId);
-                return Respond(sender, failure ?? $"Failed to configure custom NPC '{archetype}'.");
+                return Respond(sender, failure ?? $"Failed to configure custom NPC '{request.DisplayArchetype}'.");
             }
 
-            BroadcastSpawn(npc);
-            return Respond(sender, $"Spawned {archetype} ({entityId}).");
+            BroadcastSpawn(npc, request);
+            return Respond(sender, $"Spawned {request.DisplayArchetype} ({entityId}).");
         }
 
         private bool ConfigureSpawnedNpc(
-            string archetype,
+            SiNpcSpawnRequest request,
             SiNpc npc,
             MyPlayer player,
             out string failure)
         {
             failure = null;
-            if (Npcs != null && Npcs.IsHostileToSpawner(archetype))
+            if (request.IsEnemy)
                 return ConfigureEnemyTrooper(npc, player, out failure);
 
             if (!ConfigureFriendlyTrooper(npc, player, out failure))
                 return false;
 
             Squads?.AssignNpcToPlayer(npc, player);
+            return true;
+        }
+
+        private bool ApplySpawnRequest(SiNpc npc, SiNpcSpawnRequest request, out string failure)
+        {
+            failure = null;
+            if (npc?.Entity == null)
+            {
+                failure = "The spawned NPC entity is not available.";
+                return false;
+            }
+
+            var loadout = npc.Entity.Components.Get<SiNpcLoadoutComponent>();
+            var uniform = npc.Entity.Components.Get<SiNpcUniformComponent>();
+            var weapon = npc.Entity.Components.Get<SiNpcRangedWeaponComponent>();
+            var shoot = npc.Entity.Components.Get<SiShootOpposingNpcBehaviorComponent>();
+            if (loadout == null || uniform == null || weapon == null || shoot == null)
+            {
+                failure = "The generic trooper container is missing a required runtime component.";
+                return false;
+            }
+
+            var loadoutId = new MyDefinitionId(typeof(MyObjectBuilder_SiNpcLoadoutComponent), request.WebbingSubtype);
+            if (!loadout.ApplyRuntimeDefinition(loadoutId))
+            {
+                failure = $"No runtime loadout definition was found for '{request.WebbingSubtype}'.";
+                return false;
+            }
+
+            SiNpcTrooperWeaponBindingDefinition binding;
+            if (!SiNpcTrooperCatalog.TryGetWeaponBinding(request.WebbingSubtype, out binding)
+                || !binding.Weapon.HasValue
+                || !binding.ShootBehavior.HasValue)
+            {
+                failure = $"No runtime weapon binding was found for '{request.WebbingSubtype}'.";
+                return false;
+            }
+
+            if (!weapon.ApplyRuntimeDefinition((MyDefinitionId)binding.Weapon.Value))
+            {
+                failure = $"Weapon definition '{binding.Weapon.Value.SubtypeId}' could not be applied.";
+                return false;
+            }
+
+            if (!shoot.ApplyRuntimeDefinition((MyDefinitionId)binding.ShootBehavior.Value))
+            {
+                failure = $"Shoot behavior definition '{binding.ShootBehavior.Value.SubtypeId}' could not be applied.";
+                return false;
+            }
+
+            var uniformId = SiNpcTrooperCatalog.GuessUniform(request.WebbingSubtype, request.IsParatrooper);
+            if (uniformId.HasValue)
+                uniform.ApplyRuntimeDefinition((MyDefinitionId)uniformId.Value);
+
+            var dataDrivenNpc = npc as SiDataDrivenNpc;
+            dataDrivenNpc?.SetSpawnMetadata(request.WebbingSubtype, request.IsParatrooper, request.IsEnemy);
+            return true;
+        }
+
+        private bool TryParseSpawnRequest(
+            string[] tokens,
+            bool forceEnemy,
+            out SiNpcSpawnRequest request,
+            out string failure)
+        {
+            request = default(SiNpcSpawnRequest);
+            failure = null;
+            if (tokens == null || tokens.Length < 3 || string.IsNullOrWhiteSpace(tokens[2]))
+            {
+                failure = $"Usage: {Command} spawn <webbing> [paratrooper] [enemy]. Available: {KnownWebbingsText()}";
+                return false;
+            }
+
+            var webbingSubtype = tokens[2].Trim();
+            var isParatrooper = false;
+            var isEnemy = forceEnemy;
+            for (var i = 3; i < tokens.Length; i++)
+            {
+                var token = tokens[i];
+                if (string.Equals(token, "paratrooper", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(token, "para", StringComparison.OrdinalIgnoreCase))
+                {
+                    isParatrooper = true;
+                    continue;
+                }
+
+                if (string.Equals(token, "enemy", StringComparison.OrdinalIgnoreCase))
+                {
+                    isEnemy = true;
+                    continue;
+                }
+
+                if (string.Equals(token, "friendly", StringComparison.OrdinalIgnoreCase))
+                {
+                    isEnemy = false;
+                    continue;
+                }
+
+                failure = $"Unknown spawn flag '{token}'. Supported flags: paratrooper, enemy, friendly.";
+                return false;
+            }
+
+            request = new SiNpcSpawnRequest(webbingSubtype, isParatrooper, isEnemy);
             return true;
         }
 
@@ -2493,7 +2617,15 @@ namespace Si.UtilityAI
         }
 
         private string HelpText() =>
-            $"{Command} spawn [archetype] | spawn-enemy | list | clear | utility-ai [toggle|on|off|status] | gamelog [toggle|on|off|status]. Available: {Npcs?.KnownArchetypesText ?? SiNpcManager.SoldierArchetype}";
+            $"{Command} spawn <webbing> [paratrooper] [enemy] | spawn-enemy [webbing] | list | clear | utility-ai [toggle|on|off|status] | gamelog [toggle|on|off|status]. Available: {KnownWebbingsText()}";
+
+        private static string KnownWebbingsText()
+        {
+            var webbings = SiNpcTrooperCatalog.GetKnownWebbings();
+            return webbings.Count > 0
+                ? string.Join(", ", webbings)
+                : "none";
+        }
 
         private string UtilityAiDecisionMakingStatusText() =>
             $"UtilityAI decision making {(_utilityDecisionMakingEnabled ? "enabled" : "disabled")}.";
@@ -2571,16 +2703,31 @@ namespace Si.UtilityAI
         {
             if (saved == null
                 || saved.EntityId == 0
-                || string.IsNullOrWhiteSpace(saved.Archetype)
-                || !Npcs.IsKnownArchetype(saved.Archetype))
+                || string.IsNullOrWhiteSpace(saved.WebbingSubtype))
                 return;
 
+            var request = new SiNpcSpawnRequest(
+                saved.WebbingSubtype,
+                saved.IsParatrooper,
+                saved.IsEnemy);
             SiNpc npc;
-            if (!Npcs.TrySpawn(saved.Archetype, saved.EntityId, saved.Transform.GetMatrix(), out npc))
+            if (!Npcs.TrySpawnConfigured(
+                    SiNpcManager.SoldierArchetype,
+                    request.DisplayArchetype,
+                    saved.EntityId,
+                    saved.Transform.GetMatrix(),
+                    out npc))
                 return;
+
+            string failure;
+            if (!ApplySpawnRequest(npc, request, out failure))
+            {
+                Npcs.Close(saved.EntityId);
+                return;
+            }
 
             RestoreDiplomaticIdentity(saved, npc);
-            if (Npcs != null && Npcs.IsHostileToSpawner(saved.Archetype))
+            if (saved.IsEnemy)
             {
                 MyFaction enemyFaction;
                 if (!RestoreHostileNpcFaction(saved, npc, out enemyFaction))
@@ -2725,6 +2872,7 @@ namespace Si.UtilityAI
         private static MyObjectBuilder_SiNpcSessionComponent.SavedNpc CreateSavedNpc(SiNpc npc)
         {
             var mover = npc as ISiWaypointMover;
+            var dataDrivenNpc = npc as SiDataDrivenNpc;
             SiAssignedNpc assignment = null;
             var hasAssignment = _instance?.Squads != null
                                 && _instance.Squads.TryGetAssignment(npc.EntityId, out assignment);
@@ -2733,6 +2881,9 @@ namespace Si.UtilityAI
             {
                 EntityId = npc.EntityId,
                 Archetype = npc.Archetype,
+                WebbingSubtype = dataDrivenNpc?.WebbingSubtype,
+                IsParatrooper = dataDrivenNpc?.IsParatrooperSpawn ?? false,
+                IsEnemy = dataDrivenNpc?.IsEnemySpawn ?? false,
                 Transform = new MyPositionAndOrientation(npc.Transform),
                 HasWaypoint = mover?.HasWaypoint ?? false,
                 Waypoint = (SerializableVector3D)(mover?.Waypoint ?? Vector3D.Zero),
@@ -2843,6 +2994,7 @@ namespace Si.UtilityAI
         private static SiNpcSnapshot CreateSnapshot(SiNpc npc)
         {
             var mover = npc as ISiWaypointMover;
+            var dataDrivenNpc = npc as SiDataDrivenNpc;
             SiAssignedNpc assignment = null;
             var hasAssignment = _instance?.Squads != null
                                 && _instance.Squads.TryGetAssignment(npc.EntityId, out assignment);
@@ -2850,6 +3002,9 @@ namespace Si.UtilityAI
             {
                 EntityId = npc.EntityId,
                 Archetype = npc.Archetype,
+                WebbingSubtype = dataDrivenNpc?.WebbingSubtype,
+                IsParatrooper = dataDrivenNpc?.IsParatrooperSpawn ?? false,
+                IsEnemy = dataDrivenNpc?.IsEnemySpawn ?? false,
                 Transform = npc.Transform,
                 HasWaypoint = mover?.HasWaypoint ?? false,
                 Waypoint = mover?.Waypoint ?? Vector3D.Zero,
@@ -2946,7 +3101,7 @@ namespace Si.UtilityAI
                    + message.Trim();
         }
 
-        private static void BroadcastSpawn(SiNpc npc)
+        private static void BroadcastSpawn(SiNpc npc, SiNpcSpawnRequest request)
         {
             if (MyMultiplayerModApi.Static == null)
                 return;
@@ -3007,11 +3162,21 @@ namespace Si.UtilityAI
         private static void SpawnNpcClient(SiNpcSnapshot snapshot)
         {
             SiNpc npc = null;
-            _instance?.Npcs?.TrySpawn(
+            var request = new SiNpcSpawnRequest(
+                snapshot.WebbingSubtype,
+                snapshot.IsParatrooper,
+                snapshot.IsEnemy);
+            _instance?.Npcs?.TrySpawnConfigured(
+                SiNpcManager.SoldierArchetype,
                 snapshot.Archetype,
                 snapshot.EntityId,
                 snapshot.Transform,
                 out npc);
+            if (npc != null)
+            {
+                string failure;
+                _instance?.ApplySpawnRequest(npc, request, out failure);
+            }
             if (npc != null && snapshot.HasSquadAssignment)
                 _instance?.Squads?.AssignNpcToLeader(
                     npc,
@@ -3122,11 +3287,36 @@ namespace Si.UtilityAI
             return "Player";
         }
 
+        private readonly struct SiNpcSpawnRequest
+        {
+            public SiNpcSpawnRequest(string webbingSubtype, bool isParatrooper, bool isEnemy)
+            {
+                WebbingSubtype = string.IsNullOrWhiteSpace(webbingSubtype)
+                    ? null
+                    : webbingSubtype.Trim();
+                IsParatrooper = isParatrooper;
+                IsEnemy = isEnemy;
+            }
+
+            public string WebbingSubtype { get; }
+            public bool IsParatrooper { get; }
+            public bool IsEnemy { get; }
+            public string DisplayArchetype =>
+                string.IsNullOrWhiteSpace(WebbingSubtype)
+                    ? "trooper"
+                    : WebbingSubtype
+                      + (IsParatrooper ? "-paratrooper" : string.Empty)
+                      + (IsEnemy ? "-enemy" : string.Empty);
+        }
+
         [RpcSerializable]
         private struct SiNpcSnapshot
         {
             public long EntityId;
             public string Archetype;
+            public string WebbingSubtype;
+            public bool IsParatrooper;
+            public bool IsEnemy;
             public MatrixD Transform;
             public bool HasWaypoint;
             public Vector3D Waypoint;
@@ -3157,6 +3347,15 @@ namespace Si.UtilityAI
 
             [XmlAttribute]
             public string Archetype;
+
+            [XmlAttribute]
+            public string WebbingSubtype;
+
+            [XmlAttribute]
+            public bool IsParatrooper;
+
+            [XmlAttribute]
+            public bool IsEnemy;
 
             public MyPositionAndOrientation Transform;
 

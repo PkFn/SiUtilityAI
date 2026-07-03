@@ -15,8 +15,7 @@ namespace Si.UtilityAI
     /// </summary>
     public sealed class SiNpcManager
     {
-        public const string SoldierArchetype = "us-rifle-trooper";
-        public const string EnemyTrooperArchetype = "enemy-trooper";
+        public const string SoldierArchetype = "trooper";
         public const string EnemyFactionTag = "BARB";
 
         private readonly Dictionary<string, SiNpcArchetypeRecord> _archetypes =
@@ -177,6 +176,33 @@ namespace Si.UtilityAI
                 return false;
 
             npc = new SiDataDrivenNpc(definition, entityId, transform);
+            npc.AttachManager(this);
+            _npcs.Add(entityId, npc);
+            if (!npc.TryActivate())
+            {
+                _npcs.Remove(entityId);
+                npc = null;
+                return false;
+            }
+
+            return true;
+        }
+
+        public bool TrySpawnConfigured(
+            string baseArchetype,
+            string runtimeArchetype,
+            long entityId,
+            in MatrixD transform,
+            out SiNpc npc)
+        {
+            if (_npcs.TryGetValue(entityId, out npc))
+                return string.Equals(npc.Archetype, runtimeArchetype, StringComparison.OrdinalIgnoreCase);
+
+            SiNpcArchetypeRecord definition;
+            if (!_archetypes.TryGetValue(baseArchetype, out definition))
+                return false;
+
+            npc = new SiDataDrivenNpc(definition, runtimeArchetype, entityId, transform);
             npc.AttachManager(this);
             _npcs.Add(entityId, npc);
             if (!npc.TryActivate())

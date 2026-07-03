@@ -101,14 +101,36 @@ namespace Si.UtilityAI
     internal sealed class SiDataDrivenNpc : SiGroundedNpc
     {
         private readonly SiNpcArchetypeRecord _definition;
+        private readonly string _archetype;
 
         public SiDataDrivenNpc(SiNpcArchetypeRecord definition, long entityId, in MatrixD transform)
+            : this(definition, definition?.Archetype, entityId, transform)
+        {
+        }
+
+        public SiDataDrivenNpc(
+            SiNpcArchetypeRecord definition,
+            string archetype,
+            long entityId,
+            in MatrixD transform)
             : base(entityId, transform)
         {
             _definition = definition ?? throw new ArgumentNullException(nameof(definition));
+            _archetype = string.IsNullOrWhiteSpace(archetype) ? _definition.Archetype : archetype.Trim();
         }
 
-        public override string Archetype => _definition.Archetype;
+        public override string Archetype => _archetype;
         protected override MyDefinitionId EntityDefinition => _definition.EntityDefinition;
+
+        public string WebbingSubtype { get; private set; }
+        public bool IsParatrooperSpawn { get; private set; }
+        public bool IsEnemySpawn { get; private set; }
+
+        internal void SetSpawnMetadata(string webbingSubtype, bool isParatrooper, bool isEnemy)
+        {
+            WebbingSubtype = string.IsNullOrWhiteSpace(webbingSubtype) ? null : webbingSubtype.Trim();
+            IsParatrooperSpawn = isParatrooper;
+            IsEnemySpawn = isEnemy;
+        }
     }
 }

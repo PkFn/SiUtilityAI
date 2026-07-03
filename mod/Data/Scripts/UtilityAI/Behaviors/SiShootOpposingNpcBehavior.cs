@@ -232,8 +232,10 @@ namespace Si.UtilityAI
         private long _lastSearchLogTime = -1;
         private long _lastFireBlockLogTime = -1;
         private readonly SiGameLog _log = new SiGameLog(nameof(SiShootOpposingNpcBehaviorComponent), "[SiShoot]");
+        private SiShootOpposingNpcBehaviorDefinition _runtimeDefinition;
 
         public string BehaviorName => DefinitionId.ToString();
+        private SiShootOpposingNpcBehaviorDefinition Definition => _runtimeDefinition ?? _definition;
 
         public override bool IsSerialized => false;
 
@@ -242,6 +244,19 @@ namespace Si.UtilityAI
             base.Init(definition);
             _definition = (SiShootOpposingNpcBehaviorDefinition)definition;
             _definition.ResolveBalance();
+        }
+
+        internal bool ApplyRuntimeDefinition(MyDefinitionId definitionId)
+        {
+            SiShootOpposingNpcBehaviorDefinition runtimeDefinition;
+            if (!MyDefinitionManager.TryGet(definitionId, out runtimeDefinition) || runtimeDefinition == null)
+                return false;
+
+            runtimeDefinition.ResolveBalance();
+            _runtimeDefinition = runtimeDefinition;
+            _target = null;
+            _nextTargetEvaluationTime = -1;
+            return true;
         }
 
         public override void OnAddedToContainer()
@@ -269,12 +284,12 @@ namespace Si.UtilityAI
 
             TryReportSpotting(context, target, distance);
 
-            var normalizedDistance = _definition.SearchRadius > 0
-                ? MathHelper.Clamp(1f - (float)(distance / _definition.SearchRadius), 0, 1)
+            var normalizedDistance = Definition.SearchRadius > 0
+                ? MathHelper.Clamp(1f - (float)(distance / Definition.SearchRadius), 0, 1)
                 : 1;
-            var score = _definition.BaseScore
-                        + _definition.DistanceScore
-                        * (float)Math.Pow(normalizedDistance, _definition.DistanceExponent);
+            var score = Definition.BaseScore
+                        + Definition.DistanceScore
+                        * (float)Math.Pow(normalizedDistance, Definition.DistanceExponent);
             return score;
         }
 
@@ -283,9 +298,9 @@ namespace Si.UtilityAI
             GetWeapon()?.ResetState();
             TrySpeakWithCooldown(
                 context,
-                _definition.EngageSpeech,
+                Definition.EngageSpeech,
                 ref _lastEngageSpeechTime,
-                _definition.EngageSpeechCooldownMilliseconds);
+                Definition.EngageSpeechCooldownMilliseconds);
         }
 
         void ISiUtilityBehavior.Tick(SiUtilityContext context, long elapsedMilliseconds)
@@ -314,12 +329,12 @@ namespace Si.UtilityAI
             }
 
             var targetEntity = target.Entity;
-            if (_definition.RotateToTarget)
+            if (Definition.RotateToTarget)
                 FaceTarget(context.Entity, targetEntity);
 
             weapon.Advance(elapsedMilliseconds);
 
-            if (_definition.RequireLineOfSight && !HasLineOfSight(context.Entity, targetEntity, weapon.Definition.AimTargetHeight))
+            if (Definition.RequireLineOfSight && !HasLineOfSight(context.Entity, targetEntity, weapon.Definition.AimTargetHeight))
             {
                 LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, target, "line-of-sight-blocked", distance, SiSpottingObservation.None, weapon);
                 return;
@@ -337,7 +352,7 @@ namespace Si.UtilityAI
                 targetEntity,
                 target.Velocity,
                 observation.SpottingSum,
-                _definition.DetectionAccuracyWorseningMultiplier);
+                Definition.DetectionAccuracyWorseningMultiplier);
         }
 
         void ISiUtilityBehavior.End(SiUtilityContext context)
@@ -358,14 +373,14 @@ namespace Si.UtilityAI
                 return observation;
 
             if (_lastSpottedTargetId == target.EntityId
-                && !IsSpeechDue(_lastSpotSpeechTime, _definition.SpotSpeechCooldownMilliseconds))
+                && !IsSpeechDue(_lastSpotSpeechTime, Definition.SpotSpeechCooldownMilliseconds))
                 return observation;
 
             if (TrySpeakWithCooldown(
                     context,
                     CreateSpottingReport(context, target, distance),
                     ref _lastSpotSpeechTime,
-                    _definition.SpotSpeechCooldownMilliseconds))
+                    Definition.SpotSpeechCooldownMilliseconds))
                 _lastSpottedTargetId = target.EntityId;
 
             return observation;
@@ -383,16 +398,16 @@ namespace Si.UtilityAI
             return spotting.ObserveTarget(
                 context.Agent,
                 target.Entity,
-                _definition,
+                Definition,
                 GetWeaponAimHeight(),
                 distance);
         }
 
         private string CreateSpottingReport(SiUtilityContext context, ShootTarget target, double distance)
         {
-            var targetName = string.IsNullOrWhiteSpace(_definition.SpotTargetName)
+            var targetName = string.IsNullOrWhiteSpace(Definition.SpotTargetName)
                 ? "target"
-                : _definition.SpotTargetName.Trim();
+                : Definition.SpotTargetName.Trim();
             return targetName
                    + ", "
                    + RoundedDistanceMeters(distance)
@@ -501,7 +516,7 @@ namespace Si.UtilityAI
                 return null;
 
             ShootTarget best = null;
-            var bestDistanceSquared = (double)_definition.SearchRadius * _definition.SearchRadius;
+            var bestDistanceSquared = (double)Definition.SearchRadius * Definition.SearchRadius;
             var npcTotal = 0;
             var npcValid = 0;
             var npcOpposing = 0;
@@ -615,14 +630,14 @@ namespace Si.UtilityAI
             var distanceSquared = Vector3D.DistanceSquared(
                 observer.Entity.WorldMatrix.Translation,
                 targetEntity.WorldMatrix.Translation);
-            var searchRadiusSquared = (double)_definition.SearchRadius * _definition.SearchRadius;
+            var searchRadiusSquared = (double)Definition.SearchRadius * Definition.SearchRadius;
             if (distanceSquared > searchRadiusSquared)
                 return false;
 
             observation = session.Spotting.ObserveTarget(
                 observer,
                 targetEntity,
-                _definition,
+                Definition,
                 GetWeaponAimHeight(),
                 Math.Sqrt(distanceSquared));
             return true;
@@ -731,12 +746,12 @@ namespace Si.UtilityAI
 
         private void MarkTargetEvaluation()
         {
-            _nextTargetEvaluationTime = CurrentTimeMilliseconds() + _definition.TargetReevaluationIntervalMilliseconds;
+            _nextTargetEvaluationTime = CurrentTimeMilliseconds() + Definition.TargetReevaluationIntervalMilliseconds;
         }
 
         private long ResolveInitialTargetEvaluationDelayMilliseconds()
         {
-            var interval = _definition.TargetReevaluationIntervalMilliseconds;
+            var interval = Definition.TargetReevaluationIntervalMilliseconds;
             var entityId = Entity?.EntityId ?? 0;
             if (interval <= 0 || entityId == 0)
                 return 0;
@@ -915,11 +930,11 @@ namespace Si.UtilityAI
 
         internal bool CanTargetArchetype(string selfArchetype, string candidateArchetype)
         {
-            if (_definition.TargetArchetypes.Length == 0)
+            if (Definition.TargetArchetypes.Length == 0)
                 return !string.Equals(selfArchetype, candidateArchetype, StringComparison.OrdinalIgnoreCase);
 
-            for (var i = 0; i < _definition.TargetArchetypes.Length; i++)
-                if (string.Equals(_definition.TargetArchetypes[i], candidateArchetype, StringComparison.OrdinalIgnoreCase))
+            for (var i = 0; i < Definition.TargetArchetypes.Length; i++)
+                if (string.Equals(Definition.TargetArchetypes[i], candidateArchetype, StringComparison.OrdinalIgnoreCase))
                     return true;
             return false;
         }
