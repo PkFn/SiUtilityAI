@@ -467,7 +467,6 @@ namespace Si.UtilityAI
         private long _lastFireIntentTime = long.MinValue;
         private bool _scheduledFireQueued;
         private bool _maintenanceQueued;
-        private int _estimatedRoundsInMagazine;
         private ReloadMaintenanceState _reloadMaintenanceState;
         private MyEntity _fireIntentTarget;
         private Vector3D _fireIntentTargetVelocity;
@@ -525,7 +524,6 @@ namespace Si.UtilityAI
         {
             _fireCooldown = 0;
             _lastFireIntentTime = long.MinValue;
-            _estimatedRoundsInMagazine = InitialEstimatedMagazineRounds();
             _reloadMaintenanceState = ReloadMaintenanceState.None;
             _fireIntentTarget = null;
             _fireIntentTargetVelocity = Vector3D.Zero;
@@ -660,8 +658,6 @@ namespace Si.UtilityAI
 
             MyPAX_HandheldGun.ServerGunShootEvent(shooter.EntityId, direction);
             _fireCooldown = EffectiveFireIntervalMilliseconds;
-            if (Definition.ConsumeAmmo && _estimatedRoundsInMagazine > 0)
-                _estimatedRoundsInMagazine = Math.Max(0, _estimatedRoundsInMagazine - 1);
             SiNpcSessionComponent.Instance?.ReportNpcFiredShot(shooter.EntityId);
             SiNpcSessionComponent.Instance?.Spotting?.ReportShot(shooter.EntityId, shooter);
             if (NeedsReloadMaintenanceAfterShot)
@@ -699,6 +695,11 @@ namespace Si.UtilityAI
             var target = _fireIntentTarget;
             if (target == null || target.Closed || target.MarkedForClose)
                 return;
+            if (NeedsReloadMaintenanceNow)
+            {
+                BeginReloadMaintenance();
+                return;
+            }
 
             if (_fireCooldown > 0)
                 _fireCooldown = 0;
@@ -715,7 +716,6 @@ namespace Si.UtilityAI
                 return;
 
             _reloadMaintenanceState = ReloadMaintenanceState.RemovingEmptyMagazine;
-            _estimatedRoundsInMagazine = 0;
             MyPAX_HandheldGun.RequestTertiary(Entity.EntityId, false);
             _fireCooldown = Math.Max(_fireCooldown, EffectiveReloadIntervalMilliseconds);
             ScheduleReloadMaintenance(EffectiveReloadIntervalMilliseconds);
@@ -789,7 +789,6 @@ namespace Si.UtilityAI
                     return;
 
                 case ReloadMaintenanceState.LoadingMagazine:
-                    _estimatedRoundsInMagazine = InitialEstimatedMagazineRounds();
                     _reloadMaintenanceState = ReloadMaintenanceState.None;
                     return;
             }
@@ -824,13 +823,11 @@ namespace Si.UtilityAI
             && Definition.AcceptedMagazines.Length > 0;
 
         private bool NeedsReloadMaintenanceAfterShot =>
-            UsesDetachableMagazineMaintenance
-            && _estimatedRoundsInMagazine <= 0;
+            NeedsReloadMaintenanceNow;
 
-        private int InitialEstimatedMagazineRounds()
-        {
-            return Math.Max(0, Definition?.MagazineCount ?? 0);
-        }
+        private bool NeedsReloadMaintenanceNow =>
+            UsesDetachableMagazineMaintenance
+            && GetLoadedRoundsFromEquippedItem() <= 0;
 
         private static long CurrentTimeMilliseconds()
         {
@@ -880,6 +877,18 @@ namespace Si.UtilityAI
             string ignored;
             inventory = SiNpcEquipmentHelper.FindInventory(Entity, out ignored);
             return inventory != null;
+        }
+
+        private int GetLoadedRoundsFromEquippedItem()
+        {
+            if (!Definition.HeldItem.HasValue)
+                return 0;
+            if (!TryGetInventory(out var inventory))
+                return 0;
+
+            var heldItemId = (MyDefinitionId)Definition.HeldItem.Value;
+            var durable = inventory.FindItem(heldItemId) as MyDurableItem;
+            return durable != null ? Math.Max(0, durable.Durability) : 0;
         }
 
         private bool HasCompatibleLoadedMagazine(MyInventoryBase inventory)
