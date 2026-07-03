@@ -323,10 +323,10 @@
   <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Rifle_Paratrooper_Uniform" />
     <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_US_Tan" />
-    <DefaultHelmet>PAX_Helmet_M1_Green</DefaultHelmet>
+    <DefaultHelmet>PAX_Helmet_M1_Net</DefaultHelmet>
     <DefaultBackpack>PAX_ParachuteBackpack_CamoUS</DefaultBackpack>
     <Helmets>
-      <Helmet>PAX_Helmet_M1_Green</Helmet>
+      <Helmet>PAX_Helmet_M1_Net</Helmet>
     </Helmets>
     <UniformMatch>
       <Uniform>Uniform_US_Tan_upper_cm</Uniform>
@@ -336,10 +336,10 @@
   <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_German_Rifle_Paratrooper_Uniform" />
     <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_German_Feldgrau" />
-    <DefaultHelmet>PAX_Helmet_Stahlhelm_Feldgrau</DefaultHelmet>
+    <DefaultHelmet>PAX_Helmet_Stahlhelm_Splittertarnmuster</DefaultHelmet>
     <DefaultBackpack>PAX_ParachuteBackpack_Splittertarnmuster</DefaultBackpack>
     <Helmets>
-      <Helmet>PAX_Helmet_Stahlhelm_Feldgrau</Helmet>
+      <Helmet>PAX_Helmet_Stahlhelm_Splittertarnmuster</Helmet>
     </Helmets>
     <UniformMatch>
       <Uniform>Uniform_German_Feldgrau_upper_cm</Uniform>
@@ -348,11 +348,11 @@
 
   <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Rifle_Paratrooper_Uniform" />
-    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_Soviet_Khaki" />
-    <DefaultHelmet>PAX_Helmet_Soviet_Green</DefaultHelmet>
+    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_Soviet_Brown" />
+    <DefaultHelmet>PAX_Helmet_Soviet_Green_Star</DefaultHelmet>
     <DefaultBackpack>PAX_ParachuteBackpack_White</DefaultBackpack>
     <Helmets>
-      <Helmet>PAX_Helmet_Soviet_Green</Helmet>
+      <Helmet>PAX_Helmet_Soviet_Green_Star</Helmet>
     </Helmets>
     <UniformMatch>
       <Uniform>Uniform_Soviet_Khaki_upper_cm</Uniform>
@@ -361,11 +361,11 @@
 
   <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiEnemyTrooper_German_Rifle_Paratrooper_Uniform" />
-    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_German_Feldgrau" />
-    <DefaultHelmet>PAX_Helmet_Stahlhelm_Feldgrau</DefaultHelmet>
+    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_German_Splittertarnmuster" />
+    <DefaultHelmet>PAX_Helmet_Stahlhelm_Splittertarnmuster</DefaultHelmet>
     <DefaultBackpack>PAX_ParachuteBackpack_Splittertarnmuster</DefaultBackpack>
     <Helmets>
-      <Helmet>PAX_Helmet_Stahlhelm_Feldgrau</Helmet>
+      <Helmet>PAX_Helmet_Stahlhelm_Splittertarnmuster</Helmet>
     </Helmets>
     <UniformMatch>
       <Uniform>Uniform_German_Feldgrau_upper_cm</Uniform>
@@ -375,10 +375,10 @@
   <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Smg_Paratrooper_Uniform" />
     <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_US_Tan" />
-    <DefaultHelmet>PAX_Helmet_M1_Green</DefaultHelmet>
+    <DefaultHelmet>PAX_Helmet_M1_Net</DefaultHelmet>
     <DefaultBackpack>PAX_ParachuteBackpack_CamoUS</DefaultBackpack>
     <Helmets>
-      <Helmet>PAX_Helmet_M1_Green</Helmet>
+      <Helmet>PAX_Helmet_M1_Net</Helmet>
     </Helmets>
     <UniformMatch>
       <Uniform>Uniform_US_Tan_upper_cm</Uniform>
@@ -387,11 +387,11 @@
 
   <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_German_Smg_Paratrooper_Uniform" />
-    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_German_Feldgrau" />
-    <DefaultHelmet>PAX_Helmet_Stahlhelm_Feldgrau</DefaultHelmet>
+    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_German_Splittertarnmuster" />
+    <DefaultHelmet>PAX_Helmet_Stahlhelm_Splittertarnmuster</DefaultHelmet>
     <DefaultBackpack>PAX_ParachuteBackpack_Splittertarnmuster</DefaultBackpack>
     <Helmets>
-      <Helmet>PAX_Helmet_Stahlhelm_Feldgrau</Helmet>
+      <Helmet>PAX_Helmet_Stahlhelm_Splittertarnmuster</Helmet>
     </Helmets>
     <UniformMatch>
       <Uniform>Uniform_German_Feldgrau_upper_cm</Uniform>
@@ -400,11 +400,11 @@
 
   <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Smg_Paratrooper_Uniform" />
-    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_Soviet_Khaki" />
-    <DefaultHelmet>PAX_Helmet_Soviet_Green</DefaultHelmet>
+    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_Soviet_Brown" />
+    <DefaultHelmet>PAX_Helmet_Soviet_Green_Star</DefaultHelmet>
     <DefaultBackpack>PAX_ParachuteBackpack_White</DefaultBackpack>
     <Helmets>
-      <Helmet>PAX_Helmet_Soviet_Green</Helmet>
+      <Helmet>PAX_Helmet_Soviet_Green_Star</Helmet>
     </Helmets>
     <UniformMatch>
       <Uniform>Uniform_Soviet_Khaki_upper_cm</Uniform>
@@ -413,11 +413,11 @@
 
   <Definition xsi:type="MyObjectBuilder_SiNpcUniformComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiEnemyTrooper_German_Smg_Paratrooper_Uniform" />
-    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_German_Feldgrau" />
-    <DefaultHelmet>PAX_Helmet_Stahlhelm_Feldgrau</DefaultHelmet>
+    <Uniform Type="MyObjectBuilder_PAX_UniformEquipment" Subtype="PAX_UniformEquipmentScript_German_Splittertarnmuster" />
+    <DefaultHelmet>PAX_Helmet_Stahlhelm_Splittertarnmuster</DefaultHelmet>
     <DefaultBackpack>PAX_ParachuteBackpack_Splittertarnmuster</DefaultBackpack>
     <Helmets>
-      <Helmet>PAX_Helmet_Stahlhelm_Feldgrau</Helmet>
+      <Helmet>PAX_Helmet_Stahlhelm_Splittertarnmuster</Helmet>
     </Helmets>
     <UniformMatch>
       <Uniform>Uniform_German_Feldgrau_upper_cm</Uniform>
