@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Xml.Serialization;
 using Pax.Cannons;
 using Sandbox.Game.EntityComponents.Character;
+using Sandbox.Game.Inventory;
 using Sandbox.ModAPI;
 using SiCore.Core.Debug;
 using VRage.Components;
@@ -184,7 +185,9 @@ namespace Si.UtilityAI
         public SerializableDefinitionId? HeldItem { get; private set; }
         public SerializableDefinitionId? WeaponBehavior { get; private set; }
         public bool ConsumeAmmo { get; private set; }
+        public bool NewMagazineMethod { get; private set; }
         public bool InternallyLoaded { get; private set; }
+        public bool LoadSingleRounds { get; private set; }
         public string[] AcceptedCartridges { get; private set; }
         public string[] AcceptedMagazines { get; private set; }
         public string ShootEffectName { get; private set; }
@@ -324,7 +327,9 @@ namespace Si.UtilityAI
             ShootSoundFar = ob.ShootSoundFar;
             ShootSoundFarFront = ob.ShootSoundFarFront;
             ConsumeAmmo = false;
+            NewMagazineMethod = false;
             InternallyLoaded = false;
+            LoadSingleRounds = false;
             AcceptedCartridges = EmptyStrings;
             AcceptedMagazines = EmptyStrings;
             ShootEffectName = null;
@@ -367,7 +372,9 @@ namespace Si.UtilityAI
                 return;
 
             ConsumeAmmo = behavior.ConsumeAmmo;
+            NewMagazineMethod = behavior.NewMagazineMethod;
             InternallyLoaded = behavior.InternallyLoaded;
+            LoadSingleRounds = behavior.LoadSingleRounds;
             AcceptedCartridges = behavior.AcceptedCartridges ?? EmptyStrings;
             AcceptedMagazines = behavior.AcceptedMagazines ?? EmptyStrings;
             ShootEffectName = string.IsNullOrWhiteSpace(behavior.ShootEffect) ? null : behavior.ShootEffect;
@@ -459,6 +466,9 @@ namespace Si.UtilityAI
         private long _lastFireDenyLogTime = -1;
         private long _lastFireIntentTime = long.MinValue;
         private bool _scheduledFireQueued;
+        private bool _maintenanceQueued;
+        private int _estimatedRoundsInMagazine;
+        private ReloadMaintenanceState _reloadMaintenanceState;
         private MyEntity _fireIntentTarget;
         private Vector3D _fireIntentTargetVelocity;
 
@@ -515,6 +525,8 @@ namespace Si.UtilityAI
         {
             _fireCooldown = 0;
             _lastFireIntentTime = long.MinValue;
+            _estimatedRoundsInMagazine = InitialEstimatedMagazineRounds();
+            _reloadMaintenanceState = ReloadMaintenanceState.None;
             _fireIntentTarget = null;
             _fireIntentTargetVelocity = Vector3D.Zero;
         }
@@ -579,6 +591,7 @@ namespace Si.UtilityAI
         internal void ClearFireIntent()
         {
             _lastFireIntentTime = long.MinValue;
+            _reloadMaintenanceState = ReloadMaintenanceState.None;
             _fireIntentTarget = null;
             _fireIntentTargetVelocity = Vector3D.Zero;
         }
@@ -647,13 +660,19 @@ namespace Si.UtilityAI
 
             MyPAX_HandheldGun.ServerGunShootEvent(shooter.EntityId, direction);
             _fireCooldown = EffectiveFireIntervalMilliseconds;
+            if (Definition.ConsumeAmmo && _estimatedRoundsInMagazine > 0)
+                _estimatedRoundsInMagazine = Math.Max(0, _estimatedRoundsInMagazine - 1);
             SiNpcSessionComponent.Instance?.ReportNpcFiredShot(shooter.EntityId);
             SiNpcSessionComponent.Instance?.Spotting?.ReportShot(shooter.EntityId, shooter);
+            if (NeedsReloadMaintenanceAfterShot)
+                BeginReloadMaintenance();
             return true;
         }
 
         private void StartScheduledFiring()
         {
+            if (_reloadMaintenanceState != ReloadMaintenanceState.None)
+                return;
             if (_scheduledFireQueued)
                 return;
 
@@ -669,6 +688,8 @@ namespace Si.UtilityAI
             if (Entity == null || Entity.Closed || Entity.MarkedForClose)
                 return;
             if (!IsOperational)
+                return;
+            if (_reloadMaintenanceState != ReloadMaintenanceState.None)
                 return;
 
             var now = CurrentTimeMilliseconds();
@@ -688,6 +709,98 @@ namespace Si.UtilityAI
             StartScheduledFiring();
         }
 
+        private void BeginReloadMaintenance()
+        {
+            if (!UsesDetachableMagazineMaintenance || Entity == null)
+                return;
+
+            _reloadMaintenanceState = ReloadMaintenanceState.RemovingEmptyMagazine;
+            _estimatedRoundsInMagazine = 0;
+            MyPAX_HandheldGun.RequestTertiary(Entity.EntityId, false);
+            _fireCooldown = Math.Max(_fireCooldown, EffectiveReloadIntervalMilliseconds);
+            ScheduleReloadMaintenance(EffectiveReloadIntervalMilliseconds);
+        }
+
+        private void ScheduleReloadMaintenance(long delay)
+        {
+            if (_maintenanceQueued)
+                return;
+
+            _maintenanceQueued = true;
+            AddScheduledCallback(ContinueReloadMaintenance, Math.Max(1L, delay));
+        }
+
+        [Update(false)]
+        private void ContinueReloadMaintenance(long _)
+        {
+            _maintenanceQueued = false;
+            if (_reloadMaintenanceState == ReloadMaintenanceState.None)
+                return;
+            if (Entity == null || Entity.Closed || Entity.MarkedForClose)
+            {
+                _reloadMaintenanceState = ReloadMaintenanceState.None;
+                return;
+            }
+
+            if (!TryGetInventory(out var inventory))
+            {
+                _reloadMaintenanceState = ReloadMaintenanceState.None;
+                return;
+            }
+
+            switch (_reloadMaintenanceState)
+            {
+                case ReloadMaintenanceState.RemovingEmptyMagazine:
+                    if (HasCompatibleLoadedMagazine(inventory))
+                    {
+                        TriggerMagazineLoad();
+                        _reloadMaintenanceState = ReloadMaintenanceState.LoadingMagazine;
+                        ScheduleReloadMaintenance(EffectiveReloadIntervalMilliseconds);
+                        return;
+                    }
+
+                    if (HasCompatibleLooseAmmo(inventory) && HasCompatibleMagazineShell(inventory))
+                    {
+                        MyPAX_HandheldGun.RequestTertiary(Entity.EntityId, true);
+                        _reloadMaintenanceState = ReloadMaintenanceState.FillingMagazines;
+                        ScheduleReloadMaintenance(EffectiveReloadIntervalMilliseconds);
+                        return;
+                    }
+
+                    _reloadMaintenanceState = ReloadMaintenanceState.None;
+                    return;
+
+                case ReloadMaintenanceState.FillingMagazines:
+                    if (HasCompatibleLoadedMagazine(inventory))
+                    {
+                        TriggerMagazineLoad();
+                        _reloadMaintenanceState = ReloadMaintenanceState.LoadingMagazine;
+                        ScheduleReloadMaintenance(EffectiveReloadIntervalMilliseconds);
+                        return;
+                    }
+
+                    if (HasCompatibleLooseAmmo(inventory) && HasCompatibleMagazineShell(inventory))
+                    {
+                        ScheduleReloadMaintenance(EffectiveReloadIntervalMilliseconds);
+                        return;
+                    }
+
+                    _reloadMaintenanceState = ReloadMaintenanceState.None;
+                    return;
+
+                case ReloadMaintenanceState.LoadingMagazine:
+                    _estimatedRoundsInMagazine = InitialEstimatedMagazineRounds();
+                    _reloadMaintenanceState = ReloadMaintenanceState.None;
+                    return;
+            }
+        }
+
+        private void TriggerMagazineLoad()
+        {
+            MyPAX_HandheldGun.ServerGunShootEvent(Entity.EntityId, Quaternion.Identity);
+            _fireCooldown = Math.Max(_fireCooldown, EffectiveReloadIntervalMilliseconds);
+        }
+
         private int EffectiveFireIntervalMilliseconds
         {
             get
@@ -697,6 +810,26 @@ namespace Si.UtilityAI
                     return interval;
                 return 1;
             }
+        }
+
+        private int EffectiveReloadIntervalMilliseconds =>
+            Math.Max(600, Definition.MagazineReloadMilliseconds > 0 ? Definition.MagazineReloadMilliseconds : 600);
+
+        private bool UsesDetachableMagazineMaintenance =>
+            Definition != null
+            && Definition.ConsumeAmmo
+            && Definition.NewMagazineMethod
+            && !Definition.InternallyLoaded
+            && Definition.AcceptedMagazines != null
+            && Definition.AcceptedMagazines.Length > 0;
+
+        private bool NeedsReloadMaintenanceAfterShot =>
+            UsesDetachableMagazineMaintenance
+            && _estimatedRoundsInMagazine <= 0;
+
+        private int InitialEstimatedMagazineRounds()
+        {
+            return Math.Max(0, Definition?.MagazineCount ?? 0);
         }
 
         private static long CurrentTimeMilliseconds()
@@ -747,6 +880,81 @@ namespace Si.UtilityAI
             string ignored;
             inventory = SiNpcEquipmentHelper.FindInventory(Entity, out ignored);
             return inventory != null;
+        }
+
+        private bool HasCompatibleLoadedMagazine(MyInventoryBase inventory)
+        {
+            if (inventory == null || Definition.AcceptedMagazines == null)
+                return false;
+
+            foreach (var item in inventory.Items)
+            {
+                if (item == null)
+                    continue;
+
+                var durable = item as MyDurableItem;
+                if (durable == null || durable.Durability <= 0)
+                    continue;
+
+                if (IsCompatibleMagazineSubtype(item.Subtype.String))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private bool HasCompatibleMagazineShell(MyInventoryBase inventory)
+        {
+            if (inventory == null || Definition.AcceptedMagazines == null)
+                return false;
+
+            foreach (var item in inventory.Items)
+            {
+                if (item == null)
+                    continue;
+
+                if (IsCompatibleMagazineSubtype(item.Subtype.String))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private bool HasCompatibleLooseAmmo(MyInventoryBase inventory)
+        {
+            if (inventory == null || Definition.AcceptedCartridges == null)
+                return false;
+
+            for (var i = 0; i < Definition.AcceptedCartridges.Length; i++)
+            {
+                var ammoId = new MyDefinitionId(typeof(MyObjectBuilder_InventoryItem), Definition.AcceptedCartridges[i]);
+                if (inventory.GetItemAmount(ammoId) > 0)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private bool IsCompatibleMagazineSubtype(string subtype)
+        {
+            if (string.IsNullOrWhiteSpace(subtype) || Definition.AcceptedMagazines == null)
+                return false;
+
+            for (var i = 0; i < Definition.AcceptedMagazines.Length; i++)
+            {
+                if (subtype.StartsWith(Definition.AcceptedMagazines[i], StringComparison.Ordinal))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private enum ReloadMaintenanceState
+        {
+            None,
+            RemovingEmptyMagazine,
+            FillingMagazines,
+            LoadingMagazine,
         }
 
         private MyPAX_HandheldGun GetHeldGunBehavior()

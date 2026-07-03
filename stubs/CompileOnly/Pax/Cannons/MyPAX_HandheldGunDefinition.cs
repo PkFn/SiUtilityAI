@@ -19,7 +19,9 @@ namespace Pax.Cannons
     public class MyPAX_HandheldGunDefinition : MyDefinitionBase
     {
         public bool ConsumeAmmo { get; set; }
+        public bool NewMagazineMethod { get; set; }
         public bool InternallyLoaded { get; set; }
+        public bool LoadSingleRounds { get; set; }
         public bool AutoUnloadMagazine { get; set; }
         public bool SemiAuto { get; set; }
         public int ClipSize { get; set; }
@@ -68,6 +70,10 @@ namespace Pax.Cannons
         }
 
         public static void ServerGunShootEvent(long holderId, Quaternion direction)
+        {
+        }
+
+        public static void RequestTertiary(long holderId, bool topUp)
         {
         }
     }
