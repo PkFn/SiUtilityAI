@@ -72,16 +72,16 @@ namespace Si.UtilityAI
                 return false;
 
             var requestedSubtype = webbingSubtype.Trim();
-            if (preferParatrooper
-                && TryGetParatrooperVariantSubtype(requestedSubtype, out var paratrooperSubtype)
-                && TryGetLoadout(paratrooperSubtype, out definition))
-            {
-                resolvedWebbingSubtype = definition.Id.SubtypeName;
-                return true;
-            }
-
             if (!TryGetLoadout(requestedSubtype, out definition))
                 return false;
+
+            if (preferParatrooper
+                && definition.ParatrooperVariant.HasValue
+                && TryGetLoadout(definition.ParatrooperVariant.Value.SubtypeId, out var paratrooperDefinition)
+                && paratrooperDefinition != null)
+            {
+                definition = paratrooperDefinition;
+            }
 
             resolvedWebbingSubtype = definition.Id.SubtypeName;
             return true;
@@ -168,31 +168,6 @@ namespace Si.UtilityAI
             return paratrooper
                 ? (best.ParatrooperUniform ?? best.RegularUniform)
                 : best.RegularUniform;
-        }
-
-        private static bool TryGetParatrooperVariantSubtype(string webbingSubtype, out string paratrooperSubtype)
-        {
-            paratrooperSubtype = null;
-            if (string.IsNullOrWhiteSpace(webbingSubtype))
-                return false;
-
-            var trimmed = webbingSubtype.Trim();
-            if (trimmed.IndexOf("Paratrooper", StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                paratrooperSubtype = trimmed;
-                return true;
-            }
-
-            var firstSeparator = trimmed.IndexOf('_');
-            if (firstSeparator < 0 || firstSeparator >= trimmed.Length - 1)
-                return false;
-
-            var secondSeparator = trimmed.IndexOf('_', firstSeparator + 1);
-            if (secondSeparator < 0 || secondSeparator >= trimmed.Length - 1)
-                return false;
-
-            paratrooperSubtype = trimmed.Insert(secondSeparator + 1, "Paratrooper_");
-            return true;
         }
 
         internal static List<string> GetKnownWebbings()

@@ -23,6 +23,8 @@ namespace Si.UtilityAI
     {
         public SerializableDefinitionId? Webbing;
         public SerializableDefinitionId? Uniform;
+        public SerializableDefinitionId? Parachute;
+        public SerializableDefinitionId? ParatrooperVariant;
         public bool IsParatrooper;
     }
 
@@ -31,7 +33,11 @@ namespace Si.UtilityAI
     {
         public SerializableDefinitionId? Webbing { get; private set; }
         public SerializableDefinitionId? Uniform { get; private set; }
-        public bool IsParatrooper { get; private set; }
+        public SerializableDefinitionId? Parachute { get; private set; }
+        public SerializableDefinitionId? ParatrooperVariant { get; private set; }
+        public bool IsParatrooper => Parachute.HasValue || _isParatrooper;
+
+        private bool _isParatrooper;
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
         {
@@ -39,7 +45,9 @@ namespace Si.UtilityAI
             var ob = (MyObjectBuilder_SiNpcLoadoutComponentDefinition)builder;
             Webbing = ob.Webbing;
             Uniform = ob.Uniform;
-            IsParatrooper = ob.IsParatrooper;
+            Parachute = ob.Parachute;
+            ParatrooperVariant = ob.ParatrooperVariant;
+            _isParatrooper = ob.IsParatrooper;
         }
     }
 

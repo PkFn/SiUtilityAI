@@ -65,104 +65,112 @@
     <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_German_Rifle" />
     <Webbing Type="EquipmentItem" Subtype="Webbing_German_Rifle" />
     <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_German_Uniform" />
+    <ParatrooperVariant Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_German_Paratrooper_Rifle" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_German_Semi" />
     <Webbing Type="EquipmentItem" Subtype="Webbing_German_Semi" />
     <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_German_Uniform" />
+    <ParatrooperVariant Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_German_Paratrooper_Semi" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_German_Smg" />
     <Webbing Type="EquipmentItem" Subtype="Webbing_German_Smg" />
     <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_German_Uniform" />
+    <ParatrooperVariant Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_German_Paratrooper_Smg" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_German_Paratrooper_Rifle" />
     <Webbing Type="EquipmentItem" Subtype="Webbing_German_Paratrooper_Rifle" />
     <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_German_Paratrooper_Uniform" />
-    <IsParatrooper>true</IsParatrooper>
+    <Parachute Type="EquipmentItem" Subtype="PAX_ParachuteBackpack_Splittertarnmuster" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_German_Paratrooper_Semi" />
     <Webbing Type="EquipmentItem" Subtype="Webbing_German_Paratrooper_Semi" />
     <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_German_Paratrooper_Uniform" />
-    <IsParatrooper>true</IsParatrooper>
+    <Parachute Type="EquipmentItem" Subtype="PAX_ParachuteBackpack_Splittertarnmuster" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_German_Paratrooper_Smg" />
     <Webbing Type="EquipmentItem" Subtype="Webbing_German_Paratrooper_Smg" />
     <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_German_Paratrooper_Uniform" />
-    <IsParatrooper>true</IsParatrooper>
+    <Parachute Type="EquipmentItem" Subtype="PAX_ParachuteBackpack_Splittertarnmuster" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_US_Rifle" />
     <Webbing Type="EquipmentItem" Subtype="Webbing_US_Rifle" />
     <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Uniform" />
+    <ParatrooperVariant Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_US_Paratrooper_Rifle" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_US_Semi" />
     <Webbing Type="EquipmentItem" Subtype="Webbing_US_Semi" />
     <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Uniform" />
+    <ParatrooperVariant Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_US_Paratrooper_Semi" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_US_Smg" />
     <Webbing Type="EquipmentItem" Subtype="Webbing_US_Smg" />
     <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Uniform" />
+    <ParatrooperVariant Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_US_Paratrooper_Smg" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_US_Paratrooper_Rifle" />
     <Webbing Type="EquipmentItem" Subtype="Webbing_US_Paratrooper_Rifle" />
     <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Paratrooper_Uniform" />
-    <IsParatrooper>true</IsParatrooper>
+    <Parachute Type="EquipmentItem" Subtype="PAX_ParachuteBackpack_CamoUS" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_US_Paratrooper_Semi" />
     <Webbing Type="EquipmentItem" Subtype="Webbing_US_Paratrooper_Semi" />
     <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Paratrooper_Uniform" />
-    <IsParatrooper>true</IsParatrooper>
+    <Parachute Type="EquipmentItem" Subtype="PAX_ParachuteBackpack_CamoUS" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_US_Paratrooper_Smg" />
     <Webbing Type="EquipmentItem" Subtype="Webbing_US_Paratrooper_Smg" />
     <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Paratrooper_Uniform" />
-    <IsParatrooper>true</IsParatrooper>
+    <Parachute Type="EquipmentItem" Subtype="PAX_ParachuteBackpack_CamoUS" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_Soviet_Rifle" />
     <Webbing Type="EquipmentItem" Subtype="Webbing_Soviet_Rifle" />
     <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Uniform" />
+    <ParatrooperVariant Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_Soviet_Paratrooper_Rifle" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_Soviet_Smg" />
     <Webbing Type="EquipmentItem" Subtype="Webbing_Soviet_Smg" />
     <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Uniform" />
+    <ParatrooperVariant Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_Soviet_Paratrooper_Smg" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_Soviet_Paratrooper_Rifle" />
     <Webbing Type="EquipmentItem" Subtype="Webbing_Soviet_Paratrooper_Rifle" />
     <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Paratrooper_Uniform" />
-    <IsParatrooper>true</IsParatrooper>
+    <Parachute Type="EquipmentItem" Subtype="PAX_ParachuteBackpack_White" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_Soviet_Paratrooper_Smg" />
     <Webbing Type="EquipmentItem" Subtype="Webbing_Soviet_Paratrooper_Smg" />
     <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Paratrooper_Uniform" />
-    <IsParatrooper>true</IsParatrooper>
+    <Parachute Type="EquipmentItem" Subtype="PAX_ParachuteBackpack_White" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition">
