@@ -1,32 +1,92 @@
 using System;
 using System.Collections.Generic;
+using Equinox76561198048419394.Core.Controller;
 using Sandbox.Game.EntityComponents.Character;
 using Sandbox.Game.Players;
 using Sandbox.Game.SessionComponents;
 using Sandbox.ModAPI;
+using SiCore.Core.Grid;
+using VRage.Components.Entity.CubeGrid;
 using VRage.Game;
 using VRage.Game.Definitions;
 using VRage.Game.Entity;
-using VRageMath;
+using VRage.ModAPI;
 using VRage.ObjectBuilders;
 using VRage.Session;
+using VRageMath;
 
 namespace Si.UtilityAI
 {
+    internal enum SiSpottedTargetKind
+    {
+        Infantry,
+        Passenger,
+        Vehicle,
+    }
+
     internal struct SiSpottingObservation
     {
-        public static readonly SiSpottingObservation None = new SiSpottingObservation(false, 0, 1);
+        public static readonly SiSpottingObservation None = new SiSpottingObservation(
+            false,
+            0,
+            1,
+            SiSpottedTargetKind.Infantry,
+            false,
+            false,
+            0,
+            Vector3D.Zero,
+            0,
+            1);
 
         public SiSpottingObservation(bool isSpotted, float spottingSum, float spottingThreshold)
+            : this(
+                isSpotted,
+                spottingSum,
+                spottingThreshold,
+                SiSpottedTargetKind.Infantry,
+                isSpotted,
+                false,
+                0,
+                Vector3D.Zero,
+                0,
+                1)
+        {
+        }
+
+        public SiSpottingObservation(
+            bool isSpotted,
+            float spottingSum,
+            float spottingThreshold,
+            SiSpottedTargetKind targetKind,
+            bool canShootTarget,
+            bool vehicleSpotted,
+            long vehicleEntityId,
+            Vector3D vehicleTargetPosition,
+            float vehicleSpottingSum,
+            float vehicleSpottingThreshold)
         {
             IsSpotted = isSpotted;
             SpottingSum = spottingSum;
             SpottingThreshold = spottingThreshold;
+            TargetKind = targetKind;
+            CanShootTarget = canShootTarget;
+            VehicleSpotted = vehicleSpotted;
+            VehicleEntityId = vehicleEntityId;
+            VehicleTargetPosition = vehicleTargetPosition;
+            VehicleSpottingSum = vehicleSpottingSum;
+            VehicleSpottingThreshold = vehicleSpottingThreshold;
         }
 
         public bool IsSpotted { get; }
         public float SpottingSum { get; }
         public float SpottingThreshold { get; }
+        public SiSpottedTargetKind TargetKind { get; }
+        public bool CanShootTarget { get; }
+        public bool VehicleSpotted { get; }
+        public long VehicleEntityId { get; }
+        public Vector3D VehicleTargetPosition { get; }
+        public float VehicleSpottingSum { get; }
+        public float VehicleSpottingThreshold { get; }
     }
 
     internal sealed class SiSpottingSystem
@@ -36,6 +96,8 @@ namespace Si.UtilityAI
 
         private readonly Dictionary<SpottingKey, SpottingState> _observations =
             new Dictionary<SpottingKey, SpottingState>();
+        private readonly Dictionary<TargetBankKey, TargetBankEntry> _targetBank =
+            new Dictionary<TargetBankKey, TargetBankEntry>();
         private readonly Dictionary<long, long> _recentShotTimes =
             new Dictionary<long, long>();
         private readonly Dictionary<long, long> _recentPlayerEvidenceTimes =
@@ -43,6 +105,7 @@ namespace Si.UtilityAI
         private readonly Queue<long> _pendingObservers = new Queue<long>();
         private readonly HashSet<long> _queuedObservers = new HashSet<long>();
         private readonly List<SpottingKey> _removals = new List<SpottingKey>();
+        private readonly List<TargetBankKey> _targetBankRemovals = new List<TargetBankKey>();
         private readonly SiNpcSessionComponent _session;
         private readonly SiNearbyEnvironmentScanner _environmentScanner = new SiNearbyEnvironmentScanner();
 
@@ -59,11 +122,13 @@ namespace Si.UtilityAI
         public void Clear()
         {
             _observations.Clear();
+            _targetBank.Clear();
             _recentShotTimes.Clear();
             _recentPlayerEvidenceTimes.Clear();
             _pendingObservers.Clear();
             _queuedObservers.Clear();
             _removals.Clear();
+            _targetBankRemovals.Clear();
             _weather = null;
         }
 
@@ -72,11 +137,12 @@ namespace Si.UtilityAI
             TryResolveWeather();
             UpdatePlayerFiringEvidence();
 
-            if (_observations.Count == 0)
+            if (_observations.Count == 0 && _targetBank.Count == 0)
                 return;
 
             var now = CurrentTimeMilliseconds();
             CleanupExpiredObservations(now);
+            CleanupTargetBank(now);
             ProcessQueuedObserver(now);
         }
 
@@ -90,28 +156,74 @@ namespace Si.UtilityAI
             if (observer == null || target == null || definition == null)
                 return SiSpottingObservation.None;
 
-            var key = new SpottingKey(observer.EntityId, target.EntityId);
-            if (!_observations.TryGetValue(key, out var state))
+            var now = CurrentTimeMilliseconds();
+            var resolved = ResolveTargetBank(target, now);
+            var primary = resolved.Primary;
+            if (primary == null)
+                return SiSpottingObservation.None;
+
+            var primaryState = GetOrCreateState(observer.EntityId, primary, now);
+            primaryState.Definition = definition;
+            primaryState.AimHeight = aimHeight;
+            primaryState.LastRequestedTime = now;
+            primaryState.LastKnownDistance = distance;
+            primaryState.LastKnownTargetPosition = primary.Position;
+
+            SpottingState vehicleState = null;
+            if (resolved.Vehicle != null && !resolved.Vehicle.Key.Equals(primary.Key))
             {
-                state = new SpottingState
-                {
-                    System = this,
-                    ObserverId = observer.EntityId,
-                    TargetId = target.EntityId,
-                    LastAwarenessUpdateTime = CurrentTimeMilliseconds(),
-                };
-                _observations.Add(key, state);
+                var vehicleDistance = Vector3D.Distance(
+                    observer.Entity?.WorldMatrix.Translation ?? Vector3D.Zero,
+                    resolved.Vehicle.Position);
+                vehicleState = GetOrCreateState(observer.EntityId, resolved.Vehicle, now);
+                vehicleState.Definition = definition;
+                vehicleState.AimHeight = aimHeight;
+                vehicleState.LastRequestedTime = now;
+                vehicleState.LastKnownDistance = vehicleDistance;
+                vehicleState.LastKnownTargetPosition = resolved.Vehicle.Position;
             }
 
-            state.Definition = definition;
-            state.AimHeight = aimHeight;
-            state.LastRequestedTime = CurrentTimeMilliseconds();
-            state.LastKnownDistance = distance;
             EnqueueObserver(observer.EntityId);
 
-            var sharedSpottingSum = GetSharedSpottingSum(observer, target, state.SpottingSum);
-            var isSpotted = sharedSpottingSum >= state.SpottingThreshold;
-            return new SiSpottingObservation(isSpotted, sharedSpottingSum, state.SpottingThreshold);
+            var sharedSpottingSum = GetSharedSpottingSum(observer, primary.Key, primaryState.SpottingSum);
+            var isSpotted = sharedSpottingSum >= primaryState.SpottingThreshold;
+            var canShootTarget = observer.Entity != null
+                                 && HasLineOfSightToTarget(observer.Entity, primary, aimHeight);
+
+            var vehicleSpotted = false;
+            var vehicleSpottingSum = 0f;
+            var vehicleSpottingThreshold = 1f;
+            var vehicleEntityId = 0L;
+            var vehicleTargetPosition = Vector3D.Zero;
+            if (resolved.Vehicle != null)
+            {
+                vehicleEntityId = resolved.Vehicle.EntityId;
+                vehicleTargetPosition = resolved.Vehicle.Position;
+                if (vehicleState != null)
+                {
+                    vehicleSpottingSum = GetSharedSpottingSum(observer, resolved.Vehicle.Key, vehicleState.SpottingSum);
+                    vehicleSpottingThreshold = vehicleState.SpottingThreshold;
+                    vehicleSpotted = vehicleSpottingSum >= vehicleSpottingThreshold;
+                }
+                else if (primary.Kind == SiSpottedTargetKind.Vehicle)
+                {
+                    vehicleSpottingSum = sharedSpottingSum;
+                    vehicleSpottingThreshold = primaryState.SpottingThreshold;
+                    vehicleSpotted = isSpotted;
+                }
+            }
+
+            return new SiSpottingObservation(
+                isSpotted,
+                sharedSpottingSum,
+                primaryState.SpottingThreshold,
+                primary.Kind,
+                canShootTarget,
+                vehicleSpotted,
+                vehicleEntityId,
+                vehicleTargetPosition,
+                vehicleSpottingSum,
+                vehicleSpottingThreshold);
         }
 
         public void ReportShot(long shooterEntityId, MyEntity shooter)
@@ -120,8 +232,12 @@ namespace Si.UtilityAI
                 return;
 
             var now = CurrentTimeMilliseconds();
-            _recentShotTimes[shooterEntityId] = now;
-            ApplyShotEvidence(shooterEntityId, shooter.WorldMatrix.Translation, now);
+            RecordShotEvidence(shooterEntityId, shooter.WorldMatrix.Translation, now);
+
+            var resolved = ResolveTargetBank(shooter, now);
+            var vehicle = resolved.Vehicle;
+            if (vehicle != null && vehicle.EntityId != shooterEntityId)
+                RecordShotEvidence(vehicle.EntityId, vehicle.Position, now);
         }
 
         public bool HasSpottedTargetNearby(long observerEntityId, double distance)
@@ -138,27 +254,32 @@ namespace Si.UtilityAI
             foreach (var pair in _observations)
             {
                 var state = pair.Value;
-                if (state == null || !state.IsSpotted || state.ObserverId != observerEntityId)
+                if (state == null
+                    || !state.IsSpotted
+                    || state.ObserverId != observerEntityId
+                    || state.TargetKind == SiSpottedTargetKind.Vehicle)
                     continue;
 
-                var target = ResolveEntity(state.TargetId);
-                if (target == null || target.Closed || target.MarkedForClose || !target.InScene)
-                    continue;
-
-                if (Vector3D.DistanceSquared(observerEntity.WorldMatrix.Translation, target.WorldMatrix.Translation) <= distanceSquared)
+                if (Vector3D.DistanceSquared(observerEntity.WorldMatrix.Translation, state.LastKnownTargetPosition) <= distanceSquared)
                     return true;
             }
 
             return false;
         }
 
-        private void ApplyShotEvidence(long shooterEntityId, Vector3D shooterPosition, long now)
+        private void RecordShotEvidence(long targetEntityId, Vector3D targetPosition, long now)
+        {
+            _recentShotTimes[targetEntityId] = now;
+            ApplyShotEvidence(targetEntityId, targetPosition, now);
+        }
+
+        private void ApplyShotEvidence(long targetEntityId, Vector3D targetPosition, long now)
         {
             foreach (var pair in _observations)
             {
                 var state = pair.Value;
                 if (state == null
-                    || state.TargetId != shooterEntityId
+                    || state.TargetEntityId != targetEntityId
                     || state.Definition == null)
                     continue;
 
@@ -170,7 +291,7 @@ namespace Si.UtilityAI
 
                 var distance = Vector3D.Distance(
                     observer.Entity.WorldMatrix.Translation,
-                    shooterPosition);
+                    targetPosition);
                 if (Definition == null
                     || Definition.ShotAwarenessMaxDistance <= 0
                     || distance > Definition.ShotAwarenessMaxDistance)
@@ -198,6 +319,26 @@ namespace Si.UtilityAI
 
             for (var i = 0; i < _removals.Count; i++)
                 _observations.Remove(_removals[i]);
+        }
+
+        private void CleanupTargetBank(long now)
+        {
+            _targetBankRemovals.Clear();
+            foreach (var pair in _targetBank)
+            {
+                var entry = pair.Value;
+                var entity = entry?.Entity;
+                if (entry == null
+                    || now - entry.LastReferencedTime > TrackingTimeoutMilliseconds()
+                    || entity == null
+                    || entity.Closed
+                    || entity.MarkedForClose
+                    || !entity.InScene)
+                    _targetBankRemovals.Add(pair.Key);
+            }
+
+            for (var i = 0; i < _targetBankRemovals.Count; i++)
+                _targetBank.Remove(_targetBankRemovals[i]);
         }
 
         private void ProcessQueuedObserver(long now)
@@ -233,7 +374,7 @@ namespace Si.UtilityAI
                     continue;
 
                 var observer = ResolveObserver(state.ObserverId);
-                var target = ResolveEntity(state.TargetId);
+                var target = ResolveTargetEntry(state.TargetKey, now);
                 Evaluate(state, observer, target, now, state.LastKnownDistance);
                 processed = true;
             }
@@ -274,24 +415,30 @@ namespace Si.UtilityAI
         private void Evaluate(
             SpottingState state,
             SiNpc observer,
-            MyEntity target,
+            TargetBankEntry target,
             long now,
             double? knownDistance = null)
         {
             DecayAwareness(state, now);
 
-            if (observer?.Entity == null || target == null || !target.InScene || target.Closed || target.MarkedForClose)
+            if (observer?.Entity == null || target == null || !IsValidObservedEntity(target.Entity))
             {
                 state.IsSpotted = false;
                 state.SpottingSum = 0;
                 state.SpottingThreshold = 1;
+                state.LastCanShootTarget = false;
                 state.NextEvaluationTime = now + EvaluationInterval(state);
                 return;
             }
 
             var observerPosition = observer.Entity.WorldMatrix.Translation;
-            var targetPosition = target.WorldMatrix.Translation;
+            var targetPosition = target.Position;
             var distance = knownDistance ?? Vector3D.Distance(observerPosition, targetPosition);
+            var canShootTarget = HasLineOfSightToTarget(observer.Entity, target, state.AimHeight);
+
+            state.LastKnownTargetPosition = targetPosition;
+            state.LastCanShootTarget = canShootTarget;
+
             if (Definition != null
                 && Definition.HearingGuaranteedRadius > 0
                 && distance <= Definition.HearingGuaranteedRadius)
@@ -303,11 +450,7 @@ namespace Si.UtilityAI
                 return;
             }
 
-            if (state.Definition.RequireLineOfSight
-                && !SiShootOpposingNpcBehaviorComponent.HasLineOfSight(
-                    observer.Entity,
-                    target,
-                    state.AimHeight))
+            if (state.Definition.RequireLineOfSight && !canShootTarget)
             {
                 state.SpottingSum = 0;
                 state.SpottingThreshold = ComputeSpottingThreshold(Definition, distance);
@@ -325,7 +468,7 @@ namespace Si.UtilityAI
             var wasSpotted = state.IsSpotted;
             state.IsSpotted = spottingSum >= state.SpottingThreshold;
             if (!wasSpotted && state.IsSpotted)
-                _session?.ReportNpcSpottedTarget(state.ObserverId, state.TargetId);
+                _session?.ReportNpcSpottedTarget(state.ObserverId, state.TargetEntityId);
             state.NextEvaluationTime = now + EvaluationInterval(state);
         }
 
@@ -342,13 +485,11 @@ namespace Si.UtilityAI
             return MathHelper.Clamp(threshold, 0, 1);
         }
 
-        private float ComputeVisualChance(
-            MyEntity target,
-            long now)
+        private float ComputeVisualChance(TargetBankEntry target, long now)
         {
             var chance = 1f;
             var definition = Definition;
-            if (definition == null)
+            if (definition == null || target == null)
                 return chance;
 
             if (TargetSpeed(target) <= definition.StillnessVelocityThreshold)
@@ -357,8 +498,10 @@ namespace Si.UtilityAI
             if (!HasRecentShot(target.EntityId, definition.RecentShotMilliseconds, now))
                 chance *= definition.NotFiringChanceMultiplier;
 
-            chance *= BushMultiplier(target.WorldMatrix.Translation, definition);
-            chance *= DarknessMultiplier(target.WorldMatrix.Translation, definition);
+            chance *= BushMultiplier(target.Position, definition);
+            chance *= DarknessMultiplier(target.Position, definition);
+            if (target.Kind == SiSpottedTargetKind.Vehicle)
+                chance *= VehicleSpottingMultiplier(target, definition);
             return MathHelper.Clamp(chance, 0, 1);
         }
 
@@ -397,6 +540,25 @@ namespace Si.UtilityAI
             return MathHelper.Clamp(multiplier, 0, 1);
         }
 
+        private static float VehicleSpottingMultiplier(TargetBankEntry target, SiSpottingSystemDefinition definition)
+        {
+            if (target == null || definition == null)
+                return 1f;
+
+            var gain = definition.VehicleSpottingBaseGain;
+            var speed = Math.Max(0, target.Velocity.Length());
+            if (definition.VehicleSpottingMaxSpeed > definition.VehicleSpottingMovingSpeedThreshold
+                && speed > definition.VehicleSpottingMovingSpeedThreshold)
+            {
+                var normalized = (float)((speed - definition.VehicleSpottingMovingSpeedThreshold)
+                                         / (definition.VehicleSpottingMaxSpeed - definition.VehicleSpottingMovingSpeedThreshold));
+                normalized = MathHelper.Clamp(normalized, 0, 1);
+                gain += normalized * definition.VehicleSpottingMovingGain;
+            }
+
+            return Math.Max(1f, 1f + gain);
+        }
+
         private bool HasRecentShot(long entityId, int windowMilliseconds, long now)
         {
             if (windowMilliseconds <= 0)
@@ -405,20 +567,9 @@ namespace Si.UtilityAI
                    && now - lastShot <= windowMilliseconds;
         }
 
-        private double TargetSpeed(MyEntity target)
+        private static double TargetSpeed(TargetBankEntry target)
         {
-            if (target == null)
-                return 0;
-
-            if (_session?.Npcs != null
-                && _session.Npcs.Npcs.TryGetValue(target.EntityId, out var npc))
-            {
-                if (npc is SiGroundedNpc grounded)
-                    return grounded.Velocity.Length();
-                return npc.Entity?.Physics?.LinearVelocity.Length() ?? 0;
-            }
-
-            return target.Physics?.LinearVelocity.Length() ?? 0;
+            return target?.Velocity.Length() ?? 0;
         }
 
         private void UpdatePlayerFiringEvidence()
@@ -440,8 +591,12 @@ namespace Si.UtilityAI
                     continue;
 
                 _recentPlayerEvidenceTimes[entity.EntityId] = now;
-                _recentShotTimes[entity.EntityId] = now;
-                ApplyShotEvidence(entity.EntityId, entity.WorldMatrix.Translation, now);
+                RecordShotEvidence(entity.EntityId, entity.WorldMatrix.Translation, now);
+
+                var resolved = ResolveTargetBank(entity as MyEntity, now);
+                var vehicle = resolved.Vehicle;
+                if (vehicle != null && vehicle.EntityId != entity.EntityId)
+                    RecordShotEvidence(vehicle.EntityId, vehicle.Position, now);
             }
         }
 
@@ -450,7 +605,7 @@ namespace Si.UtilityAI
             foreach (var pair in _observations)
             {
                 var state = pair.Value;
-                if (state == null || state.TargetId != entityId || state.Definition == null)
+                if (state == null || state.TargetEntityId != entityId || state.Definition == null)
                     continue;
                 return EvaluationInterval(state);
             }
@@ -526,9 +681,9 @@ namespace Si.UtilityAI
             return Math.Max(50, state?.System?.Definition?.SpottingReevaluationIntervalMilliseconds ?? 250);
         }
 
-        private float GetSharedSpottingSum(SiNpc observer, MyEntity target, float localSpottingSum)
+        private float GetSharedSpottingSum(SiNpc observer, TargetBankKey targetKey, float localSpottingSum)
         {
-            if (observer == null || target == null || _session?.Squads == null)
+            if (observer == null || _session?.Squads == null)
                 return MathHelper.Clamp(localSpottingSum, 0, 1);
 
             SiAssignedNpc assignment;
@@ -540,7 +695,7 @@ namespace Si.UtilityAI
             {
                 var state = pair.Value;
                 if (state == null
-                    || state.TargetId != target.EntityId
+                    || !state.TargetKey.Equals(targetKey)
                     || state.ObserverId == observer.EntityId)
                     continue;
 
@@ -579,35 +734,352 @@ namespace Si.UtilityAI
             return null;
         }
 
+        private SpottingState GetOrCreateState(long observerId, TargetBankEntry target, long now)
+        {
+            var key = new SpottingKey(observerId, target.Key);
+            if (_observations.TryGetValue(key, out var state))
+                return state;
+
+            state = new SpottingState
+            {
+                System = this,
+                ObserverId = observerId,
+                TargetKey = target.Key,
+                TargetEntityId = target.EntityId,
+                TargetKind = target.Kind,
+                LastKnownTargetPosition = target.Position,
+                LastAwarenessUpdateTime = now,
+            };
+            _observations.Add(key, state);
+            return state;
+        }
+
+        private TargetBankResolution ResolveTargetBank(MyEntity target, long now)
+        {
+            if (target == null)
+                return TargetBankResolution.None;
+
+            if (TryResolveVehicleForMountedCharacter(target, now, out var passenger, out var vehicle))
+                return new TargetBankResolution(passenger, vehicle);
+
+            if (TryResolveVehicleFromGrid(target, now, out vehicle))
+                return new TargetBankResolution(vehicle, vehicle);
+
+            return new TargetBankResolution(UpsertTargetEntry(
+                new TargetBankKey(target.EntityId, SiSpottedTargetKind.Infantry),
+                target,
+                SiSpottedTargetKind.Infantry,
+                target.WorldMatrix.Translation,
+                target.Physics?.LinearVelocity ?? Vector3.Zero,
+                now));
+        }
+
+        private TargetBankEntry ResolveTargetEntry(TargetBankKey key, long now)
+        {
+            var entity = ResolveEntity(key.EntityId);
+            if (entity == null)
+                return null;
+
+            var resolved = ResolveTargetBank(entity, now);
+            if (resolved.Primary != null && resolved.Primary.Key.Equals(key))
+                return resolved.Primary;
+            if (resolved.Vehicle != null && resolved.Vehicle.Key.Equals(key))
+                return resolved.Vehicle;
+            return null;
+        }
+
+        private bool TryResolveVehicleForMountedCharacter(
+            MyEntity target,
+            long now,
+            out TargetBankEntry passenger,
+            out TargetBankEntry vehicle)
+        {
+            passenger = null;
+            vehicle = null;
+
+            var controller = target.Components.Get<EquiEntityControllerComponent>();
+            var slot = controller?.Controlled;
+            if (slot == null)
+                return false;
+
+            MyEntity seatBlockEntity;
+            MyGridDataComponent gridData;
+            if (!SiTransportSeatHelpers.TryGetSeatBlockGrid(slot, out seatBlockEntity, out gridData))
+                return false;
+
+            if (!TryBuildVehicleTarget(gridData, now, out vehicle))
+                return false;
+
+            passenger = UpsertTargetEntry(
+                new TargetBankKey(target.EntityId, SiSpottedTargetKind.Passenger),
+                target,
+                SiSpottedTargetKind.Passenger,
+                target.WorldMatrix.Translation,
+                Vector3.Zero,
+                now);
+            return true;
+        }
+
+        private bool TryResolveVehicleFromGrid(MyEntity target, long now, out TargetBankEntry vehicle)
+        {
+            vehicle = null;
+            if (target == null || !target.Components.TryGet(out MyGridDataComponent gridData))
+                return false;
+
+            return TryBuildVehicleTarget(gridData, now, out vehicle);
+        }
+
+        private bool TryBuildVehicleTarget(MyGridDataComponent gridData, long now, out TargetBankEntry vehicle)
+        {
+            vehicle = null;
+            if (gridData == null)
+                return false;
+
+            var occupied = false;
+            var heaviestGrid = (MyEntity)null;
+            var heaviestMass = 0f;
+            var heaviestVelocity = Vector3.Zero;
+            var heaviestPosition = Vector3D.Zero;
+
+            EnumerateVehicleGrids(gridData, ref occupied, ref heaviestGrid, ref heaviestMass, ref heaviestVelocity, ref heaviestPosition);
+            if (!occupied || heaviestGrid == null)
+                return false;
+
+            vehicle = UpsertTargetEntry(
+                new TargetBankKey(heaviestGrid.EntityId, SiSpottedTargetKind.Vehicle),
+                heaviestGrid,
+                SiSpottedTargetKind.Vehicle,
+                heaviestPosition,
+                heaviestVelocity,
+                now);
+            return true;
+        }
+
+        private static void EnumerateVehicleGrids(
+            MyGridDataComponent originGrid,
+            ref bool occupied,
+            ref MyEntity heaviestGrid,
+            ref float heaviestMass,
+            ref Vector3 heaviestVelocity,
+            ref Vector3D heaviestPosition)
+        {
+            var hierarchy = originGrid.Container?.Get<MyGridHierarchyComponent>();
+            if (hierarchy == null)
+            {
+                ProcessVehicleGrid(originGrid, ref occupied, ref heaviestGrid, ref heaviestMass, ref heaviestVelocity, ref heaviestPosition);
+                return;
+            }
+
+            var top = hierarchy.GetTopMostParent() ?? hierarchy;
+            ProcessHierarchyGrid(top.Entity, ref occupied, ref heaviestGrid, ref heaviestMass, ref heaviestVelocity, ref heaviestPosition);
+            foreach (var child in top.GetAllChildren())
+                ProcessHierarchyGrid(child?.Entity, ref occupied, ref heaviestGrid, ref heaviestMass, ref heaviestVelocity, ref heaviestPosition);
+        }
+
+        private static void ProcessHierarchyGrid(
+            MyEntity entity,
+            ref bool occupied,
+            ref MyEntity heaviestGrid,
+            ref float heaviestMass,
+            ref Vector3 heaviestVelocity,
+            ref Vector3D heaviestPosition)
+        {
+            if (entity == null || !entity.Components.TryGet(out MyGridDataComponent gridData))
+                return;
+
+            ProcessVehicleGrid(gridData, ref occupied, ref heaviestGrid, ref heaviestMass, ref heaviestVelocity, ref heaviestPosition);
+        }
+
+        private static void ProcessVehicleGrid(
+            MyGridDataComponent gridData,
+            ref bool occupied,
+            ref MyEntity heaviestGrid,
+            ref float heaviestMass,
+            ref Vector3 heaviestVelocity,
+            ref Vector3D heaviestPosition)
+        {
+            var entity = gridData?.Entity;
+            var physics = entity?.Physics;
+            if (entity == null || physics == null || physics.IsStatic)
+                return;
+
+            if (!occupied)
+            {
+                foreach (var seat in SiTransportSeatHelpers.EnumerateSeatSlotsOnGrid(gridData))
+                    if (seat?.AttachedCharacter != null)
+                    {
+                        occupied = true;
+                        break;
+                    }
+            }
+
+            if (physics.Mass < heaviestMass)
+                return;
+
+            heaviestGrid = entity;
+            heaviestMass = physics.Mass;
+            heaviestVelocity = physics.LinearVelocity;
+            heaviestPosition = ComputePhysicsCenterWorld(entity, physics);
+        }
+
+        private TargetBankEntry UpsertTargetEntry(
+            TargetBankKey key,
+            MyEntity entity,
+            SiSpottedTargetKind kind,
+            Vector3D position,
+            Vector3 velocity,
+            long now)
+        {
+            if (!_targetBank.TryGetValue(key, out var entry))
+            {
+                entry = new TargetBankEntry
+                {
+                    Key = key,
+                    EntityId = key.EntityId,
+                    Kind = kind,
+                };
+                _targetBank.Add(key, entry);
+            }
+
+            entry.Entity = entity;
+            entry.Position = position;
+            entry.Velocity = velocity;
+            entry.LastReferencedTime = now;
+            return entry;
+        }
+
+        private static bool HasLineOfSightToTarget(MyEntity observer, TargetBankEntry target, float aimHeight)
+        {
+            if (observer == null || target?.Entity == null)
+                return false;
+
+            var shooterUp = NormalizedOrFallback(observer.WorldMatrix.Up, Vector3D.Up);
+            var start = observer.WorldMatrix.Translation + shooterUp * aimHeight;
+            var end = target.Position;
+            if (target.Kind != SiSpottedTargetKind.Vehicle)
+            {
+                var targetUp = NormalizedOrFallback(target.Entity.WorldMatrix.Up, shooterUp);
+                end = target.Entity.WorldMatrix.Translation + targetUp * aimHeight;
+            }
+
+            IHitInfo hit;
+            if (!MyAPIGateway.Physics.CastRay(start, end, out hit))
+                return true;
+
+            return hit == null
+                   || hit.HitEntity == null
+                   || hit.HitEntity == target.Entity
+                   || hit.HitEntity == observer;
+        }
+
+        private static Vector3D ComputePhysicsCenterWorld(MyEntity entity, VRage.Components.Physics.MyPhysicsComponentBase physics)
+        {
+            if (entity == null)
+                return Vector3D.Zero;
+            if (physics == null)
+                return entity.WorldMatrix.Translation;
+            return Vector3D.Transform((Vector3D)physics.Center, entity.WorldMatrix);
+        }
+
+        private static bool IsValidObservedEntity(MyEntity entity)
+        {
+            return entity != null
+                   && entity.InScene
+                   && !entity.Closed
+                   && !entity.MarkedForClose;
+        }
+
+        private static Vector3D NormalizedOrFallback(in Vector3D value, in Vector3D fallback)
+        {
+            var lengthSquared = value.LengthSquared();
+            return lengthSquared > 0.0001
+                ? value / Math.Sqrt(lengthSquared)
+                : fallback;
+        }
+
+        private struct TargetBankResolution
+        {
+            public static readonly TargetBankResolution None = new TargetBankResolution(null, null);
+
+            public TargetBankResolution(TargetBankEntry primary)
+                : this(primary, null)
+            {
+            }
+
+            public TargetBankResolution(TargetBankEntry primary, TargetBankEntry vehicle)
+            {
+                Primary = primary;
+                Vehicle = vehicle;
+            }
+
+            public TargetBankEntry Primary { get; }
+            public TargetBankEntry Vehicle { get; }
+        }
+
+        private struct TargetBankKey : IEquatable<TargetBankKey>
+        {
+            public TargetBankKey(long entityId, SiSpottedTargetKind kind)
+            {
+                EntityId = entityId;
+                Kind = kind;
+            }
+
+            public long EntityId { get; }
+            public SiSpottedTargetKind Kind { get; }
+
+            public bool Equals(TargetBankKey other) =>
+                EntityId == other.EntityId && Kind == other.Kind;
+
+            public override bool Equals(object obj) =>
+                obj is TargetBankKey other && Equals(other);
+
+            public override int GetHashCode() =>
+                unchecked((((int)EntityId * 397) ^ (int)(EntityId >> 32)) * 397 ^ (int)Kind);
+        }
+
+        private sealed class TargetBankEntry
+        {
+            public TargetBankKey Key;
+            public long EntityId;
+            public SiSpottedTargetKind Kind;
+            public MyEntity Entity;
+            public Vector3D Position;
+            public Vector3 Velocity;
+            public long LastReferencedTime;
+        }
+
         private struct SpottingKey : IEquatable<SpottingKey>
         {
-            public SpottingKey(long observerId, long targetId)
+            public SpottingKey(long observerId, TargetBankKey targetKey)
             {
                 ObserverId = observerId;
-                TargetId = targetId;
+                TargetKey = targetKey;
             }
 
             public long ObserverId { get; }
-            public long TargetId { get; }
+            public TargetBankKey TargetKey { get; }
 
             public bool Equals(SpottingKey other) =>
-                ObserverId == other.ObserverId && TargetId == other.TargetId;
+                ObserverId == other.ObserverId && TargetKey.Equals(other.TargetKey);
 
             public override bool Equals(object obj) =>
                 obj is SpottingKey other && Equals(other);
 
             public override int GetHashCode() =>
-                unchecked(((int)ObserverId * 397) ^ (int)TargetId);
+                unchecked((((int)ObserverId * 397) ^ (int)(ObserverId >> 32)) * 397 ^ TargetKey.GetHashCode());
         }
 
         private sealed class SpottingState
         {
             public SiSpottingSystem System;
             public long ObserverId;
-            public long TargetId;
+            public TargetBankKey TargetKey;
+            public long TargetEntityId;
+            public SiSpottedTargetKind TargetKind;
             public SiShootOpposingNpcBehaviorDefinition Definition;
             public float AimHeight;
             public bool IsSpotted;
+            public bool LastCanShootTarget;
             public float SpottingSum;
             public float SpottingThreshold;
             public float ShotAwareness;
@@ -615,6 +1087,7 @@ namespace Si.UtilityAI
             public long LastAwarenessUpdateTime;
             public long NextEvaluationTime;
             public double LastKnownDistance;
+            public Vector3D LastKnownTargetPosition;
         }
     }
 }

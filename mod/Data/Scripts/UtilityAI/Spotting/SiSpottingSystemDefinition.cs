@@ -50,6 +50,14 @@ namespace Si.UtilityAI
         public float DarknessDaySolarElevation = 0.2f;
         [DefaultValue(0.35f)]
         public float InteriorChanceMultiplier = 0.35f;
+        [DefaultValue(1.5f)]
+        public float VehicleSpottingBaseGain = 1.5f;
+        [DefaultValue(3f)]
+        public float VehicleSpottingMovingSpeedThreshold = 3f;
+        [DefaultValue(18f)]
+        public float VehicleSpottingMaxSpeed = 18f;
+        [DefaultValue(2f)]
+        public float VehicleSpottingMovingGain = 2f;
     }
 
     [MyDefinitionType(typeof(MyObjectBuilder_SiSpottingSystemDefinition))]
@@ -74,6 +82,10 @@ namespace Si.UtilityAI
         public float DarknessNightSolarElevation { get; private set; }
         public float DarknessDaySolarElevation { get; private set; }
         public float InteriorChanceMultiplier { get; private set; }
+        public float VehicleSpottingBaseGain { get; private set; }
+        public float VehicleSpottingMovingSpeedThreshold { get; private set; }
+        public float VehicleSpottingMaxSpeed { get; private set; }
+        public float VehicleSpottingMovingGain { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
         {
@@ -98,6 +110,10 @@ namespace Si.UtilityAI
             DarknessNightSolarElevation = ob.DarknessNightSolarElevation;
             DarknessDaySolarElevation = ob.DarknessDaySolarElevation;
             InteriorChanceMultiplier = MathHelper.Clamp(ob.InteriorChanceMultiplier, 0, 1);
+            VehicleSpottingBaseGain = Math.Max(0, ob.VehicleSpottingBaseGain);
+            VehicleSpottingMovingSpeedThreshold = Math.Max(0, ob.VehicleSpottingMovingSpeedThreshold);
+            VehicleSpottingMaxSpeed = Math.Max(VehicleSpottingMovingSpeedThreshold, ob.VehicleSpottingMaxSpeed);
+            VehicleSpottingMovingGain = Math.Max(0, ob.VehicleSpottingMovingGain);
         }
     }
 }

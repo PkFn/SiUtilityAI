@@ -21,5 +21,9 @@
     <DarknessNightSolarElevation>-0.2</DarknessNightSolarElevation>
     <DarknessDaySolarElevation>0.2</DarknessDaySolarElevation>
     <InteriorChanceMultiplier>0.35</InteriorChanceMultiplier>
+    <VehicleSpottingBaseGain>1.5</VehicleSpottingBaseGain>
+    <VehicleSpottingMovingSpeedThreshold>3</VehicleSpottingMovingSpeedThreshold>
+    <VehicleSpottingMaxSpeed>18</VehicleSpottingMaxSpeed>
+    <VehicleSpottingMovingGain>2</VehicleSpottingMovingGain>
   </Definition>
 </Definitions>

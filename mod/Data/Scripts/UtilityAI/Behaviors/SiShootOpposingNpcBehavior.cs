@@ -361,11 +361,11 @@ namespace Si.UtilityAI
             }
 
             var observation = TryReportSpotting(context, target, distance);
-            if (!observation.IsSpotted)
+            if (!observation.IsSpotted || !observation.CanShootTarget)
             {
                 _combatState?.SetFiring(false);
                 weapon.ClearFireIntent();
-                LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, target, runningToCover ? "running-to-cover" : "spotting-not-confirmed", distance, observation, weapon);
+                LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, target, runningToCover ? "running-to-cover" : (observation.IsSpotted ? "target-not-shootable" : "spotting-not-confirmed"), distance, observation, weapon);
                 return;
             }
 
@@ -579,7 +579,7 @@ namespace Si.UtilityAI
                 npcInRange++;
                 var distance = Math.Sqrt(distanceSquared);
                 var observation = ObserveTarget(context, target, distance);
-                if (!observation.IsSpotted)
+                if (!observation.IsSpotted || !observation.CanShootTarget)
                     continue;
                 npcSpotted++;
 
@@ -615,7 +615,7 @@ namespace Si.UtilityAI
                     playerInRange++;
                     var distance = Math.Sqrt(distanceSquared);
                     var observation = ObserveTarget(context, target, distance);
-                    if (!observation.IsSpotted)
+                    if (!observation.IsSpotted || !observation.CanShootTarget)
                         continue;
                     playerSpotted++;
 
@@ -717,9 +717,9 @@ namespace Si.UtilityAI
                     context.Position,
                     current.Entity.WorldMatrix.Translation);
                 currentObservation = ObserveTarget(context, current, distance);
-                if (!currentObservation.IsSpotted)
+                if (!currentObservation.IsSpotted || !currentObservation.CanShootTarget)
                 {
-                    LogTargetStateWithCooldown(context, current, distance, currentObservation, "current-target-unspotted");
+                    LogTargetStateWithCooldown(context, current, distance, currentObservation, currentObservation.IsSpotted ? "current-target-not-shootable" : "current-target-unspotted");
                     currentIsValid = false;
                     forceRefresh = true;
                 }
