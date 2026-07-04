@@ -966,6 +966,17 @@ namespace Si.UtilityAI
             if (!MyAPIGateway.Physics.CastRay(start, end, out hit))
                 return true;
 
+            if (target.Kind == SiSpottedTargetKind.Vehicle)
+            {
+                if (hit == null)
+                    return true;
+
+                if (hit.HitEntity == null)
+                    return false;
+
+                return true;
+            }
+
             return hit == null
                    || hit.HitEntity == null
                    || hit.HitEntity == target.Entity

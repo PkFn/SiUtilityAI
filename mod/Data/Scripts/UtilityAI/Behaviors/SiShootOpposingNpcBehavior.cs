@@ -403,7 +403,7 @@ namespace Si.UtilityAI
         private SiSpottingObservation TryReportSpotting(SiUtilityContext context, ShootTarget target, double distance)
         {
             var observation = ObserveTarget(context, target, distance);
-            if (target == null || !observation.IsSpotted)
+            if (target == null || !IsObservationVisible(observation))
                 return observation;
 
             if (_lastSpottedTargetId == target.EntityId
@@ -579,7 +579,7 @@ namespace Si.UtilityAI
                 npcInRange++;
                 var distance = Math.Sqrt(distanceSquared);
                 var observation = ObserveTarget(context, target, distance);
-                if (!observation.IsSpotted || !observation.CanShootTarget)
+                if (!IsObservationVisible(observation))
                     continue;
                 npcSpotted++;
 
@@ -615,7 +615,7 @@ namespace Si.UtilityAI
                     playerInRange++;
                     var distance = Math.Sqrt(distanceSquared);
                     var observation = ObserveTarget(context, target, distance);
-                    if (!observation.IsSpotted || !observation.CanShootTarget)
+                    if (!IsObservationVisible(observation))
                         continue;
                     playerSpotted++;
 
@@ -717,9 +717,9 @@ namespace Si.UtilityAI
                     context.Position,
                     current.Entity.WorldMatrix.Translation);
                 currentObservation = ObserveTarget(context, current, distance);
-                if (!currentObservation.IsSpotted || !currentObservation.CanShootTarget)
+                if (!IsObservationVisible(currentObservation))
                 {
-                    LogTargetStateWithCooldown(context, current, distance, currentObservation, currentObservation.IsSpotted ? "current-target-not-shootable" : "current-target-unspotted");
+                    LogTargetStateWithCooldown(context, current, distance, currentObservation, "current-target-unspotted");
                     currentIsValid = false;
                     forceRefresh = true;
                 }
@@ -768,6 +768,9 @@ namespace Si.UtilityAI
 
             return spotting.HasSpottedTargetNearby(context.Agent.EntityId, Math.Max(0, currentDistance - 0.5));
         }
+
+        private static bool IsObservationVisible(SiSpottingObservation observation) =>
+            observation.IsSpotted || observation.VehicleSpotted;
 
         private bool IsTargetEvaluationDue() =>
             CurrentTimeMilliseconds() >= _nextTargetEvaluationTime;
