@@ -10,6 +10,7 @@ using VRage.Game.Components;
 using VRage.Game.Definitions;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
+using VRage.ModAPI;
 using VRage.Game.ObjectBuilders.ComponentSystem;
 using VRage.Inventory;
 using VRage.ObjectBuilders;
@@ -88,6 +89,7 @@ namespace Si.UtilityAI
         private long _phaseRemainingMilliseconds;
         private long _nextThrowAllowedMilliseconds;
         private MyEntity _targetEntity;
+        private Vector3D _targetPosition;
         private ThrowableInventoryItem _selectedGrenade;
 
         public string BehaviorName => DefinitionId.ToString();
@@ -115,17 +117,17 @@ namespace Si.UtilityAI
             if (!TrySelectGrenade(out _selectedGrenade))
                 return 0;
 
-            if (!_shootBehavior.TryGetCurrentThreat(context, out var targetEntity, out var distance) || targetEntity == null)
+            if (!_shootBehavior.TryGetCurrentThreat(context, out var targetEntity, out var targetPosition, out var distance) || targetEntity == null)
                 return 0;
 
             if (distance < _definition.MinimumDistance || distance > _definition.MaximumDistance)
                 return 0;
 
             if (_definition.RequireLineOfSight
-                && !SiShootOpposingNpcBehaviorComponent.HasLineOfSight(Entity, targetEntity, ResolveAimHeight()))
+                && !HasGrenadeLineOfSight(targetEntity, targetPosition))
                 return 0;
 
-            if (IsUnsafeForSquadmates(context.Agent, targetEntity.WorldMatrix.Translation))
+            if (IsUnsafeForSquadmates(context.Agent, targetPosition))
                 return 0;
 
             var distanceSpan = Math.Max(0.01f, _definition.MaximumDistance - _definition.MinimumDistance);
@@ -146,10 +148,10 @@ namespace Si.UtilityAI
             if (!CanEvaluate() || !TrySelectGrenade(out _selectedGrenade))
                 return;
 
-            if (!_shootBehavior.TryGetCurrentThreat(context, out _targetEntity, out _))
+            if (!_shootBehavior.TryGetCurrentThreat(context, out _targetEntity, out _targetPosition, out _))
                 return;
 
-            if (IsUnsafeForSquadmates(context.Agent, _targetEntity.WorldMatrix.Translation))
+            if (IsUnsafeForSquadmates(context.Agent, _targetPosition))
                 return;
 
             if (!_combatState.TryBeginThrow())
@@ -244,15 +246,15 @@ namespace Si.UtilityAI
 
             var throwableDefinition = _selectedGrenade.Definition;
             var up = ResolveUpVector();
-            var forward = ResolveForwardToTarget(_targetEntity, up);
+            var forward = ResolveForwardToTarget(_targetPosition, up);
             var position = Entity.WorldMatrix.Translation + up * 1.0 + forward * 0.75;
-            if (IsUnsafeForSquadmates(Entity, position, _targetEntity.WorldMatrix.Translation))
+            if (IsUnsafeForSquadmates(Entity, position, _targetPosition))
             {
                 AbortThrow();
                 return;
             }
 
-            var distance = Vector3D.Distance(Entity.WorldMatrix.Translation, _targetEntity.WorldMatrix.Translation);
+            var distance = Vector3D.Distance(Entity.WorldMatrix.Translation, _targetPosition);
             var gravityMagnitude = Math.Max(1f, (float)MyGravityProviderSystem.CalculateTotalGravityInPoint(Entity.WorldMatrix.Translation).Length());
             var requiredPower = (float)Math.Sqrt(Math.Max(0, distance * gravityMagnitude / 1.5));
             var clampedPower = MathHelper.Clamp(requiredPower, throwableDefinition.ThrowPower * 0.1f, throwableDefinition.ThrowPower);
@@ -302,6 +304,7 @@ namespace Si.UtilityAI
             _phase = ThrowPhase.None;
             _phaseRemainingMilliseconds = 0;
             _targetEntity = null;
+            _targetPosition = Vector3D.Zero;
             _selectedGrenade = default(ThrowableInventoryItem);
         }
 
@@ -345,9 +348,9 @@ namespace Si.UtilityAI
             return SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(Entity.WorldMatrix.Up, Vector3D.Up);
         }
 
-        private Vector3D ResolveForwardToTarget(MyEntity target, Vector3D up)
+        private Vector3D ResolveForwardToTarget(Vector3D targetPosition, Vector3D up)
         {
-            var toTarget = Vector3D.Reject(target.WorldMatrix.Translation - Entity.WorldMatrix.Translation, up);
+            var toTarget = Vector3D.Reject(targetPosition - Entity.WorldMatrix.Translation, up);
             return SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(toTarget, Entity.WorldMatrix.Forward);
         }
 
@@ -356,13 +359,36 @@ namespace Si.UtilityAI
             if (target == null)
                 return;
 
+            FaceTarget(target == _targetEntity ? _targetPosition : target.WorldMatrix.Translation);
+        }
+
+        private void FaceTarget(in Vector3D targetPosition)
+        {
             var world = Entity.WorldMatrix;
             var up = ResolveUpVector();
-            var toTarget = Vector3D.Reject(target.WorldMatrix.Translation - world.Translation, up);
+            var toTarget = Vector3D.Reject(targetPosition - world.Translation, up);
             if (toTarget.LengthSquared() <= 0.0001)
                 return;
 
             Entity.WorldMatrix = MatrixD.CreateWorld(world.Translation, Vector3D.Normalize(toTarget), up);
+        }
+
+        private bool HasGrenadeLineOfSight(MyEntity targetEntity, in Vector3D targetPosition)
+        {
+            if (Entity == null || targetEntity == null)
+                return false;
+
+            var shooterUp = SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(Entity.WorldMatrix.Up, Vector3D.Up);
+            var start = Entity.WorldMatrix.Translation + shooterUp * ResolveAimHeight();
+            IHitInfo hit;
+            if (!MyAPIGateway.Physics.CastRay(start, targetPosition, out hit))
+                return true;
+
+            if (hit == null)
+                return true;
+            if (hit.HitEntity == null)
+                return false;
+            return true;
         }
 
         private static bool IsSmokeGrenade(string subtype)

@@ -682,7 +682,18 @@ namespace Si.UtilityAI
             out MyEntity targetEntity,
             out double distance)
         {
+            Vector3D ignoredPosition;
+            return TryGetCurrentThreat(context, out targetEntity, out ignoredPosition, out distance);
+        }
+
+        internal bool TryGetCurrentThreat(
+            SiUtilityContext context,
+            out MyEntity targetEntity,
+            out Vector3D targetPosition,
+            out double distance)
+        {
             targetEntity = null;
+            targetPosition = Vector3D.Zero;
             distance = 0;
             if (context?.Agent == null)
                 return false;
@@ -700,9 +711,11 @@ namespace Si.UtilityAI
             if (observation.VehicleSpotted
                 && observation.VehicleTargetPosition != Vector3D.Zero
                 && targetEntity.EntityId == observation.VehicleEntityId)
-                distance = Vector3D.Distance(context.Position, observation.VehicleTargetPosition);
+                targetPosition = observation.VehicleTargetPosition;
             else
-                distance = Vector3D.Distance(context.Position, targetEntity.WorldMatrix.Translation);
+                targetPosition = targetEntity.WorldMatrix.Translation;
+
+            distance = Vector3D.Distance(context.Position, targetPosition);
             return true;
         }
 
