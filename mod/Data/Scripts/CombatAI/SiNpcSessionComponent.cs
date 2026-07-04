@@ -2755,13 +2755,13 @@ namespace Si.UtilityAI
         }
 
         private string HelpText() =>
-            $"{Command} spawn <webbing> [paratrooper] [enemy] | spawn-enemy [webbing] | list | clear | utility-ai [toggle|on|off|status] | gamelog [toggle|on|off|status]. Available: {KnownWebbingsText()}";
+            $"{Command} spawn <webbing> [paratrooper] [enemy] | spawn-enemy [webbing] | list | clear | utility-ai [toggle|on|off|status] | gamelog [toggle|on|off|status].\n Available webbings:\n {KnownWebbingsText()}";
 
         private static string KnownWebbingsText()
         {
             var webbings = SiNpcTrooperCatalog.GetKnownWebbings();
             return webbings.Count > 0
-                ? string.Join(", ", webbings)
+                ? string.Join("\n", webbings)
                 : "none";
         }
 
