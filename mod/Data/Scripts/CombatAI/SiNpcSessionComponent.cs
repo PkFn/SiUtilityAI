@@ -584,6 +584,53 @@ namespace Si.UtilityAI
             return TryFollowCachedPosition(npc, ToCachedPositionKind(role), refreshDistanceSquared);
         }
 
+        internal bool HasSquadmateInThrowDanger(
+            SiNpc requester,
+            long requesterEntityId,
+            in Vector3D throwOrigin,
+            in Vector3D targetPosition,
+            double blastRadius,
+            double trajectoryRadius,
+            out long blockingEntityId,
+            out Vector3D blockingPosition)
+        {
+            blockingEntityId = 0;
+            blockingPosition = Vector3D.Zero;
+            if (requester == null || Squads == null || Npcs == null)
+                return false;
+
+            SiAssignedNpc requesterAssignment;
+            if (!Squads.TryGetAssignment(requester.EntityId, out requesterAssignment))
+                return false;
+
+            foreach (var entry in Npcs.Npcs)
+            {
+                var squadmate = entry.Value;
+                if (squadmate == null || entry.Key == requesterEntityId)
+                    continue;
+
+                SiAssignedNpc assignment;
+                if (!Squads.TryGetAssignment(entry.Key, out assignment)
+                    || !assignment.Leader.Equals(requesterAssignment.Leader))
+                    continue;
+
+                if (TryGetUnsafeThrowPosition(
+                        entry.Key,
+                        squadmate,
+                        throwOrigin,
+                        targetPosition,
+                        blastRadius,
+                        trajectoryRadius,
+                        out blockingPosition))
+                {
+                    blockingEntityId = entry.Key;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         internal bool TryGetCachedCoverSearch(
             in Vector3D searchOrigin,
             double searchRadius,
@@ -2293,6 +2340,80 @@ namespace Si.UtilityAI
                 return false;
 
             return state.TryGet(kind, out position);
+        }
+
+        private bool TryGetUnsafeThrowPosition(
+            long entityId,
+            SiNpc squadmate,
+            in Vector3D throwOrigin,
+            in Vector3D targetPosition,
+            double blastRadius,
+            double trajectoryRadius,
+            out Vector3D blockingPosition)
+        {
+            blockingPosition = Vector3D.Zero;
+
+            if (_positionCache.TryGetValue(entityId, out var cacheState) && cacheState != null)
+            {
+                if (cacheState.TryGet(SiNpcCachedPositionKind.Cover, out var cachedCover)
+                    && IsThrowDangerousForPosition(throwOrigin, targetPosition, cachedCover, blastRadius, trajectoryRadius))
+                {
+                    blockingPosition = cachedCover;
+                    return true;
+                }
+
+                if (cacheState.TryGet(SiNpcCachedPositionKind.PlainView, out var cachedPlainView)
+                    && IsThrowDangerousForPosition(throwOrigin, targetPosition, cachedPlainView, blastRadius, trajectoryRadius))
+                {
+                    blockingPosition = cachedPlainView;
+                    return true;
+                }
+            }
+
+            var entity = squadmate?.Entity;
+            if (entity == null || entity.Closed || entity.MarkedForClose)
+                return false;
+
+            var currentPosition = entity.WorldMatrix.Translation;
+            if (!IsThrowDangerousForPosition(throwOrigin, targetPosition, currentPosition, blastRadius, trajectoryRadius))
+                return false;
+
+            blockingPosition = currentPosition;
+            return true;
+        }
+
+        private static bool IsThrowDangerousForPosition(
+            in Vector3D throwOrigin,
+            in Vector3D targetPosition,
+            in Vector3D friendlyPosition,
+            double blastRadius,
+            double trajectoryRadius)
+        {
+            if (blastRadius > 0
+                && Vector3D.DistanceSquared(friendlyPosition, targetPosition) <= blastRadius * blastRadius)
+                return true;
+
+            if (trajectoryRadius <= 0)
+                return false;
+
+            return DistanceSquaredToSegment(friendlyPosition, throwOrigin, targetPosition)
+                   <= trajectoryRadius * trajectoryRadius;
+        }
+
+        private static double DistanceSquaredToSegment(
+            in Vector3D point,
+            in Vector3D segmentStart,
+            in Vector3D segmentEnd)
+        {
+            var segment = segmentEnd - segmentStart;
+            var segmentLengthSquared = segment.LengthSquared();
+            if (segmentLengthSquared <= 0.0001)
+                return Vector3D.DistanceSquared(point, segmentStart);
+
+            var t = Vector3D.Dot(point - segmentStart, segment) / segmentLengthSquared;
+            t = Math.Max(0, Math.Min(1, t));
+            var closestPoint = segmentStart + segment * t;
+            return Vector3D.DistanceSquared(point, closestPoint);
         }
 
         private static SiNpcCachedPositionKind ToCachedPositionKind(SiCombatMovementRole role)

@@ -153,6 +153,8 @@
     <BaseScore>0.5</BaseScore>
     <DistanceScore>0.85</DistanceScore>
     <DistanceExponent>2.4</DistanceExponent>
+    <FriendlySafetyRadius>9</FriendlySafetyRadius>
+    <FriendlyTrajectoryRadius>2.5</FriendlyTrajectoryRadius>
     <RequireLineOfSight>true</RequireLineOfSight>
     <RotateToTarget>true</RotateToTarget>
     <EquipDelayMilliseconds>700</EquipDelayMilliseconds>

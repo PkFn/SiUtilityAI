@@ -32,6 +32,8 @@ namespace Si.UtilityAI
         public float BaseScore;
         public float DistanceScore;
         public float DistanceExponent;
+        public float FriendlySafetyRadius;
+        public float FriendlyTrajectoryRadius;
         public bool RequireLineOfSight;
         public bool RotateToTarget;
         public int EquipDelayMilliseconds;
@@ -47,6 +49,8 @@ namespace Si.UtilityAI
         public float BaseScore { get; private set; }
         public float DistanceScore { get; private set; }
         public float DistanceExponent { get; private set; }
+        public float FriendlySafetyRadius { get; private set; }
+        public float FriendlyTrajectoryRadius { get; private set; }
         public bool RequireLineOfSight { get; private set; }
         public bool RotateToTarget { get; private set; }
         public int EquipDelayMilliseconds { get; private set; }
@@ -62,6 +66,8 @@ namespace Si.UtilityAI
             BaseScore = Math.Max(0, ob.BaseScore);
             DistanceScore = Math.Max(0, ob.DistanceScore);
             DistanceExponent = Math.Max(0.01f, ob.DistanceExponent);
+            FriendlySafetyRadius = Math.Max(0, ob.FriendlySafetyRadius);
+            FriendlyTrajectoryRadius = Math.Max(0, ob.FriendlyTrajectoryRadius);
             RequireLineOfSight = ob.RequireLineOfSight;
             RotateToTarget = ob.RotateToTarget;
             EquipDelayMilliseconds = Math.Max(0, ob.EquipDelayMilliseconds);
@@ -119,6 +125,9 @@ namespace Si.UtilityAI
                 && !SiShootOpposingNpcBehaviorComponent.HasLineOfSight(Entity, targetEntity, ResolveAimHeight()))
                 return 0;
 
+            if (IsUnsafeForSquadmates(context.Agent, targetEntity.WorldMatrix.Translation))
+                return 0;
+
             var distanceSpan = Math.Max(0.01f, _definition.MaximumDistance - _definition.MinimumDistance);
             var normalizedDistance = MathHelper.Clamp(
                 (_definition.MaximumDistance - (float)distance) / distanceSpan,
@@ -138,6 +147,9 @@ namespace Si.UtilityAI
                 return;
 
             if (!_shootBehavior.TryGetCurrentThreat(context, out _targetEntity, out _))
+                return;
+
+            if (IsUnsafeForSquadmates(context.Agent, _targetEntity.WorldMatrix.Translation))
                 return;
 
             if (!_combatState.TryBeginThrow())
@@ -234,6 +246,12 @@ namespace Si.UtilityAI
             var up = ResolveUpVector();
             var forward = ResolveForwardToTarget(_targetEntity, up);
             var position = Entity.WorldMatrix.Translation + up * 1.0 + forward * 0.75;
+            if (IsUnsafeForSquadmates(Entity, position, _targetEntity.WorldMatrix.Translation))
+            {
+                AbortThrow();
+                return;
+            }
+
             var distance = Vector3D.Distance(Entity.WorldMatrix.Translation, _targetEntity.WorldMatrix.Translation);
             var gravityMagnitude = Math.Max(1f, (float)MyGravityProviderSystem.CalculateTotalGravityInPoint(Entity.WorldMatrix.Translation).Length());
             var requiredPower = (float)Math.Sqrt(Math.Max(0, distance * gravityMagnitude / 1.5));
@@ -351,6 +369,29 @@ namespace Si.UtilityAI
         {
             return subtype != null
                    && subtype.IndexOf("smoke", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private bool IsUnsafeForSquadmates(SiNpc agent, in Vector3D targetPosition)
+        {
+            return IsUnsafeForSquadmates(Entity, Entity?.WorldMatrix.Translation ?? Vector3D.Zero, targetPosition, agent);
+        }
+
+        private bool IsUnsafeForSquadmates(MyEntity throwerEntity, in Vector3D throwOrigin, in Vector3D targetPosition, SiNpc agent = null)
+        {
+            var session = SiNpcSessionComponent.Instance;
+            if (session == null
+                || (_definition.FriendlySafetyRadius <= 0 && _definition.FriendlyTrajectoryRadius <= 0))
+                return false;
+
+            return session.HasSquadmateInThrowDanger(
+                agent,
+                throwerEntity?.EntityId ?? 0,
+                throwOrigin,
+                targetPosition,
+                _definition.FriendlySafetyRadius,
+                _definition.FriendlyTrajectoryRadius,
+                out _,
+                out _);
         }
 
         private static long CurrentTimeMilliseconds()
