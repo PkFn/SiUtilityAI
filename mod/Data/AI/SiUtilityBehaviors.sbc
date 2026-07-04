@@ -64,7 +64,7 @@
     <Id Type="MyObjectBuilder_SiSelfUnstuckTeleportBehavior" Subtype="SiTrooperSelfUnstuckTeleport" />
     <ActivationScore>1</ActivationScore>
     <StuckTimeoutMilliseconds>2500</StuckTimeoutMilliseconds>
-    <MaximumPlanarSpeed>0.2</MaximumPlanarSpeed>
+    <MaximumPlanarSpeed>0.5</MaximumPlanarSpeed>
     <MinimumRemainingDistance>1.5</MinimumRemainingDistance>
     <MinimumTeleportDistance>2.5</MinimumTeleportDistance>
     <MaximumTeleportDistance>7</MaximumTeleportDistance>
@@ -149,7 +149,7 @@
     <Id Type="MyObjectBuilder_SiThrowGrenadeBehavior" Subtype="SiTrooperThrowGrenade" />
     <MinimumDistance>8</MinimumDistance>
     <MaximumDistance>32</MaximumDistance>
-    <BaseScore>0.05</BaseScore>
+    <BaseScore>0.5</BaseScore>
     <DistanceScore>0.85</DistanceScore>
     <DistanceExponent>2.4</DistanceExponent>
     <RequireLineOfSight>true</RequireLineOfSight>
