@@ -468,6 +468,7 @@ namespace Si.UtilityAI
         private bool _scheduledFireQueued;
         private bool _maintenanceQueued;
         private ReloadMaintenanceState _reloadMaintenanceState;
+        private AmmoSpeechState _lastAmmoSpeechState;
         private MyEntity _fireIntentTarget;
         private Vector3D _fireIntentTargetVelocity;
         private float _fireIntentAimSwayDegrees;
@@ -537,6 +538,7 @@ namespace Si.UtilityAI
             _fireCooldown = 0;
             _lastFireIntentTime = long.MinValue;
             _reloadMaintenanceState = ReloadMaintenanceState.None;
+            _lastAmmoSpeechState = AmmoSpeechState.Unknown;
             _fireIntentTarget = null;
             _fireIntentTargetVelocity = Vector3D.Zero;
             _fireIntentAimSwayDegrees = 0;
@@ -587,6 +589,7 @@ namespace Si.UtilityAI
             _fireIntentTargetVelocity = targetVelocity;
             _fireIntentAimSwayDegrees = Math.Max(0, aimSwayDegrees);
             _lastFireIntentTime = CurrentTimeMilliseconds();
+            UpdateAmmoSpeechState();
 
             if (_fireCooldown > 0)
                 return true;
@@ -694,6 +697,7 @@ namespace Si.UtilityAI
             SiNpcSessionComponent.Instance?.Spotting?.ReportShot(shooter.EntityId, shooter);
             if (NeedsReloadMaintenanceAfterShot)
                 BeginReloadMaintenance();
+            UpdateAmmoSpeechState();
             return true;
         }
 
@@ -787,63 +791,70 @@ namespace Si.UtilityAI
         private void ContinueReloadMaintenance(long _)
         {
             _maintenanceQueued = false;
-            if (_reloadMaintenanceState == ReloadMaintenanceState.None)
-                return;
-            if (Entity == null || Entity.Closed || Entity.MarkedForClose)
+            try
             {
-                _reloadMaintenanceState = ReloadMaintenanceState.None;
-                return;
+                if (_reloadMaintenanceState == ReloadMaintenanceState.None)
+                    return;
+                if (Entity == null || Entity.Closed || Entity.MarkedForClose)
+                {
+                    _reloadMaintenanceState = ReloadMaintenanceState.None;
+                    return;
+                }
+
+                if (!TryGetInventory(out var inventory))
+                {
+                    _reloadMaintenanceState = ReloadMaintenanceState.None;
+                    return;
+                }
+
+                switch (_reloadMaintenanceState)
+                {
+                    case ReloadMaintenanceState.RemovingEmptyMagazine:
+                        if (HasCompatibleLoadedMagazine(inventory))
+                        {
+                            TriggerMagazineLoad();
+                            _reloadMaintenanceState = ReloadMaintenanceState.LoadingMagazine;
+                            ScheduleReloadMaintenance(EffectiveReloadIntervalMilliseconds);
+                            return;
+                        }
+
+                        if (HasCompatibleLooseAmmo(inventory) && HasCompatibleMagazineShell(inventory))
+                        {
+                            MyPAX_HandheldGun.RequestTertiary(Entity.EntityId, true);
+                            _reloadMaintenanceState = ReloadMaintenanceState.FillingMagazines;
+                            ScheduleReloadMaintenance(EffectiveReloadIntervalMilliseconds);
+                            return;
+                        }
+
+                        _reloadMaintenanceState = ReloadMaintenanceState.None;
+                        return;
+
+                    case ReloadMaintenanceState.FillingMagazines:
+                        if (HasCompatibleLoadedMagazine(inventory))
+                        {
+                            TriggerMagazineLoad();
+                            _reloadMaintenanceState = ReloadMaintenanceState.LoadingMagazine;
+                            ScheduleReloadMaintenance(EffectiveReloadIntervalMilliseconds);
+                            return;
+                        }
+
+                        if (HasCompatibleLooseAmmo(inventory) && HasCompatibleMagazineShell(inventory))
+                        {
+                            ScheduleReloadMaintenance(EffectiveReloadIntervalMilliseconds);
+                            return;
+                        }
+
+                        _reloadMaintenanceState = ReloadMaintenanceState.None;
+                        return;
+
+                    case ReloadMaintenanceState.LoadingMagazine:
+                        _reloadMaintenanceState = ReloadMaintenanceState.None;
+                        return;
+                }
             }
-
-            if (!TryGetInventory(out var inventory))
+            finally
             {
-                _reloadMaintenanceState = ReloadMaintenanceState.None;
-                return;
-            }
-
-            switch (_reloadMaintenanceState)
-            {
-                case ReloadMaintenanceState.RemovingEmptyMagazine:
-                    if (HasCompatibleLoadedMagazine(inventory))
-                    {
-                        TriggerMagazineLoad();
-                        _reloadMaintenanceState = ReloadMaintenanceState.LoadingMagazine;
-                        ScheduleReloadMaintenance(EffectiveReloadIntervalMilliseconds);
-                        return;
-                    }
-
-                    if (HasCompatibleLooseAmmo(inventory) && HasCompatibleMagazineShell(inventory))
-                    {
-                        MyPAX_HandheldGun.RequestTertiary(Entity.EntityId, true);
-                        _reloadMaintenanceState = ReloadMaintenanceState.FillingMagazines;
-                        ScheduleReloadMaintenance(EffectiveReloadIntervalMilliseconds);
-                        return;
-                    }
-
-                    _reloadMaintenanceState = ReloadMaintenanceState.None;
-                    return;
-
-                case ReloadMaintenanceState.FillingMagazines:
-                    if (HasCompatibleLoadedMagazine(inventory))
-                    {
-                        TriggerMagazineLoad();
-                        _reloadMaintenanceState = ReloadMaintenanceState.LoadingMagazine;
-                        ScheduleReloadMaintenance(EffectiveReloadIntervalMilliseconds);
-                        return;
-                    }
-
-                    if (HasCompatibleLooseAmmo(inventory) && HasCompatibleMagazineShell(inventory))
-                    {
-                        ScheduleReloadMaintenance(EffectiveReloadIntervalMilliseconds);
-                        return;
-                    }
-
-                    _reloadMaintenanceState = ReloadMaintenanceState.None;
-                    return;
-
-                case ReloadMaintenanceState.LoadingMagazine:
-                    _reloadMaintenanceState = ReloadMaintenanceState.None;
-                    return;
+                UpdateAmmoSpeechState();
             }
         }
 
@@ -881,6 +892,55 @@ namespace Si.UtilityAI
         private bool NeedsReloadMaintenanceNow =>
             UsesDetachableMagazineMaintenance
             && GetLoadedRoundsFromEquippedItem() <= 0;
+
+        private void UpdateAmmoSpeechState()
+        {
+            if (Definition == null || !Definition.ConsumeAmmo)
+            {
+                _lastAmmoSpeechState = AmmoSpeechState.Unknown;
+                return;
+            }
+
+            if (!TryGetInventory(out var inventory))
+                return;
+
+            var state = EvaluateAmmoSpeechState(inventory);
+            if (state == _lastAmmoSpeechState)
+                return;
+
+            if (state == AmmoSpeechState.Low)
+                TrySpeak("Running low on ammo");
+            else if (state == AmmoSpeechState.Empty)
+                TrySpeak("Out of ammo");
+
+            _lastAmmoSpeechState = state;
+        }
+
+        private AmmoSpeechState EvaluateAmmoSpeechState(MyInventoryBase inventory)
+        {
+            if (inventory == null || Definition == null || !Definition.ConsumeAmmo)
+                return AmmoSpeechState.Unknown;
+
+            var loadedRounds = GetLoadedRoundsFromEquippedItem();
+            var hasLooseAmmo = HasCompatibleLooseAmmo(inventory);
+            var hasLoadedMagazine = HasCompatibleLoadedMagazine(inventory);
+            var hasMagazineShell = HasCompatibleMagazineShell(inventory);
+            var hasReserveAmmo = UsesDetachableMagazineMaintenance
+                ? hasLoadedMagazine || (hasLooseAmmo && hasMagazineShell)
+                : hasLooseAmmo || hasLoadedMagazine;
+
+            if (loadedRounds <= 0)
+                return hasReserveAmmo ? AmmoSpeechState.Normal : AmmoSpeechState.Empty;
+
+            return hasReserveAmmo ? AmmoSpeechState.Normal : AmmoSpeechState.Low;
+        }
+
+        private bool TrySpeak(string message)
+        {
+            var entityId = Entity?.EntityId ?? 0;
+            return entityId != 0
+                && SiNpcSessionComponent.Instance?.Npcs?.TrySpeak(entityId, message) == true;
+        }
 
         private static long CurrentTimeMilliseconds()
         {
@@ -1017,6 +1077,14 @@ namespace Si.UtilityAI
             RemovingEmptyMagazine,
             FillingMagazines,
             LoadingMagazine,
+        }
+
+        private enum AmmoSpeechState
+        {
+            Unknown,
+            Normal,
+            Low,
+            Empty,
         }
 
         private MyPAX_HandheldGun GetHeldGunBehavior()

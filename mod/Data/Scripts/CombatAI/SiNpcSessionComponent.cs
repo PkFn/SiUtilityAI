@@ -897,8 +897,22 @@ namespace Si.UtilityAI
             if (string.IsNullOrWhiteSpace(message) || player == null)
                 return;
 
-            var chat = _chat ?? MyChatSystem.Static;
-            chat?.BroadcastMessage(SpeakChannel, player.Id.SteamId, message);
+            Vector3D position;
+            if (!TryGetPlayerSpeakPosition(player, out position))
+                return;
+
+            var speaker = PlayerName(player);
+            SpeakPlayerLocal(position, speaker, message);
+            if (MyMultiplayerModApi.Static != null
+                && MyMultiplayerModApi.Static.IsServer
+                && CanAnyPlayerHearSpeech(position))
+            {
+                MyMultiplayerModApi.Static.RaiseStaticEvent(
+                    x => SpeakPlayerClient,
+                    position,
+                    speaker,
+                    message);
+            }
         }
 
         private static string UtilityCommandSpeech(SiUtilityCommandMenuCommand command)
@@ -3161,6 +3175,8 @@ namespace Si.UtilityAI
                 return;
             if (!instance.ShowSquadChatter)
                 return;
+            if (!CanAnyPlayerHearSpeech(position))
+                return;
 
             var speaker = instance.NpcCallsign(entityId);
             SpeakNpcLocal(position, speaker, message);
@@ -3189,15 +3205,57 @@ namespace Si.UtilityAI
             chat?.HandleLocalMessage(SpeakChannel, FormatSpeech(speaker, message));
         }
 
+        private static void SpeakPlayerLocal(Vector3D position, string speaker, string message)
+        {
+            if (string.IsNullOrWhiteSpace(message) || !IsLocalPlayerInSpeakRange(position))
+                return;
+
+            var chat = _instance?._chat ?? MyChatSystem.Static;
+            chat?.HandleLocalMessage(SpeakChannel, FormatSpeech(speaker, message));
+        }
+
         private static bool IsLocalPlayerInSpeakRange(Vector3D position)
         {
             var player = LocalPlayer();
+            Vector3D playerPosition;
+            if (!TryGetPlayerSpeakPosition(player, out playerPosition))
+                return false;
+
+            return IsPositionInSpeakRange(position, playerPosition);
+        }
+
+        private static bool CanAnyPlayerHearSpeech(Vector3D position)
+        {
+            if (MyPlayers.Static == null)
+                return IsLocalPlayerInSpeakRange(position);
+
+            foreach (var playerEntry in MyPlayers.Static.GetAllPlayers())
+            {
+                Vector3D playerPosition;
+                if (!TryGetPlayerSpeakPosition(playerEntry.Value, out playerPosition))
+                    continue;
+                if (IsPositionInSpeakRange(position, playerPosition))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryGetPlayerSpeakPosition(MyPlayer player, out Vector3D position)
+        {
+            position = Vector3D.Zero;
             var playerPosition = player?.ControlledEntity?.Get<MyPositionComponentBase>();
             if (playerPosition == null)
                 return false;
 
+            position = playerPosition.WorldMatrix.Translation;
+            return true;
+        }
+
+        private static bool IsPositionInSpeakRange(Vector3D speakerPosition, Vector3D listenerPosition)
+        {
             var rangeSquared = SpeakRange * SpeakRange;
-            return Vector3D.DistanceSquared(position, playerPosition.WorldMatrix.Translation) <= rangeSquared;
+            return Vector3D.DistanceSquared(speakerPosition, listenerPosition) <= rangeSquared;
         }
 
         private static double SpeakRange
@@ -3292,6 +3350,15 @@ namespace Si.UtilityAI
                 return;
 
             SpeakNpcLocal(position, speaker, message);
+        }
+
+        [Event, Reliable, Broadcast]
+        private static void SpeakPlayerClient(Vector3D position, string speaker, string message)
+        {
+            if (MyMultiplayerModApi.Static != null && MyMultiplayerModApi.Static.IsServer)
+                return;
+
+            SpeakPlayerLocal(position, speaker, message);
         }
 
         [Event, Reliable, Broadcast]

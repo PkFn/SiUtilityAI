@@ -281,6 +281,7 @@ namespace Si.UtilityAI
             if (TryGetInventory(out var inventory))
                 inventory.RemoveItems(_selectedGrenade.Item.DefinitionId, 1);
 
+            TrySpeak("Grenade out");
             _combatState.BeginRecovery(_definition.RecoveryMilliseconds);
             _nextThrowAllowedMilliseconds = CurrentTimeMilliseconds() + _definition.ThrowCooldownMilliseconds;
             _phase = ThrowPhase.Recovering;
@@ -313,6 +314,15 @@ namespace Si.UtilityAI
             string ignored;
             inventory = SiNpcEquipmentHelper.FindInventory(Entity, out ignored);
             return inventory != null;
+        }
+
+        private void TrySpeak(string message)
+        {
+            var entityId = Entity?.EntityId ?? 0;
+            if (entityId == 0 || string.IsNullOrWhiteSpace(message))
+                return;
+
+            SiNpcSessionComponent.Instance?.Npcs?.TrySpeak(entityId, message);
         }
 
         private bool TryGetThrowableDefinition(string subtype, out MyPAX_ThrowableItemDefinition definition)
