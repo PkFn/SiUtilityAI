@@ -145,6 +145,20 @@
     <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />
   </Definition>
 
+  <Definition xsi:type="MyObjectBuilder_SiThrowGrenadeBehaviorDefinition">
+    <Id Type="MyObjectBuilder_SiThrowGrenadeBehavior" Subtype="SiTrooperThrowGrenade" />
+    <MinimumDistance>8</MinimumDistance>
+    <MaximumDistance>32</MaximumDistance>
+    <BaseScore>0.05</BaseScore>
+    <DistanceScore>0.85</DistanceScore>
+    <DistanceExponent>2.4</DistanceExponent>
+    <RequireLineOfSight>true</RequireLineOfSight>
+    <RotateToTarget>true</RotateToTarget>
+    <EquipDelayMilliseconds>700</EquipDelayMilliseconds>
+    <RecoveryMilliseconds>1600</RecoveryMilliseconds>
+    <ThrowCooldownMilliseconds>7000</ThrowCooldownMilliseconds>
+  </Definition>
+
   <!-- Shared firing profile for the rifle family. -->
   <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition">
     <Id Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />

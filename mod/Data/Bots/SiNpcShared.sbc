@@ -28,6 +28,7 @@
     <Component Type="SiNpcCharacterDamageBridgeComponent" />
     <Component Type="DeathComponent" Subtype="Medieval_male_noApron" />
     <Component Type="EntityFXComponent" Subtype="Medieval_male" />
+    <Component Type="SiNpcCombatStateComponent" />
     <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
     <Component Type="SiUseTransportSeatsBehavior" Subtype="SiTrooperUseTransportSeats" />
     <Component Type="SiTakeCoverBehavior" Subtype="SiTrooperTakeCover" />
@@ -42,6 +43,7 @@
     <Component Type="SiNpcLoadoutComponent" Subtype="SiTrooper_UnconfiguredLoadout" />
     <Component Type="SiNpcUniformComponent" Subtype="SiTrooper_UnconfiguredUniform" />
     <Component Type="SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Generic" />
+    <Component Type="SiThrowGrenadeBehavior" Subtype="SiTrooperThrowGrenade" />
     <Component Type="SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Generic" />
   </Definition>
 

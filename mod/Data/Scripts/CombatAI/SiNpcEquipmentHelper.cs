@@ -120,6 +120,46 @@ namespace Si.UtilityAI
             return false;
         }
 
+        public static bool TryEquipInventoryItem(
+            MyEntity entity,
+            MyInventoryItem item,
+            out string failure,
+            int? slotIndex = null)
+        {
+            failure = null;
+
+            var equipment = entity?.Components.Get<MyEntityEquipmentComponent>();
+            if (equipment == null)
+            {
+                failure = "Missing equipment component.";
+                return false;
+            }
+
+            var equipmentItem = item as MyEquipmentItem;
+            if (equipmentItem == null)
+            {
+                failure = item == null
+                    ? "Missing inventory item."
+                    : $"Inventory item is not equippable. Runtime type={item.GetType().FullName}.";
+                return false;
+            }
+
+            if (slotIndex.HasValue)
+            {
+                if (equipment.EquipItem(equipmentItem, slotIndex.Value))
+                    return true;
+            }
+            else if (equipment.EquipItem(equipmentItem))
+            {
+                return true;
+            }
+
+            failure = slotIndex.HasValue
+                ? $"Failed to equip {equipmentItem.Subtype.String} into slot {slotIndex.Value}."
+                : $"Failed to equip {equipmentItem.Subtype.String}.";
+            return false;
+        }
+
         public static bool HasEquippedSubtype(MyEntity entity, string equipmentSubtype)
         {
             var equipment = entity?.Components.Get<MyEntityEquipmentComponent>();

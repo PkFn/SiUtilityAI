@@ -473,6 +473,9 @@ namespace Si.UtilityAI
 
         public override bool IsSerialized => false;
         public SiNpcRangedWeaponComponentDefinition Definition => _runtimeDefinition ?? _definition;
+        internal MyDefinitionId? HeldItemId => Definition.HeldItem.HasValue
+            ? (MyDefinitionId?)Definition.HeldItem.Value
+            : null;
 
         public bool IsOperational
         {
@@ -592,6 +595,19 @@ namespace Si.UtilityAI
             _reloadMaintenanceState = ReloadMaintenanceState.None;
             _fireIntentTarget = null;
             _fireIntentTargetVelocity = Vector3D.Zero;
+        }
+
+        internal bool TryEquipHeldWeapon()
+        {
+            if (!Definition.HeldItem.HasValue || Entity == null)
+                return false;
+
+            string failure;
+            return SiNpcEquipmentHelper.TryEnsureEquipmentItemEquipped(
+                Entity,
+                (MyDefinitionId)Definition.HeldItem.Value,
+                out failure,
+                2);
         }
 
         private void LogFireDeniedWithCooldown(

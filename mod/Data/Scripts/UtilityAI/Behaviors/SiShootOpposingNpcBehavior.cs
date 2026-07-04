@@ -233,6 +233,7 @@ namespace Si.UtilityAI
         private long _lastFireBlockLogTime = -1;
         private readonly SiGameLog _log = new SiGameLog(nameof(SiShootOpposingNpcBehaviorComponent), "[SiShoot]");
         private SiShootOpposingNpcBehaviorDefinition _runtimeDefinition;
+        private SiNpcCombatStateComponent _combatState;
 
         public string BehaviorName => DefinitionId.ToString();
         private SiShootOpposingNpcBehaviorDefinition Definition => _runtimeDefinition ?? _definition;
@@ -263,6 +264,7 @@ namespace Si.UtilityAI
         {
             base.OnAddedToContainer();
             _takeCoverBehavior = Entity?.Components?.Get<SiTakeCoverBehaviorComponent>();
+            _combatState = Entity?.Components?.Get<SiNpcCombatStateComponent>();
         }
 
         float ISiUtilityBehavior.Evaluate(SiUtilityContext context)
@@ -311,6 +313,7 @@ namespace Si.UtilityAI
             var runningToCover = _takeCoverBehavior?.IsRunningToCover(context) ?? false;
             if (weapon == null || !weapon.IsOperational)
             {
+                _combatState?.SetFiring(false);
                 weapon?.ClearFireIntent();
                 LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, null, "weapon-unavailable", 0, SiSpottingObservation.None, weapon);
                 return;
@@ -318,6 +321,7 @@ namespace Si.UtilityAI
 
             if (stance == SiSquadEngagementStance.HoldFire)
             {
+                _combatState?.SetFiring(false);
                 weapon.ClearFireIntent();
                 LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, _target, "hold-fire", 0, SiSpottingObservation.None, weapon);
                 return;
@@ -326,6 +330,7 @@ namespace Si.UtilityAI
             var target = GetTrackedTarget(context, false, out var distance);
             if (!IsValidTarget(context.Agent, target))
             {
+                _combatState?.SetFiring(false);
                 weapon.ClearFireIntent();
                 LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, target, "no-valid-target", distance, SiSpottingObservation.None, weapon);
                 return;
@@ -339,6 +344,7 @@ namespace Si.UtilityAI
 
             if (Definition.RequireLineOfSight && !HasLineOfSight(context.Entity, targetEntity, weapon.Definition.AimTargetHeight))
             {
+                _combatState?.SetFiring(false);
                 weapon.ClearFireIntent();
                 LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, target, "line-of-sight-blocked", distance, SiSpottingObservation.None, weapon);
                 return;
@@ -347,10 +353,21 @@ namespace Si.UtilityAI
             var observation = TryReportSpotting(context, target, distance);
             if (!observation.IsSpotted)
             {
+                _combatState?.SetFiring(false);
                 weapon.ClearFireIntent();
                 LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, target, runningToCover ? "running-to-cover" : "spotting-not-confirmed", distance, observation, weapon);
                 return;
             }
+
+            if (_combatState != null && !_combatState.AllowsFiring)
+            {
+                _combatState.SetFiring(false);
+                weapon.ClearFireIntent();
+                LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, target, "combat-state-blocked", distance, observation, weapon);
+                return;
+            }
+
+            _combatState?.SetFiring(true);
 
             weapon.TryFire(
                 context,
@@ -365,6 +382,7 @@ namespace Si.UtilityAI
             _target = null;
             _nextTargetEvaluationTime = -1;
             _lastSpottedTargetId = 0;
+            _combatState?.SetFiring(false);
             GetWeapon()?.ClearFireIntent();
             GetWeapon()?.ResetState();
         }
