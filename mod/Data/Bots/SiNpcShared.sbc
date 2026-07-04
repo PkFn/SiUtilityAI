@@ -83,27 +83,6 @@
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
-    <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_German_Paratrooper_Rifle" />
-    <Webbing Type="EquipmentItem" Subtype="Webbing_German_Paratrooper_Rifle" />
-    <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_German_Paratrooper_Uniform" />
-    <Parachute Type="EquipmentItem" Subtype="PAX_ParachuteBackpack_Splittertarnmuster" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
-    <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_German_Paratrooper_Semi" />
-    <Webbing Type="EquipmentItem" Subtype="Webbing_German_Paratrooper_Semi" />
-    <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_German_Paratrooper_Uniform" />
-    <Parachute Type="EquipmentItem" Subtype="PAX_ParachuteBackpack_Splittertarnmuster" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
-    <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_German_Paratrooper_Smg" />
-    <Webbing Type="EquipmentItem" Subtype="Webbing_German_Paratrooper_Smg" />
-    <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_German_Paratrooper_Uniform" />
-    <Parachute Type="EquipmentItem" Subtype="PAX_ParachuteBackpack_Splittertarnmuster" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_US_Rifle" />
     <Webbing Type="EquipmentItem" Subtype="Webbing_US_Rifle" />
     <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Uniform" />
@@ -125,27 +104,6 @@
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
-    <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_US_Paratrooper_Rifle" />
-    <Webbing Type="EquipmentItem" Subtype="Webbing_US_Paratrooper_Rifle" />
-    <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Paratrooper_Uniform" />
-    <Parachute Type="EquipmentItem" Subtype="PAX_ParachuteBackpack_CamoUS" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
-    <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_US_Paratrooper_Semi" />
-    <Webbing Type="EquipmentItem" Subtype="Webbing_US_Paratrooper_Semi" />
-    <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Paratrooper_Uniform" />
-    <Parachute Type="EquipmentItem" Subtype="PAX_ParachuteBackpack_CamoUS" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
-    <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_US_Paratrooper_Smg" />
-    <Webbing Type="EquipmentItem" Subtype="Webbing_US_Paratrooper_Smg" />
-    <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_US_Paratrooper_Uniform" />
-    <Parachute Type="EquipmentItem" Subtype="PAX_ParachuteBackpack_CamoUS" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_Soviet_Rifle" />
     <Webbing Type="EquipmentItem" Subtype="Webbing_Soviet_Rifle" />
     <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Uniform" />
@@ -159,33 +117,8 @@
     <ParatrooperVariant Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_Soviet_Paratrooper_Smg" />
   </Definition>
 
-  <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
-    <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_Soviet_Paratrooper_Rifle" />
-    <Webbing Type="EquipmentItem" Subtype="Webbing_Soviet_Paratrooper_Rifle" />
-    <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Paratrooper_Uniform" />
-    <Parachute Type="EquipmentItem" Subtype="PAX_ParachuteBackpack_White" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
-    <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_Soviet_Paratrooper_Smg" />
-    <Webbing Type="EquipmentItem" Subtype="Webbing_Soviet_Paratrooper_Smg" />
-    <Uniform Type="MyObjectBuilder_SiNpcUniformComponent" Subtype="SiTrooper_Soviet_Paratrooper_Uniform" />
-    <Parachute Type="EquipmentItem" Subtype="PAX_ParachuteBackpack_White" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
-    <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_Victorian_Martini_Henry" />
-    <Webbing Type="EquipmentItem" Subtype="Webbing_Victorian_Martini_Henry" />
-  </Definition>
-
   <Definition xsi:type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition">
     <Id Type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition" Subtype="Webbing_German_Rifle" />
-    <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_K98" />
-    <ShootBehavior Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_K98" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition">
-    <Id Type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition" Subtype="Webbing_German_Paratrooper_Rifle" />
     <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_K98" />
     <ShootBehavior Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_K98" />
   </Definition>
@@ -197,19 +130,7 @@
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition">
-    <Id Type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition" Subtype="Webbing_German_Paratrooper_Semi" />
-    <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Gewehr43" />
-    <ShootBehavior Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Garand" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition">
     <Id Type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition" Subtype="Webbing_German_Smg" />
-    <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Mp40" />
-    <ShootBehavior Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mp40" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition">
-    <Id Type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition" Subtype="Webbing_German_Paratrooper_Smg" />
     <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Mp40" />
     <ShootBehavior Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mp40" />
   </Definition>
@@ -221,19 +142,7 @@
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition">
-    <Id Type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition" Subtype="Webbing_US_Paratrooper_Rifle" />
-    <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_M1Carbine" />
-    <ShootBehavior Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Garand" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition">
     <Id Type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition" Subtype="Webbing_US_Semi" />
-    <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Garand" />
-    <ShootBehavior Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Garand" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition">
-    <Id Type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition" Subtype="Webbing_US_Paratrooper_Semi" />
     <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Garand" />
     <ShootBehavior Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Garand" />
   </Definition>
@@ -245,19 +154,7 @@
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition">
-    <Id Type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition" Subtype="Webbing_US_Paratrooper_Smg" />
-    <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Thompson" />
-    <ShootBehavior Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Thompson" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition">
     <Id Type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition" Subtype="Webbing_Soviet_Rifle" />
-    <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Mosin" />
-    <ShootBehavior Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mosin" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition">
-    <Id Type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition" Subtype="Webbing_Soviet_Paratrooper_Rifle" />
     <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Mosin" />
     <ShootBehavior Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mosin" />
   </Definition>
@@ -266,18 +163,6 @@
     <Id Type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition" Subtype="Webbing_Soviet_Smg" />
     <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Ppsh" />
     <ShootBehavior Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Ppsh" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition">
-    <Id Type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition" Subtype="Webbing_Soviet_Paratrooper_Smg" />
-    <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Ppsh" />
-    <ShootBehavior Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Ppsh" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition">
-    <Id Type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition" Subtype="Webbing_Victorian_Martini_Henry" />
-    <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_MartiniHenry" />
-    <ShootBehavior Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Generic" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcUniformGuessDefinition">
