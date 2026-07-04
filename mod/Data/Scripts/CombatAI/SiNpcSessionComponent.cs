@@ -1659,24 +1659,13 @@ namespace Si.UtilityAI
                 return false;
             }
 
-            SiNpcRangedWeaponComponentDefinition runtimeWeaponDefinition;
-            if (!SiNpcTrooperCatalog.TryCreateWeaponDefinition(loadout, out runtimeWeaponDefinition)
-                || runtimeWeaponDefinition == null)
-            {
-                failure = $"No compatible PAX gun behavior was found for '{resolvedWebbingSubtype}'.";
-                return false;
-            }
-
-            if (!weapon.ApplyRuntimeDefinition(runtimeWeaponDefinition))
+            if (!weapon.ApplyRuntimeDefinition(loadout.WeaponDefinitionId))
             {
                 failure = $"Weapon definition for '{resolvedWebbingSubtype}' could not be applied.";
                 return false;
             }
 
-            SiShootOpposingNpcBehaviorDefinition runtimeShootDefinition;
-            if (!SiNpcTrooperCatalog.TryCreateShootBehaviorDefinition(loadout, out runtimeShootDefinition)
-                || runtimeShootDefinition == null
-                || !shoot.ApplyRuntimeDefinition(runtimeShootDefinition))
+            if (!shoot.ApplyRuntimeDefinition(loadout.ShootBehaviorDefinitionId))
             {
                 failure = $"Shoot behavior definition for '{resolvedWebbingSubtype}' could not be applied.";
                 return false;
