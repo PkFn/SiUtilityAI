@@ -1,14 +1,15 @@
-using System;
-using System.Xml.Serialization;
 using Pax.Cannons;
 using Sandbox.Game.Inventory;
 using Sandbox.ModAPI;
+using System;
+using System.Xml.Serialization;
 using VRage.Components;
 using VRage.Entities.Gravity;
 using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.Definitions;
 using VRage.Game.Entity;
+using VRage.Game.ModAPI;
 using VRage.Game.ObjectBuilders.ComponentSystem;
 using VRage.Inventory;
 using VRage.ObjectBuilders;
@@ -123,9 +124,12 @@ namespace Si.UtilityAI
                 (_definition.MaximumDistance - (float)distance) / distanceSpan,
                 0,
                 1);
-            return _definition.BaseScore
+            
+            var score = _definition.BaseScore
                    + _definition.DistanceScore
                    * (float)Math.Pow(normalizedDistance, _definition.DistanceExponent);
+
+            return score;
         }
 
         void ISiUtilityBehavior.Begin(SiUtilityContext context)
