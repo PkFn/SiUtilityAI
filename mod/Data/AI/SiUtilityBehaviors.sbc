@@ -208,6 +208,13 @@
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Svt40" />
+    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
+    <HeldItem Type="HandItemWithVariable" Subtype="SVT-40" />
+    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="SVT-40Script" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
     <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_M1Carbine" />
     <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
     <HeldItem Type="HandItemWithVariable" Subtype="M1_Carbine" />
