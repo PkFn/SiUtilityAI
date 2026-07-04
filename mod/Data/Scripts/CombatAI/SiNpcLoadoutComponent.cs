@@ -22,18 +22,24 @@ namespace Si.UtilityAI
     public class MyObjectBuilder_SiNpcLoadoutComponentDefinition : MyObjectBuilder_EntityComponentDefinition
     {
         public SerializableDefinitionId? Webbing;
+        public SerializableDefinitionId? Uniform;
+        public bool IsParatrooper;
     }
 
     [MyDefinitionType(typeof(MyObjectBuilder_SiNpcLoadoutComponentDefinition))]
     public class SiNpcLoadoutComponentDefinition : MyEntityComponentDefinition
     {
         public SerializableDefinitionId? Webbing { get; private set; }
+        public SerializableDefinitionId? Uniform { get; private set; }
+        public bool IsParatrooper { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
         {
             base.Init(builder);
             var ob = (MyObjectBuilder_SiNpcLoadoutComponentDefinition)builder;
             Webbing = ob.Webbing;
+            Uniform = ob.Uniform;
+            IsParatrooper = ob.IsParatrooper;
         }
     }
 

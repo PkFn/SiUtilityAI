@@ -59,6 +59,34 @@ namespace Si.UtilityAI
 
     internal static class SiNpcTrooperCatalog
     {
+        internal static bool TryResolveLoadout(
+            string webbingSubtype,
+            bool preferParatrooper,
+            out string resolvedWebbingSubtype,
+            out SiNpcLoadoutComponentDefinition definition)
+        {
+            resolvedWebbingSubtype = null;
+            definition = null;
+
+            if (string.IsNullOrWhiteSpace(webbingSubtype))
+                return false;
+
+            var requestedSubtype = webbingSubtype.Trim();
+            if (preferParatrooper
+                && TryGetParatrooperVariantSubtype(requestedSubtype, out var paratrooperSubtype)
+                && TryGetLoadout(paratrooperSubtype, out definition))
+            {
+                resolvedWebbingSubtype = definition.Id.SubtypeName;
+                return true;
+            }
+
+            if (!TryGetLoadout(requestedSubtype, out definition))
+                return false;
+
+            resolvedWebbingSubtype = definition.Id.SubtypeName;
+            return true;
+        }
+
         internal static bool TryGetLoadout(string webbingSubtype, out SiNpcLoadoutComponentDefinition definition)
         {
             definition = null;
@@ -99,7 +127,24 @@ namespace Si.UtilityAI
             return false;
         }
 
-        internal static SerializableDefinitionId? GuessUniform(string webbingSubtype, bool paratrooper)
+        internal static SerializableDefinitionId? ResolveUniform(string webbingSubtype, bool paratrooper)
+        {
+            if (TryResolveLoadout(webbingSubtype, paratrooper, out _, out var loadout)
+                && loadout != null
+                && loadout.Uniform.HasValue)
+                return loadout.Uniform;
+
+            return GuessUniform(webbingSubtype, paratrooper);
+        }
+
+        internal static bool IsParatrooperWebbing(string webbingSubtype)
+        {
+            return TryGetLoadout(webbingSubtype, out var definition)
+                   && definition != null
+                   && definition.IsParatrooper;
+        }
+
+        private static SerializableDefinitionId? GuessUniform(string webbingSubtype, bool paratrooper)
         {
             if (string.IsNullOrWhiteSpace(webbingSubtype))
                 return null;
@@ -123,6 +168,31 @@ namespace Si.UtilityAI
             return paratrooper
                 ? (best.ParatrooperUniform ?? best.RegularUniform)
                 : best.RegularUniform;
+        }
+
+        private static bool TryGetParatrooperVariantSubtype(string webbingSubtype, out string paratrooperSubtype)
+        {
+            paratrooperSubtype = null;
+            if (string.IsNullOrWhiteSpace(webbingSubtype))
+                return false;
+
+            var trimmed = webbingSubtype.Trim();
+            if (trimmed.IndexOf("Paratrooper", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                paratrooperSubtype = trimmed;
+                return true;
+            }
+
+            var firstSeparator = trimmed.IndexOf('_');
+            if (firstSeparator < 0 || firstSeparator >= trimmed.Length - 1)
+                return false;
+
+            var secondSeparator = trimmed.IndexOf('_', firstSeparator + 1);
+            if (secondSeparator < 0 || secondSeparator >= trimmed.Length - 1)
+                return false;
+
+            paratrooperSubtype = trimmed.Insert(secondSeparator + 1, "Paratrooper_");
+            return true;
         }
 
         internal static List<string> GetKnownWebbings()
