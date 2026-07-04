@@ -52,6 +52,15 @@
 - Attach the chosen component-definition subtype from the entity's `MyObjectBuilder_ContainerDefinition`. A new archetype or another mod should be able to reuse the C# controller by defining and attaching a different `.sbc` subtype instead of creating a tuning-only subclass.
 - When adding a configurable system, follow the existing utility-brain and grounded-NPC component patterns: keep reusable logic policy-neutral, keep per-archetype values in `.sbc`, and make the component boundary clear enough for other modders to compose.
 
+## Cross-Mod NPC Equipment Discovery
+
+- Treat PAX webbing discovery as a runtime integration feature, not a hand-maintained content list. The mod should discover every loaded `MyPAX_ItemStorageEquipmentDefinition` that is available in the game session, including definitions introduced by other mods.
+- Any compatible discovered webbing should become eligible for SiUtilityAI NPC spawning and appear in the NPC spawn list or equivalent lookup surface exposed by the mod.
+- Prefer automatic compatibility detection over hardcoded faction, setting, or mod-name allowlists. The core goal is that other mods can add content simply by loading their own definitions into the game.
+- Keep SiUtilityAI as a setting-agnostic core: if a discovered webbing and the weapon(s) it implies follow PAX Core script conventions and SiUtilityAI's handling requirements, the mod should wire them in without requiring a setting-specific subclass or manual registration entry in this project.
+- When implementation needs extra metadata beyond what can be inferred from the discovered PAX definitions, make that metadata attachable through `.sbc` definitions keyed by subtype so external mods can extend compatibility without editing SiUtilityAI itself.
+- Do not assume only this repository's `mod/Data/` content exists. Design definition scans, spawn catalogs, and compatibility resolution around the full set of definitions loaded by the game from all active mods.
+
 ## API Discovery
 
 - First search `mod/`, then `ref_si_core/`, then read-only dependencies (`ref_equi_core/`, `ref_pax_core/`) for examples of any unknown method, type, component, or `.sbc` pattern.
