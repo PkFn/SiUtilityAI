@@ -31,6 +31,7 @@ namespace Si.UtilityAI
 
         public float SearchRadius;
         public float BaseScore;
+        public float MaxScore;
         public float DistanceScore;
         public float DistanceExponent;
 
@@ -53,6 +54,7 @@ namespace Si.UtilityAI
     {
         public float SearchRadius;
         public float BaseScore;
+        public float MaxScore;
         public float DistanceScore;
         public float DistanceExponent;
 
@@ -76,6 +78,7 @@ namespace Si.UtilityAI
 
         public float SearchRadius { get; private set; }
         public float BaseScore { get; private set; }
+        public float MaxScore { get; private set; }
         public float DistanceScore { get; private set; }
         public float DistanceExponent { get; private set; }
         public bool RequireLineOfSight { get; private set; }
@@ -95,6 +98,7 @@ namespace Si.UtilityAI
 
             SearchRadius = Math.Max(0, ob.SearchRadius);
             BaseScore = Math.Max(0, ob.BaseScore);
+            MaxScore = Math.Max(0, ob.MaxScore);
             DistanceScore = Math.Max(0, ob.DistanceScore);
             DistanceExponent = Math.Max(0.01f, ob.DistanceExponent);
             RequireLineOfSight = ob.RequireLineOfSight;
@@ -118,6 +122,7 @@ namespace Si.UtilityAI
 
         public float SearchRadius { get; private set; }
         public float BaseScore { get; private set; }
+        public float MaxScore { get; private set; }
         public float DistanceScore { get; private set; }
         public float DistanceExponent { get; private set; }
         public bool RequireLineOfSight { get; private set; }
@@ -158,6 +163,7 @@ namespace Si.UtilityAI
         {
             SearchRadius = Math.Max(0, ob.SearchRadius);
             BaseScore = Math.Max(0, ob.BaseScore);
+            MaxScore = Math.Max(0, ob.MaxScore);
             DistanceScore = Math.Max(0, ob.DistanceScore);
             DistanceExponent = Math.Max(0.01f, ob.DistanceExponent);
             RequireLineOfSight = ob.RequireLineOfSight;
@@ -175,6 +181,7 @@ namespace Si.UtilityAI
         {
             SearchRadius = balance.SearchRadius;
             BaseScore = balance.BaseScore;
+            MaxScore = balance.MaxScore;
             DistanceScore = balance.DistanceScore;
             DistanceExponent = balance.DistanceExponent;
             RequireLineOfSight = balance.RequireLineOfSight;
@@ -292,6 +299,9 @@ namespace Si.UtilityAI
             var score = Definition.BaseScore
                         + Definition.DistanceScore
                         * (float)Math.Pow(normalizedDistance, Definition.DistanceExponent);
+
+            score = Math.Min(score, Definition.MaxScore);
+
             return score;
         }
 

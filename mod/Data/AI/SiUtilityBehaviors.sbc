@@ -80,6 +80,7 @@
     <Id Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />
     <SearchRadius>200</SearchRadius>
     <BaseScore>0.85</BaseScore>
+    <MaxScore>0.95</MaxScore>
     <DistanceScore>0.15</DistanceScore>
     <DistanceExponent>1</DistanceExponent>
 
