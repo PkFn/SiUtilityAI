@@ -73,8 +73,6 @@ namespace Si.UtilityAI
     [MyDefinitionRequired(typeof(SiThrowGrenadeBehaviorDefinition))]
     public class SiThrowGrenadeBehaviorComponent : MyEntityComponent, ISiUtilityBehavior, ISiContinuousUtilityBehavior
     {
-        private const int MainHandSlotIndex = 2;
-
         private SiThrowGrenadeBehaviorDefinition _definition;
         private SiShootOpposingNpcBehaviorComponent _shootBehavior;
         private SiNpcRangedWeaponComponent _weapon;
@@ -144,14 +142,6 @@ namespace Si.UtilityAI
             _weapon?.ClearFireIntent();
             if (_definition.RotateToTarget)
                 FaceTarget(_targetEntity);
-
-            string failure;
-            if (!SiNpcEquipmentHelper.TryEquipInventoryItem(Entity, _selectedGrenade.Item, out failure, MainHandSlotIndex))
-            {
-                _combatState.CancelThrow();
-                ResetThrowState();
-                return;
-            }
 
             _phase = ThrowPhase.Equipping;
             _phaseRemainingMilliseconds = _definition.EquipDelayMilliseconds;
@@ -267,7 +257,6 @@ namespace Si.UtilityAI
             if (TryGetInventory(out var inventory))
                 inventory.RemoveItems(_selectedGrenade.Item.DefinitionId, 1);
 
-            _weapon?.TryEquipHeldWeapon();
             _combatState.BeginRecovery(_definition.RecoveryMilliseconds);
             _nextThrowAllowedMilliseconds = CurrentTimeMilliseconds() + _definition.ThrowCooldownMilliseconds;
             _phase = ThrowPhase.Recovering;
@@ -282,7 +271,6 @@ namespace Si.UtilityAI
 
         private void AbortThrow()
         {
-            _weapon?.TryEquipHeldWeapon();
             _combatState.CancelThrow();
             ResetThrowState();
         }
