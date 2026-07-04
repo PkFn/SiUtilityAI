@@ -94,22 +94,6 @@
     <TargetReevaluationIntervalMilliseconds>400</TargetReevaluationIntervalMilliseconds>
   </Definition>
 
-  <!-- Uses PAX defender projectile definitions through the PAX projectile spawner. -->
-  <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
-    <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Garand" />
-    <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
-    <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_K98" />
-    <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
-    <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mosin" />
-    <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiRifleTrooperSharedBalance" />
-  </Definition>
-
   <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition">
     <Id Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiSmgTrooperSharedBalance" />
     <SearchRadius>140</SearchRadius>
@@ -124,21 +108,6 @@
     <SpotSpeechCooldownMilliseconds>15000</SpotSpeechCooldownMilliseconds>
     <DetectionAccuracyWorseningMultiplier>2</DetectionAccuracyWorseningMultiplier>
     <TargetReevaluationIntervalMilliseconds>400</TargetReevaluationIntervalMilliseconds>
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
-    <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Mp40" />
-    <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiSmgTrooperSharedBalance" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
-    <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Thompson" />
-    <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiSmgTrooperSharedBalance" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
-    <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Ppsh" />
-    <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiSmgTrooperSharedBalance" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
@@ -193,48 +162,6 @@
     <MuzzleUpOffset>0.65</MuzzleUpOffset>
   </Definition>
 
-  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
-    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Garand" />
-    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
-    <HeldItem Type="HandItemWithVariable" Subtype="M1_Garand" />
-    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="M1_GarandScript" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
-    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Gewehr43" />
-    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
-    <HeldItem Type="HandItemWithVariable" Subtype="Gewehr43" />
-    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="Gewehr43Script" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
-    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Svt40" />
-    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
-    <HeldItem Type="HandItemWithVariable" Subtype="SVT-40" />
-    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="SVT-40Script" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
-    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_M1Carbine" />
-    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
-    <HeldItem Type="HandItemWithVariable" Subtype="M1_Carbine" />
-    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="M1_CarbineScript" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
-    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_K98" />
-    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
-    <HeldItem Type="HandItemWithVariable" Subtype="Kar98k" />
-    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="Kar98kScript" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
-    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Mosin" />
-    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
-    <HeldItem Type="HandItemWithVariable" Subtype="Mosin" />
-    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="MosinScript" />
-  </Definition>
-
   <!-- Shared SMG burst profile; magazine size differences are balanced through reload time. -->
   <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition">
     <Id Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiSmgTrooperSharedWeaponBalance" />
@@ -264,27 +191,6 @@
     <ElevationAiming>96000</ElevationAiming>
     <MuzzleForwardOffset>0.72</MuzzleForwardOffset>
     <MuzzleUpOffset>0.65</MuzzleUpOffset>
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
-    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Mp40" />
-    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiSmgTrooperSharedWeaponBalance" />
-    <HeldItem Type="HandItemWithVariable" Subtype="MP-40" />
-    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="MP-40Script" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
-    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Thompson" />
-    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiSmgTrooperSharedWeaponBalance" />
-    <HeldItem Type="HandItemWithVariable" Subtype="Thompson_M1A1" />
-    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="Thompson_M1A1Script" />
-  </Definition>
-
-  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
-    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Ppsh" />
-    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiSmgTrooperSharedWeaponBalance" />
-    <HeldItem Type="HandItemWithVariable" Subtype="PPSh-41" />
-    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="PPSh-41Script" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
