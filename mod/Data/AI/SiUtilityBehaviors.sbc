@@ -228,6 +228,13 @@
     <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="MosinScript" />
   </Definition>
 
+  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_MartiniHenry" />
+    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiRifleTrooperSharedWeaponBalance" />
+    <HeldItem Type="HandItemWithVariable" Subtype="MartiniHenry" />
+    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="MartiniHenryScript" />
+  </Definition>
+
   <!-- Shared SMG burst profile; magazine size differences are balanced through reload time. -->
   <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition">
     <Id Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiSmgTrooperSharedWeaponBalance" />

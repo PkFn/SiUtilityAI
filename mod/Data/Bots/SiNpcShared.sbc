@@ -173,6 +173,11 @@
     <Parachute Type="EquipmentItem" Subtype="PAX_ParachuteBackpack_White" />
   </Definition>
 
+  <Definition xsi:type="MyObjectBuilder_SiNpcLoadoutComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcLoadoutComponent" Subtype="Webbing_Victorian_Martini_Henry" />
+    <Webbing Type="EquipmentItem" Subtype="Webbing_Victorian_Martini_Henry" />
+  </Definition>
+
   <Definition xsi:type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition">
     <Id Type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition" Subtype="Webbing_German_Rifle" />
     <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_K98" />
@@ -267,6 +272,12 @@
     <Id Type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition" Subtype="Webbing_Soviet_Paratrooper_Smg" />
     <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Ppsh" />
     <ShootBehavior Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Ppsh" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition">
+    <Id Type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition" Subtype="Webbing_Victorian_Martini_Henry" />
+    <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_MartiniHenry" />
+    <ShootBehavior Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Generic" />
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiNpcUniformGuessDefinition">
