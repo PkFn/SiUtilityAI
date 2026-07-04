@@ -107,7 +107,7 @@ namespace Si.UtilityAI
             EngageSpeechCooldownMilliseconds = Math.Max(0, ob.EngageSpeechCooldownMilliseconds);
             SpotTargetName = ob.SpotTargetName;
             SpotSpeechCooldownMilliseconds = Math.Max(0, ob.SpotSpeechCooldownMilliseconds);
-            DetectionAccuracyWorseningMultiplier = Math.Max(1, ob.DetectionAccuracyWorseningMultiplier);
+            DetectionAccuracyWorseningMultiplier = Math.Max(0, ob.DetectionAccuracyWorseningMultiplier);
             TargetReevaluationIntervalMilliseconds = Math.Max(1, ob.TargetReevaluationIntervalMilliseconds);
             TargetArchetypes = ob.TargetArchetypes ?? EmptyArchetypes;
         }
@@ -172,7 +172,7 @@ namespace Si.UtilityAI
             EngageSpeechCooldownMilliseconds = Math.Max(0, ob.EngageSpeechCooldownMilliseconds);
             SpotTargetName = ob.SpotTargetName;
             SpotSpeechCooldownMilliseconds = Math.Max(0, ob.SpotSpeechCooldownMilliseconds);
-            DetectionAccuracyWorseningMultiplier = Math.Max(1, ob.DetectionAccuracyWorseningMultiplier);
+            DetectionAccuracyWorseningMultiplier = Math.Max(0, ob.DetectionAccuracyWorseningMultiplier);
             TargetReevaluationIntervalMilliseconds = Math.Max(1, ob.TargetReevaluationIntervalMilliseconds);
             TargetArchetypes = ob.TargetArchetypes ?? EmptyArchetypes;
         }
@@ -387,12 +387,14 @@ namespace Si.UtilityAI
 
             _combatState?.SetFiring(true);
 
+            var aimSwayDegrees = ComputeDetectionAimSwayDegrees(observation.SpottingSum);
             weapon.TryFire(
                 context,
                 targetEntity,
                 target.Velocity,
                 observation.SpottingSum,
-                Definition.DetectionAccuracyWorseningMultiplier);
+                Definition.DetectionAccuracyWorseningMultiplier,
+                aimSwayDegrees);
         }
 
         void ISiUtilityBehavior.End(SiUtilityContext context)
@@ -407,6 +409,12 @@ namespace Si.UtilityAI
 
         private SiNpcRangedWeaponComponent GetWeapon() =>
             Entity?.Components?.Get<SiNpcRangedWeaponComponent>();
+
+        private float ComputeDetectionAimSwayDegrees(float detectionScore)
+        {
+            var clampedDetection = MathHelper.Clamp(detectionScore, 0, 1);
+            return (1f - clampedDetection) * Definition.DetectionAccuracyWorseningMultiplier;
+        }
 
         private SiSpottingObservation TryReportSpotting(SiUtilityContext context, ShootTarget target, double distance)
         {

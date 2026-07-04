@@ -470,6 +470,7 @@ namespace Si.UtilityAI
         private ReloadMaintenanceState _reloadMaintenanceState;
         private MyEntity _fireIntentTarget;
         private Vector3D _fireIntentTargetVelocity;
+        private float _fireIntentAimSwayDegrees;
 
         public override bool IsSerialized => false;
         public SiNpcRangedWeaponComponentDefinition Definition => _runtimeDefinition ?? _definition;
@@ -538,6 +539,7 @@ namespace Si.UtilityAI
             _reloadMaintenanceState = ReloadMaintenanceState.None;
             _fireIntentTarget = null;
             _fireIntentTargetVelocity = Vector3D.Zero;
+            _fireIntentAimSwayDegrees = 0;
         }
 
         internal void Advance(long elapsedMilliseconds)
@@ -553,7 +555,8 @@ namespace Si.UtilityAI
             MyEntity targetEntity,
             Vector3D targetVelocity,
             float detectionScore,
-            float detectionAccuracyWorseningMultiplier)
+            float detectionAccuracyWorseningMultiplier,
+            float aimSwayDegrees)
         {
             if (!IsOperational)
             {
@@ -582,12 +585,13 @@ namespace Si.UtilityAI
 
             _fireIntentTarget = targetEntity;
             _fireIntentTargetVelocity = targetVelocity;
+            _fireIntentAimSwayDegrees = Math.Max(0, aimSwayDegrees);
             _lastFireIntentTime = CurrentTimeMilliseconds();
 
             if (_fireCooldown > 0)
                 return true;
 
-            if (!TryFireSingleShot(context.Entity, targetEntity, targetVelocity))
+            if (!TryFireSingleShot(context.Entity, targetEntity, targetVelocity, _fireIntentAimSwayDegrees))
             {
                 LogFireDeniedWithCooldown("shot-creation-failed", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
                 return false;
@@ -603,6 +607,7 @@ namespace Si.UtilityAI
             _reloadMaintenanceState = ReloadMaintenanceState.None;
             _fireIntentTarget = null;
             _fireIntentTargetVelocity = Vector3D.Zero;
+            _fireIntentAimSwayDegrees = 0;
         }
 
         internal bool TryEquipHeldWeapon()
@@ -637,6 +642,7 @@ namespace Si.UtilityAI
             MyEntity shooter,
             MyEntity targetEntity,
             Vector3D targetVelocity,
+            float aimSwayDegrees,
             out Quaternion direction)
         {
             direction = Quaternion.Identity;
@@ -663,6 +669,7 @@ namespace Si.UtilityAI
             var shotDirection = SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(
                 aimPoint - initialMuzzle,
                 shooterWorld.Forward);
+            shotDirection = ApplyAimSway(shotDirection, shooterUp, Math.Max(0, aimSwayDegrees));
             var shotUp = RejectOrFallback(
                 shooterUp,
                 shotDirection,
@@ -674,10 +681,11 @@ namespace Si.UtilityAI
         private bool TryFireSingleShot(
             MyEntity shooter,
             MyEntity targetEntity,
-            Vector3D targetVelocity)
+            Vector3D targetVelocity,
+            float aimSwayDegrees)
         {
             Quaternion direction;
-            if (!TryCreateShotDirection(shooter, targetEntity, targetVelocity, out direction))
+            if (!TryCreateShotDirection(shooter, targetEntity, targetVelocity, aimSwayDegrees, out direction))
                 return false;
 
             MyPAX_HandheldGun.ServerGunShootEvent(shooter.EntityId, direction);
@@ -728,10 +736,31 @@ namespace Si.UtilityAI
             if (_fireCooldown > 0)
                 _fireCooldown = 0;
 
-            if (!TryFireSingleShot(Entity, target, _fireIntentTargetVelocity))
+            if (!TryFireSingleShot(Entity, target, _fireIntentTargetVelocity, _fireIntentAimSwayDegrees))
                 return;
 
             StartScheduledFiring();
+        }
+
+        private static Vector3D ApplyAimSway(Vector3D shotDirection, Vector3D shooterUp, float aimSwayDegrees)
+        {
+            if (aimSwayDegrees <= 0)
+                return shotDirection;
+
+            var forward = SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(shotDirection, Vector3D.Forward);
+            var up = RejectOrFallback(
+                SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(shooterUp, Vector3D.Up),
+                forward,
+                Vector3D.CalculatePerpendicularVector(forward));
+            var right = SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(Vector3D.Cross(forward, up), Vector3D.Right);
+            up = SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(Vector3D.Cross(right, forward), up);
+
+            var yawRadians = MathHelper.ToRadians(MyUtils.GetRandomFloat(-aimSwayDegrees, aimSwayDegrees));
+            var pitchRadians = MathHelper.ToRadians(MyUtils.GetRandomFloat(-aimSwayDegrees, aimSwayDegrees));
+            var swayed = forward
+                         + right * Math.Tan(yawRadians)
+                         + up * Math.Tan(pitchRadians);
+            return SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(swayed, forward);
         }
 
         private void BeginReloadMaintenance()
