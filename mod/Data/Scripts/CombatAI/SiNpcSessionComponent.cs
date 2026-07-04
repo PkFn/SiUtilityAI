@@ -1564,10 +1564,19 @@ namespace Si.UtilityAI
 
         private bool SpawnFromEnemyShortcut(ulong sender, string[] tokens)
         {
-            var webbing = tokens.Length >= 3 ? tokens[2] : "Webbing_German_Rifle";
+            var webbing = tokens.Length >= 3 ? tokens[2] : GetDefaultEnemyWebbing();
+            if (string.IsNullOrWhiteSpace(webbing))
+                return Respond(sender, $"No trooper webbings are currently available. Available: {KnownWebbingsText()}.");
+
             return SpawnFromCommand(
                 sender,
                 new SiNpcSpawnRequest(webbing, false, true));
+        }
+
+        private static string GetDefaultEnemyWebbing()
+        {
+            var webbings = SiNpcTrooperCatalog.GetKnownWebbings();
+            return webbings.Count > 0 ? webbings[0] : null;
         }
 
         private bool SpawnFromCommand(ulong sender, string[] tokens)
