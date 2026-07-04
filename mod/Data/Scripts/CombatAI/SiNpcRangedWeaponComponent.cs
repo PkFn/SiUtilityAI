@@ -504,6 +504,14 @@ namespace Si.UtilityAI
             if (!MyDefinitionManager.TryGet(definitionId, out runtimeDefinition) || runtimeDefinition == null)
                 return false;
 
+            return ApplyRuntimeDefinition(runtimeDefinition);
+        }
+
+        internal bool ApplyRuntimeDefinition(SiNpcRangedWeaponComponentDefinition runtimeDefinition)
+        {
+            if (runtimeDefinition == null)
+                return false;
+
             runtimeDefinition.ResolveBalance();
             runtimeDefinition.ResolveWeaponBehavior();
             _runtimeDefinition = runtimeDefinition;

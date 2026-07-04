@@ -1580,8 +1580,7 @@ namespace Si.UtilityAI
 
         private bool SpawnFromCommand(ulong sender, SiNpcSpawnRequest request)
         {
-            if (!SiNpcTrooperCatalog.TryResolveLoadout(request.WebbingSubtype, request.IsParatrooper, out var resolvedWebbingSubtype, out _)
-                || !SiNpcTrooperCatalog.TryGetWeaponBinding(resolvedWebbingSubtype, out _))
+            if (!SiNpcTrooperCatalog.TryResolveLoadout(request.WebbingSubtype, request.IsParatrooper, out _, out _))
                 return Respond(sender, $"Unknown trooper webbing '{request.WebbingSubtype}'. Available: {KnownWebbingsText()}.");
 
             var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(sender, 0));
@@ -1637,59 +1636,60 @@ namespace Si.UtilityAI
                 return false;
             }
 
-            var loadout = npc.Entity.Components.Get<SiNpcLoadoutComponent>();
+            var loadoutComponent = npc.Entity.Components.Get<SiNpcLoadoutComponent>();
             var uniform = npc.Entity.Components.Get<SiNpcUniformComponent>();
             var weapon = npc.Entity.Components.Get<SiNpcRangedWeaponComponent>();
             var shoot = npc.Entity.Components.Get<SiShootOpposingNpcBehaviorComponent>();
-            if (loadout == null || uniform == null || weapon == null || shoot == null)
+            if (loadoutComponent == null || uniform == null || weapon == null || shoot == null)
             {
                 failure = "The generic trooper container is missing a required runtime component.";
                 return false;
             }
 
-            if (!SiNpcTrooperCatalog.TryResolveLoadout(request.WebbingSubtype, request.IsParatrooper, out var resolvedWebbingSubtype, out var loadoutDefinition)
-                || loadoutDefinition == null)
+            if (!SiNpcTrooperCatalog.TryResolveLoadout(request.WebbingSubtype, request.IsParatrooper, out var resolvedWebbingSubtype, out var loadout)
+                || loadout == null)
             {
                 failure = $"No runtime loadout definition was found for '{request.WebbingSubtype}'.";
                 return false;
             }
 
-            var loadoutId = new MyDefinitionId(typeof(MyObjectBuilder_SiNpcLoadoutComponent), resolvedWebbingSubtype);
-            if (!loadout.ApplyRuntimeDefinition(loadoutId))
+            if (!loadoutComponent.ApplyRuntimeWebbing(loadout.WebbingItemId))
             {
-                failure = $"No runtime loadout definition was found for '{resolvedWebbingSubtype}'.";
+                failure = $"The runtime loadout '{resolvedWebbingSubtype}' could not be applied.";
                 return false;
             }
 
-            SiNpcTrooperWeaponBindingDefinition binding;
-            if (!SiNpcTrooperCatalog.TryGetWeaponBinding(resolvedWebbingSubtype, out binding)
-                || !binding.Weapon.HasValue
-                || !binding.ShootBehavior.HasValue)
+            SiNpcRangedWeaponComponentDefinition runtimeWeaponDefinition;
+            if (!SiNpcTrooperCatalog.TryCreateWeaponDefinition(loadout, out runtimeWeaponDefinition)
+                || runtimeWeaponDefinition == null)
             {
-                failure = $"No runtime weapon binding was found for '{resolvedWebbingSubtype}'.";
+                failure = $"No compatible PAX gun behavior was found for '{resolvedWebbingSubtype}'.";
                 return false;
             }
 
-            if (!weapon.ApplyRuntimeDefinition((MyDefinitionId)binding.Weapon.Value))
+            if (!weapon.ApplyRuntimeDefinition(runtimeWeaponDefinition))
             {
-                failure = $"Weapon definition '{binding.Weapon.Value.SubtypeId}' could not be applied.";
+                failure = $"Weapon definition for '{resolvedWebbingSubtype}' could not be applied.";
                 return false;
             }
 
-            if (!shoot.ApplyRuntimeDefinition((MyDefinitionId)binding.ShootBehavior.Value))
+            SiShootOpposingNpcBehaviorDefinition runtimeShootDefinition;
+            if (!SiNpcTrooperCatalog.TryCreateShootBehaviorDefinition(loadout, out runtimeShootDefinition)
+                || runtimeShootDefinition == null
+                || !shoot.ApplyRuntimeDefinition(runtimeShootDefinition))
             {
-                failure = $"Shoot behavior definition '{binding.ShootBehavior.Value.SubtypeId}' could not be applied.";
+                failure = $"Shoot behavior definition for '{resolvedWebbingSubtype}' could not be applied.";
                 return false;
             }
 
-            var uniformId = loadoutDefinition.Uniform ?? SiNpcTrooperCatalog.ResolveUniform(resolvedWebbingSubtype, request.IsParatrooper);
+            var uniformId = loadout.Uniform ?? SiNpcTrooperCatalog.ResolveUniform(resolvedWebbingSubtype, request.IsParatrooper);
             if (uniformId.HasValue)
                 uniform.ApplyRuntimeDefinition((MyDefinitionId)uniformId.Value);
 
             var dataDrivenNpc = npc as SiDataDrivenNpc;
             dataDrivenNpc?.SetSpawnMetadata(
                 resolvedWebbingSubtype,
-                loadoutDefinition.IsParatrooper || request.IsParatrooper,
+                loadout.IsParatrooper || request.IsParatrooper,
                 request.IsEnemy);
             return true;
         }

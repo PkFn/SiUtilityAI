@@ -57,9 +57,10 @@ namespace Si.UtilityAI
     {
         private SiNpcLoadoutComponentDefinition _definition;
         private SiNpcLoadoutComponentDefinition _runtimeDefinition;
+        private MyDefinitionId? _runtimeWebbingId;
 
         public override bool IsSerialized => false;
-        public string CurrentWebbingSubtype => ActiveDefinition?.Webbing?.SubtypeId;
+        public string CurrentWebbingSubtype => _runtimeWebbingId?.SubtypeName ?? ActiveDefinition?.Webbing?.SubtypeId;
 
         private SiNpcLoadoutComponentDefinition ActiveDefinition => _runtimeDefinition ?? _definition;
 
@@ -86,6 +87,18 @@ namespace Si.UtilityAI
                 return false;
 
             _runtimeDefinition = runtimeDefinition;
+            _runtimeWebbingId = runtimeDefinition.Webbing.HasValue
+                ? (MyDefinitionId?)runtimeDefinition.Webbing.Value
+                : null;
+            if (Entity != null && Entity.InScene)
+                AddScheduledCallback(EquipLoadout, 1);
+            return true;
+        }
+
+        internal bool ApplyRuntimeWebbing(MyDefinitionId webbingId)
+        {
+            _runtimeDefinition = null;
+            _runtimeWebbingId = webbingId;
             if (Entity != null && Entity.InScene)
                 AddScheduledCallback(EquipLoadout, 1);
             return true;
@@ -95,15 +108,18 @@ namespace Si.UtilityAI
         private void EquipLoadout(long delta)
         {
             var definition = ActiveDefinition;
-            if (Entity == null || Entity.Closed || Entity.MarkedForClose || definition == null || !definition.Webbing.HasValue)
+            var itemId = _runtimeWebbingId
+                         ?? (definition != null && definition.Webbing.HasValue
+                             ? (MyDefinitionId?)definition.Webbing.Value
+                             : null);
+            if (Entity == null || Entity.Closed || Entity.MarkedForClose || !itemId.HasValue)
                 return;
 
-            var itemId = (MyDefinitionId)definition.Webbing.Value;
-            if (SiNpcEquipmentHelper.HasEquippedSubtype(Entity, itemId.SubtypeName))
+            if (SiNpcEquipmentHelper.HasEquippedSubtype(Entity, itemId.Value.SubtypeName))
                 return;
 
             string failure;
-            SiNpcEquipmentHelper.TryEnsureEquipmentItemEquipped(Entity, itemId, out failure);
+            SiNpcEquipmentHelper.TryEnsureEquipmentItemEquipped(Entity, itemId.Value, out failure);
         }
     }
 }
