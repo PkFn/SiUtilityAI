@@ -804,11 +804,18 @@ namespace Si.UtilityAI
                 if (!behavior.TryObservePlayer(npc, player, controlledEntity, this, out observation))
                     continue;
 
-                if (observation.SpottingSum > highestSpottingSum)
+                var observationSum = observation.VehicleSpotted
+                    ? observation.VehicleSpottingSum
+                    : observation.SpottingSum;
+                var observationThreshold = observation.VehicleSpotted
+                    ? observation.VehicleSpottingThreshold
+                    : observation.SpottingThreshold;
+                var observationSpotted = observation.VehicleSpotted || observation.IsSpotted;
+                if (observationSum > highestSpottingSum)
                 {
-                    highestSpottingSum = observation.SpottingSum;
-                    highestSpottingThreshold = observation.SpottingThreshold;
-                    isSpotted = observation.IsSpotted;
+                    highestSpottingSum = observationSum;
+                    highestSpottingThreshold = observationThreshold;
+                    isSpotted = observationSpotted;
                 }
             }
 

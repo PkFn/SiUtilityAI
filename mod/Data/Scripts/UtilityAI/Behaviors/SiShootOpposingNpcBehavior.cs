@@ -692,7 +692,17 @@ namespace Si.UtilityAI
                 return false;
 
             _target = target;
-            targetEntity = target.Entity;
+            var observation = ObserveTarget(context, target, distance);
+            targetEntity = ResolveThreatEntity(target, observation);
+            if (targetEntity == null)
+                return false;
+
+            if (observation.VehicleSpotted
+                && observation.VehicleTargetPosition != Vector3D.Zero
+                && targetEntity.EntityId == observation.VehicleEntityId)
+                distance = Vector3D.Distance(context.Position, observation.VehicleTargetPosition);
+            else
+                distance = Vector3D.Distance(context.Position, targetEntity.WorldMatrix.Translation);
             return true;
         }
 
@@ -771,6 +781,19 @@ namespace Si.UtilityAI
 
         private static bool IsObservationVisible(SiSpottingObservation observation) =>
             observation.IsSpotted || observation.VehicleSpotted;
+
+        private static MyEntity ResolveThreatEntity(ShootTarget target, SiSpottingObservation observation)
+        {
+            if (target?.Entity == null)
+                return null;
+
+            if (observation.VehicleSpotted
+                && !observation.CanShootTarget
+                && observation.VehicleEntityId != 0)
+                return MyAPIGateway.Entities?.GetEntityById(observation.VehicleEntityId) as MyEntity;
+
+            return target.Entity;
+        }
 
         private bool IsTargetEvaluationDue() =>
             CurrentTimeMilliseconds() >= _nextTargetEvaluationTime;
