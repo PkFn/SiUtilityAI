@@ -76,29 +76,32 @@ namespace Si.UtilityAI
                     throw new InvalidOperationException(
                         $"Failed to create character '{EntityDefinition.SubtypeName}'.");
 
-                entity.Name = $"SiNpc_{Archetype}_{EntityId}";
-                entity.Save = false;
-                if (entity.Render != null)
-                {
-                    entity.Render.Visible = true;
-                    entity.Render.DrawOutsideViewDistance = true;
-                    entity.Render.SkipIfTooSmall = false;
-                }
-
-                Entity = entity;
-                _utilityBrain = Entity.Components.Get<SiUtilityBrainComponent>();
-                _utilityBrain?.Bind(this);
-                OnActivated();
-                return true;
+                PrepareActivatedEntity(entity);
+                return TryAttachEntityCore(entity, closeOnFailure: true);
             }
             catch (Exception exception)
             {
                 MyAPIGateway.Utilities?.ShowNotification(
                     $"Failed to create {Archetype}: {exception.Message}", 5000);
-                _utilityBrain?.Unbind();
-                _utilityBrain = null;
-                _deathStarted = false;
-                entity?.Close();
+                return false;
+            }
+        }
+
+        internal bool TryAttachExistingEntity(MyEntity entity)
+        {
+            if (Entity != null)
+                return ReferenceEquals(Entity, entity) && !Entity.Closed && !Entity.MarkedForClose;
+            if (entity == null || entity.EntityId != EntityId || entity.Closed || entity.MarkedForClose)
+                return false;
+
+            try
+            {
+                return TryAttachEntityCore(entity, closeOnFailure: false);
+            }
+            catch (Exception exception)
+            {
+                MyAPIGateway.Utilities?.ShowNotification(
+                    $"Failed to attach {Archetype}: {exception.Message}", 5000);
                 return false;
             }
         }
@@ -202,6 +205,21 @@ namespace Si.UtilityAI
         {
         }
 
+        protected virtual void PrepareActivatedEntity(MyEntity entity)
+        {
+            if (entity == null)
+                return;
+
+            entity.Name = $"SiNpc_{Archetype}_{EntityId}";
+            entity.Save = false;
+            if (entity.Render != null)
+            {
+                entity.Render.Visible = true;
+                entity.Render.DrawOutsideViewDistance = true;
+                entity.Render.SkipIfTooSmall = false;
+            }
+        }
+
         private MyEntityStatComponent ResolveStatComponent()
         {
             return Entity?.Components.Get<MyEntityStatComponent>();
@@ -263,6 +281,32 @@ namespace Si.UtilityAI
 
             DiplomaticIdentityId = 0;
             _deleteDiplomaticIdentityOnClose = false;
+        }
+
+        private bool TryAttachEntityCore(MyEntity entity, bool closeOnFailure)
+        {
+            if (entity == null)
+                return false;
+
+            try
+            {
+                Entity = entity;
+                Transform = entity.WorldMatrix;
+                _utilityBrain = Entity.Components.Get<SiUtilityBrainComponent>();
+                _utilityBrain?.Bind(this);
+                OnActivated();
+                return true;
+            }
+            catch
+            {
+                _utilityBrain?.Unbind();
+                _utilityBrain = null;
+                _deathStarted = false;
+                Entity = null;
+                if (closeOnFailure)
+                    entity.Close();
+                throw;
+            }
         }
     }
 

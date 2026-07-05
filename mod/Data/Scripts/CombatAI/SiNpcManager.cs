@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Sandbox.Game.Entities;
 using VRage.Game;
 using VRage.Game.Definitions;
 using VRage.Game.Entity;
@@ -212,6 +213,40 @@ namespace Si.UtilityAI
                 return false;
             }
 
+            return true;
+        }
+
+        public bool TryAttachConfigured(
+            string baseArchetype,
+            string runtimeArchetype,
+            long entityId,
+            out SiNpc npc)
+        {
+            if (_npcs.TryGetValue(entityId, out npc))
+            {
+                if (!string.Equals(npc.Archetype, runtimeArchetype, StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                var existingEntity = npc.Entity ?? MyEntities.GetEntityByIdOrDefault(entityId);
+                return npc.TryAttachExistingEntity(existingEntity);
+            }
+
+            if (!_archetypes.TryGetValue(baseArchetype, out var definition))
+                return false;
+
+            var entity = MyEntities.GetEntityByIdOrDefault(entityId);
+            if (entity == null || entity.Closed || entity.MarkedForClose)
+                return false;
+
+            npc = new SiDataDrivenNpc(definition, runtimeArchetype, entityId, entity.WorldMatrix);
+            npc.AttachManager(this);
+            if (!npc.TryAttachExistingEntity(entity))
+            {
+                npc = null;
+                return false;
+            }
+
+            _npcs.Add(entityId, npc);
             return true;
         }
 

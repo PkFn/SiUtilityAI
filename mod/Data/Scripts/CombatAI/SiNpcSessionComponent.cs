@@ -60,6 +60,8 @@ namespace Si.UtilityAI
             new Dictionary<long, SiMotionState>();
         private readonly Dictionary<long, SiMotionState> _npcMotionStates =
             new Dictionary<long, SiMotionState>();
+        private readonly Dictionary<long, SiNpcSnapshot> _pendingNpcSnapshots =
+            new Dictionary<long, SiNpcSnapshot>();
         private readonly Dictionary<long, SiNpcPositionCacheState> _positionCache =
             new Dictionary<long, SiNpcPositionCacheState>();
         private readonly Dictionary<long, SiTransportNpcState> _transportNpcStates =
@@ -76,6 +78,7 @@ namespace Si.UtilityAI
             new List<SiCoverSearchCacheKey>();
         private readonly List<long> _staleCoverReservationIds = new List<long>();
         private readonly List<long> _pendingTransportSeatRestoreNpcIds = new List<long>();
+        private readonly List<long> _resolvedPendingNpcIds = new List<long>();
         private List<MyObjectBuilder_SiNpcSessionComponent.SavedNpc> _savedNpcs;
         private List<MyObjectBuilder_SiNpcSessionComponent.SquadOrder> _savedSquadOrders;
 
@@ -104,6 +107,8 @@ namespace Si.UtilityAI
             Npcs.WaypointSet += OnWaypointSet;
             Npcs.WaypointCleared += OnWaypointCleared;
             Npcs.NpcSpoke += OnNpcSpoke;
+            if (!IsAuthoritative)
+                MyEntities.OnEntityAdd += OnEntityAddedClient;
 
             _chat?.RegisterChatCommand(
                 Command,
@@ -145,6 +150,7 @@ namespace Si.UtilityAI
             _squadCombatStates.Clear();
             _leaderMotionStates.Clear();
             _npcMotionStates.Clear();
+            _pendingNpcSnapshots.Clear();
             _positionCache.Clear();
             _transportNpcStates.Clear();
             _coverReservations.Clear();
@@ -154,12 +160,15 @@ namespace Si.UtilityAI
             _expiredCoverSearchCacheKeys.Clear();
             _staleCoverReservationIds.Clear();
             _pendingTransportSeatRestoreNpcIds.Clear();
+            _resolvedPendingNpcIds.Clear();
             Spotting?.Clear();
             Spotting = null;
             _savedNpcs = null;
             _savedSquadOrders = null;
             Squads?.ClearNpcs();
             Squads = null;
+            if (!IsAuthoritative)
+                MyEntities.OnEntityAdd -= OnEntityAddedClient;
             if (_instance == this)
                 _instance = null;
             base.OnUnload();
@@ -180,6 +189,8 @@ namespace Si.UtilityAI
                 CleanupCoverReservations();
                 RestorePendingTransportSeats();
             }
+            else
+                ApplyPendingNpcSnapshots();
             Npcs?.Update(elapsedMilliseconds);
             if (IsAuthoritative)
             {
@@ -3364,33 +3375,7 @@ namespace Si.UtilityAI
         [Event, Reliable, Broadcast]
         private static void SpawnNpcClient(SiNpcSnapshot snapshot)
         {
-            SiNpc npc = null;
-            var request = new SiNpcSpawnRequest(
-                snapshot.WebbingSubtype,
-                snapshot.IsParatrooper,
-                snapshot.IsEnemy);
-            _instance?.Npcs?.TrySpawnConfigured(
-                SiNpcManager.SoldierArchetype,
-                snapshot.Archetype,
-                snapshot.EntityId,
-                snapshot.Transform,
-                out npc);
-            if (npc != null)
-            {
-                string failure;
-                _instance?.ApplySpawnRequest(npc, request, out failure);
-            }
-            if (npc != null && snapshot.HasSquadAssignment)
-                _instance?.Squads?.AssignNpcToLeader(
-                    npc,
-                    (SiSquadLeaderKind)snapshot.SquadLeaderKind,
-                    snapshot.SquadLeaderId,
-                    (SiArmyKind)snapshot.SquadArmyKind,
-                    snapshot.SquadArmyId,
-                    snapshot.LeaderName,
-                    snapshot.IsSquadLeader);
-            if (snapshot.HasWaypoint)
-                _instance?.Npcs?.ApplyWaypoint(snapshot.EntityId, snapshot.Waypoint);
+            _instance?.ApplyReplicatedNpcSnapshot(snapshot);
         }
 
         [Event, Reliable, Broadcast]
@@ -3432,6 +3417,80 @@ namespace Si.UtilityAI
         private static void SpawnNpcSnapshotClient(SiNpcSnapshot snapshot)
         {
             SpawnNpcClient(snapshot);
+        }
+
+        private void ApplyReplicatedNpcSnapshot(SiNpcSnapshot snapshot)
+        {
+            if (snapshot.EntityId == 0 || Npcs == null)
+                return;
+
+            if (TryApplyReplicatedNpcSnapshot(snapshot))
+            {
+                _pendingNpcSnapshots.Remove(snapshot.EntityId);
+                return;
+            }
+
+            _pendingNpcSnapshots[snapshot.EntityId] = snapshot;
+        }
+
+        private bool TryApplyReplicatedNpcSnapshot(SiNpcSnapshot snapshot)
+        {
+            if (Npcs == null)
+                return false;
+
+            if (!Npcs.TryAttachConfigured(
+                    SiNpcManager.SoldierArchetype,
+                    snapshot.Archetype,
+                    snapshot.EntityId,
+                    out var npc)
+                || npc?.Entity == null)
+                return false;
+
+            var request = new SiNpcSpawnRequest(
+                snapshot.WebbingSubtype,
+                snapshot.IsParatrooper,
+                snapshot.IsEnemy);
+            string failure;
+            if (!ApplySpawnRequest(npc, request, out failure))
+                return false;
+
+            if (snapshot.HasSquadAssignment)
+                Squads?.AssignNpcToLeader(
+                    npc,
+                    (SiSquadLeaderKind)snapshot.SquadLeaderKind,
+                    snapshot.SquadLeaderId,
+                    (SiArmyKind)snapshot.SquadArmyKind,
+                    snapshot.SquadArmyId,
+                    snapshot.LeaderName,
+                    snapshot.IsSquadLeader);
+            if (snapshot.HasWaypoint)
+                Npcs.ApplyWaypoint(snapshot.EntityId, snapshot.Waypoint);
+            return true;
+        }
+
+        private void ApplyPendingNpcSnapshots()
+        {
+            if (_pendingNpcSnapshots.Count == 0)
+                return;
+
+            _resolvedPendingNpcIds.Clear();
+            foreach (var entry in _pendingNpcSnapshots)
+                if (TryApplyReplicatedNpcSnapshot(entry.Value))
+                    _resolvedPendingNpcIds.Add(entry.Key);
+
+            for (var i = 0; i < _resolvedPendingNpcIds.Count; i++)
+                _pendingNpcSnapshots.Remove(_resolvedPendingNpcIds[i]);
+        }
+
+        private void OnEntityAddedClient(MyEntity entity)
+        {
+            if (entity == null || IsAuthoritative)
+                return;
+            if (!_pendingNpcSnapshots.TryGetValue(entity.EntityId, out var snapshot))
+                return;
+
+            if (TryApplyReplicatedNpcSnapshot(snapshot))
+                _pendingNpcSnapshots.Remove(entity.EntityId);
         }
 
         [Event, Reliable, Server]
