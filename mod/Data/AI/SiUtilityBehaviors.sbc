@@ -85,7 +85,7 @@
     <MaxScore>0.5</MaxScore>
     <DistanceScore>0.15</DistanceScore>
     <DistanceExponent>1</DistanceExponent>
-    <ConfirmedFireOpportunityScore>1.1</ConfirmedFireOpportunityScore>
+    <ConfirmedFireOpportunityScore>0.9</ConfirmedFireOpportunityScore>
 
     <RequireLineOfSight>true</RequireLineOfSight>
     <RotateToTarget>true</RotateToTarget>
@@ -103,7 +103,7 @@
     <BaseScore>0.8</BaseScore>
     <DistanceScore>0.2</DistanceScore>
     <DistanceExponent>1</DistanceExponent>
-    <ConfirmedFireOpportunityScore>1.1</ConfirmedFireOpportunityScore>
+    <ConfirmedFireOpportunityScore>0.9</ConfirmedFireOpportunityScore>
     <RequireLineOfSight>true</RequireLineOfSight>
     <RotateToTarget>true</RotateToTarget>
     <EngageSpeech>engaging</EngageSpeech>
