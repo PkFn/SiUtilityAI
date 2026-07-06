@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Xml.Serialization;
 using Medieval.GameSystems.Factions;
 using Sandbox.Game.Players;
@@ -227,6 +227,8 @@ namespace Si.UtilityAI
         private const long TargetLogCooldownMilliseconds = 1500;
         private const long SearchLogCooldownMilliseconds = 2000;
         private const long FireBlockLogCooldownMilliseconds = 1000;
+        private const long OppositionLogCooldownMilliseconds = 2000;
+        private const float ConfirmedFireOpportunityScore = 1.1f;
 
         private SiShootOpposingNpcBehaviorDefinition _definition;
         private SiTakeCoverBehaviorComponent _takeCoverBehavior;
@@ -238,6 +240,7 @@ namespace Si.UtilityAI
         private long _lastTargetLogTime = -1;
         private long _lastSearchLogTime = -1;
         private long _lastFireBlockLogTime = -1;
+        private long _lastOppositionLogTime = -1;
         private readonly SiGameLog _log = new SiGameLog(nameof(SiShootOpposingNpcBehaviorComponent), "[SiShoot]");
         private SiShootOpposingNpcBehaviorDefinition _runtimeDefinition;
         private SiNpcCombatStateComponent _combatState;
@@ -299,7 +302,7 @@ namespace Si.UtilityAI
                 return 0;
             }
 
-            TryReportSpotting(context, target, distance);
+            var observation = TryReportSpotting(context, target, distance);
 
             var normalizedDistance = Definition.SearchRadius > 0
                 ? MathHelper.Clamp(1f - (float)(distance / Definition.SearchRadius), 0, 1)
@@ -309,6 +312,8 @@ namespace Si.UtilityAI
                         * (float)Math.Pow(normalizedDistance, Definition.DistanceExponent);
 
             score = Math.Min(score, Definition.MaxScore);
+            if (observation.IsSpotted && observation.CanShootTarget)
+                score = Math.Max(score, ConfirmedFireOpportunityScore);
 
             return score;
         }
@@ -580,7 +585,7 @@ namespace Si.UtilityAI
                 if (!IsValidTarget(context.Agent, target))
                     continue;
                 npcValid++;
-                if (!IsOpposing(context.Agent, candidate, session.Squads, stance))
+                if (!IsOpposing(context, context.Agent, candidate, session.Squads, stance))
                     continue;
                 npcOpposing++;
                 if (!CanTargetArchetype(context.Agent.Archetype, candidate.Archetype))
@@ -857,10 +862,13 @@ namespace Si.UtilityAI
         internal float GetWeaponMuzzleUpOffsetForCover() =>
             GetWeapon()?.Definition?.MuzzleUpOffset ?? GetWeaponAimHeight();
 
-        private bool IsOpposing(SiNpc self, SiNpc candidate, SiSquadBook squads, SiSquadEngagementStance stance)
+        private bool IsOpposing(SiUtilityContext context, SiNpc self, SiNpc candidate, SiSquadBook squads, SiSquadEngagementStance stance)
         {
             if (stance == SiSquadEngagementStance.HoldFire)
+            {
+                LogNpcOppositionWithCooldown(context, self, candidate, stance, false, "hold-fire", null, null);
                 return false;
+            }
 
             SiAssignedNpc selfAssignment = null;
             SiAssignedNpc candidateAssignment = null;
@@ -869,25 +877,39 @@ namespace Si.UtilityAI
             if (hasSelfAssignment && hasCandidateAssignment)
             {
                 if (selfAssignment.Leader.Army.Equals(candidateAssignment.Leader.Army))
+                {
+                    LogNpcOppositionWithCooldown(context, self, candidate, stance, false, "same-army", selfAssignment, candidateAssignment);
                     return false;
+                }
                 if (stance == SiSquadEngagementStance.EnemiesNeutrals)
+                {
+                    LogNpcOppositionWithCooldown(context, self, candidate, stance, true, "enemies-neutrals-different-army", selfAssignment, candidateAssignment);
                     return true;
+                }
 
-                return HasHostileRelationship(
+                var hostileAssigned = HasHostileRelationship(
                     self,
                     selfAssignment,
                     candidate,
                     candidateAssignment);
+                LogNpcOppositionWithCooldown(context, self, candidate, stance, hostileAssigned, hostileAssigned ? "hostile-assigned" : "not-hostile-assigned", selfAssignment, candidateAssignment);
+                return hostileAssigned;
             }
 
             if (stance == SiSquadEngagementStance.Enemies)
-                return HasHostileRelationship(
+            {
+                var hostileUnassigned = HasHostileRelationship(
                     self,
                     hasSelfAssignment ? selfAssignment : null,
                     candidate,
                     hasCandidateAssignment ? candidateAssignment : null);
+                LogNpcOppositionWithCooldown(context, self, candidate, stance, hostileUnassigned, hostileUnassigned ? "hostile-diplomacy" : "not-hostile-diplomacy", hasSelfAssignment ? selfAssignment : null, hasCandidateAssignment ? candidateAssignment : null);
+                return hostileUnassigned;
+            }
 
-            return !string.Equals(self.Archetype, candidate.Archetype, StringComparison.OrdinalIgnoreCase);
+            var opposingByArchetype = !string.Equals(self.Archetype, candidate.Archetype, StringComparison.OrdinalIgnoreCase);
+            LogNpcOppositionWithCooldown(context, self, candidate, stance, opposingByArchetype, opposingByArchetype ? "different-archetype" : "same-archetype", hasSelfAssignment ? selfAssignment : null, hasCandidateAssignment ? candidateAssignment : null);
+            return opposingByArchetype;
         }
 
         private bool IsOpposingPlayer(
@@ -1118,7 +1140,6 @@ namespace Si.UtilityAI
                 return;
 
             _lastTargetLogTime = now;
-            _log.Warning($"entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} definition={DefinitionId.SubtypeName} debug target-state outcome={outcome} stance={SiNpcSessionComponent.Instance?.GetEngagementStance(context?.Agent) ?? SiSquadEngagementStance.HoldFire} currentTargetId={target?.EntityId ?? 0} currentTargetName={target?.Entity?.Name ?? "null"} currentTargetNpc={target?.Npc?.Archetype ?? "player-or-null"} distance={distance:0.00} spotted={observation.IsSpotted} spottingSum={observation.SpottingSum:0.000} spottingThreshold={observation.SpottingThreshold:0.000} forceDue={IsTargetEvaluationDue()} nextEval={_nextTargetEvaluationTime} now={now}"); // AGENT-DEBUG-LOG
         }
 
         private void LogSearchWithCooldown(
@@ -1143,7 +1164,6 @@ namespace Si.UtilityAI
                 return;
 
             _lastSearchLogTime = now;
-            _log.Warning($"entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} definition={DefinitionId.SubtypeName} debug target-search outcome={outcome} stance={SiNpcSessionComponent.Instance?.GetEngagementStance(context?.Agent) ?? SiSquadEngagementStance.HoldFire} npcTotal={npcTotal} npcValid={npcValid} npcOpposing={npcOpposing} npcArchetype={npcArchetype} npcInRange={npcInRange} npcSpotted={npcSpotted} playerTotal={playerTotal} playerValid={playerValid} playerOpposing={playerOpposing} playerInRange={playerInRange} playerSpotted={playerSpotted} selectedTargetId={best?.EntityId ?? 0} selectedTargetName={best?.Entity?.Name ?? "null"} selectedTargetNpc={best?.Npc?.Archetype ?? "player-or-null"} selectedDistance={bestDistance:0.00}"); // AGENT-DEBUG-LOG
         }
 
         private void LogFireBlockedWithCooldown(
@@ -1161,7 +1181,23 @@ namespace Si.UtilityAI
                 return;
 
             lastLogTime = now;
-            _log.Warning($"entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} definition={DefinitionId.SubtypeName} debug fire-blocked outcome={outcome} stance={SiNpcSessionComponent.Instance?.GetEngagementStance(context?.Agent) ?? SiSquadEngagementStance.HoldFire} targetId={target?.EntityId ?? 0} targetName={target?.Entity?.Name ?? "null"} targetNpc={target?.Npc?.Archetype ?? "player-or-null"} distance={distance:0.00} spotted={observation.IsSpotted} spottingSum={observation.SpottingSum:0.000} spottingThreshold={observation.SpottingThreshold:0.000} nextEval={_nextTargetEvaluationTime} now={now} weaponReady={weapon != null && weapon.IsOperational} takingCover={_takeCoverBehavior?.IsRunningToCover(context) ?? false}"); // AGENT-DEBUG-LOG
+        }
+
+        private void LogNpcOppositionWithCooldown(
+            SiUtilityContext context,
+            SiNpc self,
+            SiNpc candidate,
+            SiSquadEngagementStance stance,
+            bool opposing,
+            string outcome,
+            SiAssignedNpc selfAssignment,
+            SiAssignedNpc candidateAssignment)
+        {
+            var now = CurrentTimeMilliseconds();
+            if (_lastOppositionLogTime >= 0 && now - _lastOppositionLogTime < OppositionLogCooldownMilliseconds)
+                return;
+
+            _lastOppositionLogTime = now;
         }
 
         private sealed class ShootTarget

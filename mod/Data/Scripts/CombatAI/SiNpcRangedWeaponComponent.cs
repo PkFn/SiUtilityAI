@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Xml.Serialization;
 using Pax.Cannons;
@@ -638,7 +638,6 @@ namespace Si.UtilityAI
                 return;
 
             _lastFireDenyLogTime = now;
-            _log.Warning($"entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} definition={DefinitionId.SubtypeName} debug fire-denied outcome={outcome} targetId={targetEntity?.EntityId ?? 0} targetName={targetEntity?.Name ?? "null"} cooldownMs={_fireCooldown} heldItem={Definition?.HeldItem?.SubtypeId ?? "null"} weaponBehavior={Definition?.WeaponBehavior?.SubtypeId ?? "null"} detectionScore={detectionScore:0.000} detectionAccuracyWorseningMultiplier={detectionAccuracyWorseningMultiplier:0.000} contextEntityId={context?.EntityId ?? 0}"); // AGENT-DEBUG-LOG
         }
 
         private bool TryCreateShotDirection(
