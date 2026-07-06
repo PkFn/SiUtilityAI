@@ -156,7 +156,7 @@
     <ShootSoundFrontAngleBlendRange>0.15</ShootSoundFrontAngleBlendRange>
     <ShootSoundDistanceBlendStartMilliseconds>100</ShootSoundDistanceBlendStartMilliseconds>
     <ShootSoundDistanceBlendRangeMilliseconds>200</ShootSoundDistanceBlendRangeMilliseconds>
-    <AimTargetHeight>0.9</AimTargetHeight>
+    <AimTargetHeight>1.5</AimTargetHeight>
     <AimExtraHeight>0.7</AimExtraHeight>
     <AimCloseRangeDistance>25</AimCloseRangeDistance>
     <AimCloseRangeHeightOffset>-0.1</AimCloseRangeHeightOffset>
