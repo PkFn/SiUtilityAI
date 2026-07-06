@@ -92,7 +92,6 @@ namespace Si.UtilityAI
         private bool _utilityDecisionMakingEnabled = true;
         private readonly SiGameLog _log = new SiGameLog(nameof(SiNpcSessionComponent), "[SiCover]");
         private long _lastCoverCleanupLogTime = long.MinValue;
-        private long _lastIdentityBindingLogTime = long.MinValue;
 
         public static SiNpcSessionComponent Instance => _instance;
         public SiNpcManager Npcs { get; private set; }
@@ -2985,7 +2984,6 @@ namespace Si.UtilityAI
             if (_pendingControlledEntityBindings.Count == 0 || Npcs == null)
                 return;
 
-            var now = CurrentTimeMilliseconds();
             _resolvedPendingControlledEntityNpcIds.Clear();
             foreach (var entry in _pendingControlledEntityBindings)
             {
@@ -2999,13 +2997,7 @@ namespace Si.UtilityAI
                 }
 
                 if (TryBindControlledEntity(entry.Value, npc.Entity))
-                {
                     _resolvedPendingControlledEntityNpcIds.Add(entry.Key);
-                }
-                else if (_lastIdentityBindingLogTime < 0 || now - _lastIdentityBindingLogTime >= 2000)
-                {
-                    _lastIdentityBindingLogTime = now;
-                }
             }
 
             for (var i = 0; i < _resolvedPendingControlledEntityNpcIds.Count; i++)

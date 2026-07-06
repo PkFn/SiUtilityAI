@@ -3,7 +3,6 @@ using System.Xml.Serialization;
 using Medieval.GameSystems.Factions;
 using Sandbox.Game.Players;
 using Sandbox.ModAPI;
-using SiCore.Core.Debug;
 using VRage.Components;
 using VRage.Game;
 using VRage.Game.Components;
@@ -37,6 +36,7 @@ namespace Si.UtilityAI
 
         public bool RequireLineOfSight;
         public bool RotateToTarget;
+        public float ConfirmedFireOpportunityScore = 1.1f;
         public string EngageSpeech;
         public int EngageSpeechCooldownMilliseconds;
         public string SpotTargetName;
@@ -60,6 +60,7 @@ namespace Si.UtilityAI
 
         public bool RequireLineOfSight;
         public bool RotateToTarget;
+        public float ConfirmedFireOpportunityScore = 1.1f;
         public string EngageSpeech;
         public int EngageSpeechCooldownMilliseconds;
         public string SpotTargetName;
@@ -83,6 +84,7 @@ namespace Si.UtilityAI
         public float DistanceExponent { get; private set; }
         public bool RequireLineOfSight { get; private set; }
         public bool RotateToTarget { get; private set; }
+        public float ConfirmedFireOpportunityScore { get; private set; }
         public string EngageSpeech { get; private set; }
         public int EngageSpeechCooldownMilliseconds { get; private set; }
         public string SpotTargetName { get; private set; }
@@ -103,6 +105,7 @@ namespace Si.UtilityAI
             DistanceExponent = Math.Max(0.01f, ob.DistanceExponent);
             RequireLineOfSight = ob.RequireLineOfSight;
             RotateToTarget = ob.RotateToTarget;
+            ConfirmedFireOpportunityScore = Math.Max(0, ob.ConfirmedFireOpportunityScore);
             EngageSpeech = ob.EngageSpeech;
             EngageSpeechCooldownMilliseconds = Math.Max(0, ob.EngageSpeechCooldownMilliseconds);
             SpotTargetName = ob.SpotTargetName;
@@ -127,6 +130,7 @@ namespace Si.UtilityAI
         public float DistanceExponent { get; private set; }
         public bool RequireLineOfSight { get; private set; }
         public bool RotateToTarget { get; private set; }
+        public float ConfirmedFireOpportunityScore { get; private set; }
         public string EngageSpeech { get; private set; }
         public int EngageSpeechCooldownMilliseconds { get; private set; }
         public string SpotTargetName { get; private set; }
@@ -168,6 +172,7 @@ namespace Si.UtilityAI
             DistanceExponent = Math.Max(0.01f, ob.DistanceExponent);
             RequireLineOfSight = ob.RequireLineOfSight;
             RotateToTarget = ob.RotateToTarget;
+            ConfirmedFireOpportunityScore = Math.Max(0, ob.ConfirmedFireOpportunityScore);
             EngageSpeech = ob.EngageSpeech;
             EngageSpeechCooldownMilliseconds = Math.Max(0, ob.EngageSpeechCooldownMilliseconds);
             SpotTargetName = ob.SpotTargetName;
@@ -186,6 +191,7 @@ namespace Si.UtilityAI
             DistanceExponent = balance.DistanceExponent;
             RequireLineOfSight = balance.RequireLineOfSight;
             RotateToTarget = balance.RotateToTarget;
+            ConfirmedFireOpportunityScore = balance.ConfirmedFireOpportunityScore;
             EngageSpeech = balance.EngageSpeech;
             EngageSpeechCooldownMilliseconds = balance.EngageSpeechCooldownMilliseconds;
             SpotTargetName = balance.SpotTargetName;
@@ -224,12 +230,6 @@ namespace Si.UtilityAI
     public class SiShootOpposingNpcBehaviorComponent : MyEntityComponent, ISiUtilityBehavior, ISiContinuousUtilityBehavior
     {
         private static readonly MyStringHash HostileRelationship = MyStringHash.GetOrCompute("War");
-        private const long TargetLogCooldownMilliseconds = 1500;
-        private const long SearchLogCooldownMilliseconds = 2000;
-        private const long FireBlockLogCooldownMilliseconds = 1000;
-        private const long OppositionLogCooldownMilliseconds = 2000;
-        private const float ConfirmedFireOpportunityScore = 1.1f;
-
         private SiShootOpposingNpcBehaviorDefinition _definition;
         private SiTakeCoverBehaviorComponent _takeCoverBehavior;
         private ShootTarget _target;
@@ -237,11 +237,6 @@ namespace Si.UtilityAI
         private long _lastEngageSpeechTime = -1;
         private long _lastSpotSpeechTime = -1;
         private long _lastSpottedTargetId;
-        private long _lastTargetLogTime = -1;
-        private long _lastSearchLogTime = -1;
-        private long _lastFireBlockLogTime = -1;
-        private long _lastOppositionLogTime = -1;
-        private readonly SiGameLog _log = new SiGameLog(nameof(SiShootOpposingNpcBehaviorComponent), "[SiShoot]");
         private SiShootOpposingNpcBehaviorDefinition _runtimeDefinition;
         private SiNpcCombatStateComponent _combatState;
 
@@ -313,7 +308,7 @@ namespace Si.UtilityAI
 
             score = Math.Min(score, Definition.MaxScore);
             if (observation.IsSpotted && observation.CanShootTarget)
-                score = Math.Max(score, ConfirmedFireOpportunityScore);
+                score = Math.Max(score, Definition.ConfirmedFireOpportunityScore);
 
             return score;
         }
@@ -338,7 +333,6 @@ namespace Si.UtilityAI
             {
                 _combatState?.SetFiring(false);
                 weapon?.ClearFireIntent();
-                LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, null, "weapon-unavailable", 0, SiSpottingObservation.None, weapon);
                 return;
             }
 
@@ -346,7 +340,6 @@ namespace Si.UtilityAI
             {
                 _combatState?.SetFiring(false);
                 weapon.ClearFireIntent();
-                LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, _target, "hold-fire", 0, SiSpottingObservation.None, weapon);
                 return;
             }
 
@@ -355,7 +348,6 @@ namespace Si.UtilityAI
             {
                 _combatState?.SetFiring(false);
                 weapon.ClearFireIntent();
-                LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, target, "no-valid-target", distance, SiSpottingObservation.None, weapon);
                 return;
             }
 
@@ -369,7 +361,6 @@ namespace Si.UtilityAI
             {
                 _combatState?.SetFiring(false);
                 weapon.ClearFireIntent();
-                LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, target, "line-of-sight-blocked", distance, SiSpottingObservation.None, weapon);
                 return;
             }
 
@@ -378,7 +369,6 @@ namespace Si.UtilityAI
             {
                 _combatState?.SetFiring(false);
                 weapon.ClearFireIntent();
-                LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, target, runningToCover ? "running-to-cover" : (observation.IsSpotted ? "target-not-shootable" : "spotting-not-confirmed"), distance, observation, weapon);
                 return;
             }
 
@@ -386,7 +376,6 @@ namespace Si.UtilityAI
             {
                 _combatState.SetFiring(false);
                 weapon.ClearFireIntent();
-                LogFireBlockedWithCooldown(ref _lastFireBlockLogTime, FireBlockLogCooldownMilliseconds, context, target, "combat-state-blocked", distance, observation, weapon);
                 return;
             }
 
@@ -397,8 +386,6 @@ namespace Si.UtilityAI
                 context,
                 targetEntity,
                 target.Velocity,
-                observation.SpottingSum,
-                Definition.DetectionAccuracyWorseningMultiplier,
                 aimSwayDegrees);
         }
 
@@ -585,7 +572,7 @@ namespace Si.UtilityAI
                 if (!IsValidTarget(context.Agent, target))
                     continue;
                 npcValid++;
-                if (!IsOpposing(context, context.Agent, candidate, session.Squads, stance))
+                if (!IsOpposing(context.Agent, candidate, session.Squads, stance))
                     continue;
                 npcOpposing++;
                 if (!CanTargetArchetype(context.Agent.Archetype, candidate.Archetype))
@@ -646,10 +633,6 @@ namespace Si.UtilityAI
             }
 
             bestDistance = best != null ? Math.Sqrt(bestDistanceSquared) : 0;
-            if (best == null)
-                LogSearchWithCooldown(context, "no-target", npcTotal, npcValid, npcOpposing, npcArchetype, npcInRange, npcSpotted, playerTotal, playerValid, playerOpposing, playerInRange, playerSpotted);
-            else
-                LogSearchWithCooldown(context, "selected-target", npcTotal, npcValid, npcOpposing, npcArchetype, npcInRange, npcSpotted, playerTotal, playerValid, playerOpposing, playerInRange, playerSpotted, best, bestDistance);
             return best;
         }
 
@@ -763,7 +746,6 @@ namespace Si.UtilityAI
                 currentObservation = ObserveTarget(context, current, distance);
                 if (!IsObservationVisible(currentObservation))
                 {
-                    LogTargetStateWithCooldown(context, current, distance, currentObservation, "current-target-unspotted");
                     currentIsValid = false;
                     forceRefresh = true;
                 }
@@ -771,7 +753,6 @@ namespace Si.UtilityAI
                          && !IsTargetEvaluationDue()
                          && HasCloserSpottedTarget(context, distance))
                 {
-                    LogTargetStateWithCooldown(context, current, distance, currentObservation, "closer-spotted-target-available");
                     forceRefresh = true;
                 }
             }
@@ -781,24 +762,16 @@ namespace Si.UtilityAI
 
             if (!currentIsValid)
             {
-                LogTargetStateWithCooldown(context, current, distance, currentObservation, "refresh-invalid-target");
                 forceRefresh = true;
             }
 
             if (!forceRefresh && !IsTargetEvaluationDue())
-            {
-                LogTargetStateWithCooldown(context, current, distance, currentObservation, "evaluation-not-due-no-refresh");
                 return null;
-            }
 
             var previous = _target;
             current = FindBestTarget(context, out distance);
             _target = current;
             MarkTargetEvaluation();
-            if (current == null)
-                LogTargetStateWithCooldown(context, previous, distance, currentObservation, "target-refresh-found-none");
-            else if (previous == null || previous.EntityId != current.EntityId)
-                LogTargetStateWithCooldown(context, current, distance, ObserveTarget(context, current, distance), "target-changed");
             if (current == null)
                 _lastSpottedTargetId = 0;
             return current;
@@ -862,13 +835,10 @@ namespace Si.UtilityAI
         internal float GetWeaponMuzzleUpOffsetForCover() =>
             GetWeapon()?.Definition?.MuzzleUpOffset ?? GetWeaponAimHeight();
 
-        private bool IsOpposing(SiUtilityContext context, SiNpc self, SiNpc candidate, SiSquadBook squads, SiSquadEngagementStance stance)
+        private bool IsOpposing(SiNpc self, SiNpc candidate, SiSquadBook squads, SiSquadEngagementStance stance)
         {
             if (stance == SiSquadEngagementStance.HoldFire)
-            {
-                LogNpcOppositionWithCooldown(context, self, candidate, stance, false, "hold-fire", null, null);
                 return false;
-            }
 
             SiAssignedNpc selfAssignment = null;
             SiAssignedNpc candidateAssignment = null;
@@ -877,39 +847,25 @@ namespace Si.UtilityAI
             if (hasSelfAssignment && hasCandidateAssignment)
             {
                 if (selfAssignment.Leader.Army.Equals(candidateAssignment.Leader.Army))
-                {
-                    LogNpcOppositionWithCooldown(context, self, candidate, stance, false, "same-army", selfAssignment, candidateAssignment);
                     return false;
-                }
                 if (stance == SiSquadEngagementStance.EnemiesNeutrals)
-                {
-                    LogNpcOppositionWithCooldown(context, self, candidate, stance, true, "enemies-neutrals-different-army", selfAssignment, candidateAssignment);
                     return true;
-                }
 
-                var hostileAssigned = HasHostileRelationship(
+                return HasHostileRelationship(
                     self,
                     selfAssignment,
                     candidate,
                     candidateAssignment);
-                LogNpcOppositionWithCooldown(context, self, candidate, stance, hostileAssigned, hostileAssigned ? "hostile-assigned" : "not-hostile-assigned", selfAssignment, candidateAssignment);
-                return hostileAssigned;
             }
 
             if (stance == SiSquadEngagementStance.Enemies)
-            {
-                var hostileUnassigned = HasHostileRelationship(
+                return HasHostileRelationship(
                     self,
                     hasSelfAssignment ? selfAssignment : null,
                     candidate,
                     hasCandidateAssignment ? candidateAssignment : null);
-                LogNpcOppositionWithCooldown(context, self, candidate, stance, hostileUnassigned, hostileUnassigned ? "hostile-diplomacy" : "not-hostile-diplomacy", hasSelfAssignment ? selfAssignment : null, hasCandidateAssignment ? candidateAssignment : null);
-                return hostileUnassigned;
-            }
 
-            var opposingByArchetype = !string.Equals(self.Archetype, candidate.Archetype, StringComparison.OrdinalIgnoreCase);
-            LogNpcOppositionWithCooldown(context, self, candidate, stance, opposingByArchetype, opposingByArchetype ? "different-archetype" : "same-archetype", hasSelfAssignment ? selfAssignment : null, hasCandidateAssignment ? candidateAssignment : null);
-            return opposingByArchetype;
+            return !string.Equals(self.Archetype, candidate.Archetype, StringComparison.OrdinalIgnoreCase);
         }
 
         private bool IsOpposingPlayer(
@@ -1126,78 +1082,6 @@ namespace Si.UtilityAI
             return lengthSquared > 0.0001
                 ? value / Math.Sqrt(lengthSquared)
                 : fallback;
-        }
-
-        private void LogTargetStateWithCooldown(
-            SiUtilityContext context,
-            ShootTarget target,
-            double distance,
-            SiSpottingObservation observation,
-            string outcome)
-        {
-            var now = CurrentTimeMilliseconds();
-            if (_lastTargetLogTime >= 0 && now - _lastTargetLogTime < TargetLogCooldownMilliseconds)
-                return;
-
-            _lastTargetLogTime = now;
-        }
-
-        private void LogSearchWithCooldown(
-            SiUtilityContext context,
-            string outcome,
-            int npcTotal,
-            int npcValid,
-            int npcOpposing,
-            int npcArchetype,
-            int npcInRange,
-            int npcSpotted,
-            int playerTotal,
-            int playerValid,
-            int playerOpposing,
-            int playerInRange,
-            int playerSpotted,
-            ShootTarget best = null,
-            double bestDistance = 0)
-        {
-            var now = CurrentTimeMilliseconds();
-            if (_lastSearchLogTime >= 0 && now - _lastSearchLogTime < SearchLogCooldownMilliseconds)
-                return;
-
-            _lastSearchLogTime = now;
-        }
-
-        private void LogFireBlockedWithCooldown(
-            ref long lastLogTime,
-            long cooldownMilliseconds,
-            SiUtilityContext context,
-            ShootTarget target,
-            string outcome,
-            double distance,
-            SiSpottingObservation observation,
-            SiNpcRangedWeaponComponent weapon)
-        {
-            var now = CurrentTimeMilliseconds();
-            if (lastLogTime >= 0 && now - lastLogTime < cooldownMilliseconds)
-                return;
-
-            lastLogTime = now;
-        }
-
-        private void LogNpcOppositionWithCooldown(
-            SiUtilityContext context,
-            SiNpc self,
-            SiNpc candidate,
-            SiSquadEngagementStance stance,
-            bool opposing,
-            string outcome,
-            SiAssignedNpc selfAssignment,
-            SiAssignedNpc candidateAssignment)
-        {
-            var now = CurrentTimeMilliseconds();
-            if (_lastOppositionLogTime >= 0 && now - _lastOppositionLogTime < OppositionLogCooldownMilliseconds)
-                return;
-
-            _lastOppositionLogTime = now;
         }
 
         private sealed class ShootTarget

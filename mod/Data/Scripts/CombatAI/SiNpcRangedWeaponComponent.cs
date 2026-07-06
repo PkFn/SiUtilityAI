@@ -456,14 +456,12 @@ namespace Si.UtilityAI
     [StaticEventOwner]
     public class SiNpcRangedWeaponComponent : MyEntityComponent
     {
-        private const long FireDenyLogCooldownMilliseconds = 1000;
         private const long FireIntentGraceMilliseconds = 500;
         private readonly SiGameLog _log = new SiGameLog(nameof(SiNpcRangedWeaponComponent), "[SiShoot]");
 
         private SiNpcRangedWeaponComponentDefinition _definition;
         private SiNpcRangedWeaponComponentDefinition _runtimeDefinition;
         private long _fireCooldown;
-        private long _lastFireDenyLogTime = -1;
         private long _lastFireIntentTime = long.MinValue;
         private bool _scheduledFireQueued;
         private bool _maintenanceQueued;
@@ -556,34 +554,20 @@ namespace Si.UtilityAI
             SiUtilityContext context,
             MyEntity targetEntity,
             Vector3D targetVelocity,
-            float detectionScore,
-            float detectionAccuracyWorseningMultiplier,
             float aimSwayDegrees)
         {
             if (!IsOperational)
-            {
-                LogFireDeniedWithCooldown("weapon-not-operational", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
                 return false;
-            }
 
             if (_fireCooldown > 0)
-            {
-                LogFireDeniedWithCooldown("weapon-cooldown", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
                 return false;
-            }
 
             if (context?.Entity == null || targetEntity == null)
-            {
-                LogFireDeniedWithCooldown("missing-entity-context", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
                 return false;
-            }
 
             var heldGun = GetHeldGunBehavior();
             if (heldGun == null)
-            {
-                LogFireDeniedWithCooldown("held-gun-missing", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
                 return false;
-            }
 
             _fireIntentTarget = targetEntity;
             _fireIntentTargetVelocity = targetVelocity;
@@ -595,10 +579,7 @@ namespace Si.UtilityAI
                 return true;
 
             if (!TryFireSingleShot(context.Entity, targetEntity, targetVelocity, _fireIntentAimSwayDegrees))
-            {
-                LogFireDeniedWithCooldown("shot-creation-failed", context, targetEntity, detectionScore, detectionAccuracyWorseningMultiplier);
                 return false;
-            }
 
             StartScheduledFiring();
             return true;
@@ -624,20 +605,6 @@ namespace Si.UtilityAI
                 (MyDefinitionId)Definition.HeldItem.Value,
                 out failure,
                 2);
-        }
-
-        private void LogFireDeniedWithCooldown(
-            string outcome,
-            SiUtilityContext context,
-            MyEntity targetEntity,
-            float detectionScore,
-            float detectionAccuracyWorseningMultiplier)
-        {
-            var now = CurrentTimeMilliseconds();
-            if (_lastFireDenyLogTime >= 0 && now - _lastFireDenyLogTime < FireDenyLogCooldownMilliseconds)
-                return;
-
-            _lastFireDenyLogTime = now;
         }
 
         private bool TryCreateShotDirection(

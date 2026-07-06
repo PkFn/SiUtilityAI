@@ -30,6 +30,7 @@ namespace Si.UtilityAI
         public float ArrivalDistance = 1.1f;
         public float WaypointRefreshDistance = 0.75f;
         public float RepositionLeaderDistance = 18f;
+        public float TravelScore = 1f;
         public float BaseScore = 0.35f;
         public float DistanceScore = 0.65f;
         public float DistanceExponent = 1f;
@@ -45,6 +46,7 @@ namespace Si.UtilityAI
         public float ArrivalDistance { get; private set; }
         public float WaypointRefreshDistance { get; private set; }
         public float RepositionLeaderDistance { get; private set; }
+        public float TravelScore { get; private set; }
         public float BaseScore { get; private set; }
         public float DistanceScore { get; private set; }
         public float DistanceExponent { get; private set; }
@@ -60,6 +62,7 @@ namespace Si.UtilityAI
             ArrivalDistance = Math.Max(0.1f, ob.ArrivalDistance);
             WaypointRefreshDistance = Math.Max(0.05f, ob.WaypointRefreshDistance);
             RepositionLeaderDistance = Math.Max(MaximumDistanceFromLeader, ob.RepositionLeaderDistance);
+            TravelScore = Math.Max(0, ob.TravelScore);
             BaseScore = Math.Max(0, ob.BaseScore);
             DistanceScore = Math.Max(0, ob.DistanceScore);
             DistanceExponent = Math.Max(0.01f, ob.DistanceExponent);
@@ -136,7 +139,7 @@ namespace Si.UtilityAI
                 return 0;
 
             if (!HasReachedDestination(context))
-                return 1f;
+                return _definition.TravelScore;
 
             if (leaderDistance < _definition.RepositionLeaderDistance)
                 return 0;

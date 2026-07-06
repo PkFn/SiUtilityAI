@@ -28,6 +28,7 @@ namespace Si.UtilityAI
     public class MyObjectBuilder_SiTakeCoverBehaviorDefinition : MyObjectBuilder_EntityComponentDefinition
     {
         public float SearchRadius;
+        public float TravelScore = 1f;
         public float ThreatFrontExclusionAngleDegrees;
         public float CoverRescanLeaderDistance;
         public float WaypointRefreshDistance;
@@ -47,6 +48,7 @@ namespace Si.UtilityAI
     public class SiTakeCoverBehaviorDefinition : MyEntityComponentDefinition
     {
         public float SearchRadius { get; private set; }
+        public float TravelScore { get; private set; }
         public float ThreatFrontExclusionAngleDegrees { get; private set; }
         public float CoverRescanLeaderDistance { get; private set; }
         public float WaypointRefreshDistance { get; private set; }
@@ -66,6 +68,7 @@ namespace Si.UtilityAI
             base.Init(builder);
             var ob = (MyObjectBuilder_SiTakeCoverBehaviorDefinition)builder;
             SearchRadius = Math.Max(0, ob.SearchRadius);
+            TravelScore = Math.Max(0, ob.TravelScore);
             ThreatFrontExclusionAngleDegrees = (float)SiThreatSectorHelper.ClampFrontExclusionAngleDegrees(ob.ThreatFrontExclusionAngleDegrees);
             CoverRescanLeaderDistance = Math.Max(0.1f, ob.CoverRescanLeaderDistance);
             WaypointRefreshDistance = Math.Max(0, ob.WaypointRefreshDistance);
@@ -163,10 +166,10 @@ namespace Si.UtilityAI
                 return 0;
 
             if (IsRunningToCover(context))
-                return 1f;
+                return _definition.TravelScore;
 
             return !HasUsableCurrentCover(context, session, hasThreat, threatPosition)
-                ? 1f
+                ? _definition.TravelScore
                 : 0f;
         }
 
