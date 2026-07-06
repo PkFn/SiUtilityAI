@@ -470,6 +470,7 @@ namespace Si.UtilityAI
         private MyEntity _fireIntentTarget;
         private Vector3D _fireIntentTargetVelocity;
         private float _fireIntentAimSwayDegrees;
+        private bool _aimDownSightsActive;
 
         public override bool IsSerialized => false;
         public SiNpcRangedWeaponComponentDefinition Definition => _runtimeDefinition ?? _definition;
@@ -533,6 +534,7 @@ namespace Si.UtilityAI
 
         internal void ResetState()
         {
+            SetAimDownSights(false);
             _fireCooldown = 0;
             _lastFireIntentTime = long.MinValue;
             _reloadMaintenanceState = ReloadMaintenanceState.None;
@@ -569,6 +571,7 @@ namespace Si.UtilityAI
             if (heldGun == null)
                 return false;
 
+            SetAimDownSights(true, heldGun);
             _fireIntentTarget = targetEntity;
             _fireIntentTargetVelocity = targetVelocity;
             _fireIntentAimSwayDegrees = Math.Max(0, aimSwayDegrees);
@@ -587,6 +590,7 @@ namespace Si.UtilityAI
 
         internal void ClearFireIntent()
         {
+            SetAimDownSights(false);
             _lastFireIntentTime = long.MinValue;
             _reloadMaintenanceState = ReloadMaintenanceState.None;
             _fireIntentTarget = null;
@@ -906,6 +910,27 @@ namespace Si.UtilityAI
             var entityId = Entity?.EntityId ?? 0;
             return entityId != 0
                 && SiNpcSessionComponent.Instance?.Npcs?.TrySpeak(entityId, message) == true;
+        }
+
+        private void SetAimDownSights(bool enabled, MyPAX_HandheldGun heldGun = null)
+        {
+            if (_aimDownSightsActive == enabled)
+                return;
+
+            heldGun = heldGun ?? GetHeldGunBehavior();
+            if (heldGun == null)
+            {
+                if (!enabled)
+                    _aimDownSightsActive = false;
+                return;
+            }
+
+            if (enabled)
+                heldGun.StartAction(MyHandItemActionEnum.Secondary);
+            else
+                heldGun.EndAction(MyHandItemActionEnum.Secondary);
+
+            _aimDownSightsActive = enabled;
         }
 
         private static long CurrentTimeMilliseconds()
