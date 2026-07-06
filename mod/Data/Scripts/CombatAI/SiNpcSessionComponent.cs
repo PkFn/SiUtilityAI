@@ -60,8 +60,6 @@ namespace Si.UtilityAI
             new Dictionary<long, SiMotionState>();
         private readonly Dictionary<long, SiMotionState> _npcMotionStates =
             new Dictionary<long, SiMotionState>();
-        private readonly Dictionary<long, long> _pendingControlledEntityBindings =
-            new Dictionary<long, long>();
         private readonly Dictionary<long, SiNpcSnapshot> _pendingNpcSnapshots =
             new Dictionary<long, SiNpcSnapshot>();
         private readonly Dictionary<long, SiNpcPositionCacheState> _positionCache =
@@ -79,7 +77,6 @@ namespace Si.UtilityAI
         private readonly List<SiCoverSearchCacheKey> _expiredCoverSearchCacheKeys =
             new List<SiCoverSearchCacheKey>();
         private readonly List<long> _staleCoverReservationIds = new List<long>();
-        private readonly List<long> _resolvedPendingControlledEntityNpcIds = new List<long>();
         private readonly List<long> _pendingTransportSeatRestoreNpcIds = new List<long>();
         private readonly List<long> _resolvedPendingNpcIds = new List<long>();
         private List<MyObjectBuilder_SiNpcSessionComponent.SavedNpc> _savedNpcs;
@@ -153,7 +150,6 @@ namespace Si.UtilityAI
             _squadCombatStates.Clear();
             _leaderMotionStates.Clear();
             _npcMotionStates.Clear();
-            _pendingControlledEntityBindings.Clear();
             _pendingNpcSnapshots.Clear();
             _positionCache.Clear();
             _transportNpcStates.Clear();
@@ -163,7 +159,6 @@ namespace Si.UtilityAI
             _expiredCoverScanCacheKeys.Clear();
             _expiredCoverSearchCacheKeys.Clear();
             _staleCoverReservationIds.Clear();
-            _resolvedPendingControlledEntityNpcIds.Clear();
             _pendingTransportSeatRestoreNpcIds.Clear();
             _resolvedPendingNpcIds.Clear();
             Spotting?.Clear();
@@ -184,7 +179,6 @@ namespace Si.UtilityAI
         {
             if (IsAuthoritative)
             {
-                ApplyPendingControlledEntityBindings();
                 UpdateTrackedMotionStates();
                 UpdateSquadOrders();
                 UpdateCombatStances();
@@ -1564,7 +1558,6 @@ namespace Si.UtilityAI
                 case "clear":
                     var removed = Npcs.Npcs.Count;
                     Npcs.CloseAll();
-                    _pendingControlledEntityBindings.Clear();
                     _squadOrders.Clear();
                     _squadCombatStates.Clear();
                     Squads?.ClearNpcs();
@@ -2964,67 +2957,10 @@ namespace Si.UtilityAI
                 return;
 
             npc.SetDiplomaticIdentity(identity, true);
-            QueueControlledEntityBinding(npc, identity);
 
             var ownership = npc.Entity?.Components.Get<MyEntityOwnershipComponent>();
             if (ownership != null)
                 ownership.OwnerId = identity.Id;
-        }
-
-        private void QueueControlledEntityBinding(SiNpc npc, MyIdentity identity)
-        {
-            if (npc == null || identity == null)
-                return;
-
-            _pendingControlledEntityBindings[npc.EntityId] = identity.Id;
-        }
-
-        private void ApplyPendingControlledEntityBindings()
-        {
-            if (_pendingControlledEntityBindings.Count == 0 || Npcs == null)
-                return;
-
-            _resolvedPendingControlledEntityNpcIds.Clear();
-            foreach (var entry in _pendingControlledEntityBindings)
-            {
-                if (!Npcs.Npcs.TryGetValue(entry.Key, out var npc)
-                    || npc?.Entity == null
-                    || npc.Entity.Closed
-                    || npc.Entity.MarkedForClose)
-                {
-                    _resolvedPendingControlledEntityNpcIds.Add(entry.Key);
-                    continue;
-                }
-
-                if (TryBindControlledEntity(entry.Value, npc.Entity))
-                    _resolvedPendingControlledEntityNpcIds.Add(entry.Key);
-            }
-
-            for (var i = 0; i < _resolvedPendingControlledEntityNpcIds.Count; i++)
-                _pendingControlledEntityBindings.Remove(_resolvedPendingControlledEntityNpcIds[i]);
-        }
-
-        private static bool TryBindControlledEntity(long identityId, MyEntity entity)
-        {
-            if (identityId == 0 || entity == null || entity.Closed || entity.MarkedForClose)
-                return true;
-
-            var identities = MyIdentities.Static;
-            if (identities == null)
-                return false;
-
-            var identity = identities.GetIdentity(identityId);
-            if (identity == null)
-                return false;
-
-            try
-            {
-                return identities.SetControlledEntity(identity, entity);
-            }
-            catch
-            {
-                return false;
-            }
         }
 
         private void RestoreSquadAssignment(
