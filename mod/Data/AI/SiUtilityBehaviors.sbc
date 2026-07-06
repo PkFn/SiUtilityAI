@@ -93,7 +93,7 @@
     <EngageSpeechCooldownMilliseconds>7000</EngageSpeechCooldownMilliseconds>
     <SpotTargetName>enemy infantry</SpotTargetName>
     <SpotSpeechCooldownMilliseconds>15000</SpotSpeechCooldownMilliseconds>
-    <DetectionAccuracyWorseningMultiplier>0</DetectionAccuracyWorseningMultiplier>
+    <DetectionAccuracyWorseningMultiplier>1</DetectionAccuracyWorseningMultiplier>
     <TargetReevaluationIntervalMilliseconds>400</TargetReevaluationIntervalMilliseconds>
   </Definition>
 
@@ -110,7 +110,7 @@
     <EngageSpeechCooldownMilliseconds>7000</EngageSpeechCooldownMilliseconds>
     <SpotTargetName>enemy infantry</SpotTargetName>
     <SpotSpeechCooldownMilliseconds>15000</SpotSpeechCooldownMilliseconds>
-    <DetectionAccuracyWorseningMultiplier>0</DetectionAccuracyWorseningMultiplier>
+    <DetectionAccuracyWorseningMultiplier>1</DetectionAccuracyWorseningMultiplier>
     <TargetReevaluationIntervalMilliseconds>400</TargetReevaluationIntervalMilliseconds>
   </Definition>
 
