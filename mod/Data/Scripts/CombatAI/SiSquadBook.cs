@@ -177,6 +177,8 @@ namespace Si.UtilityAI
             {
                 if (IsLeaderActive(npcManager, squad.Key, isPlayerLeaderActive))
                     continue;
+                if (squad.Key.Kind == SiSquadLeaderKind.Player)
+                    continue;
 
                 SiNpc replacementNpc;
                 SiAssignedNpc replacementAssignment;
@@ -268,6 +270,19 @@ namespace Si.UtilityAI
 
             result.Sort(CompareNpcs);
             return result;
+        }
+
+        public bool HasLeaderNpcs(SiNpcManager npcManager, long leaderIdentityId)
+        {
+            if (npcManager == null || leaderIdentityId == 0)
+                return false;
+
+            PurgeClosedNpcs(npcManager);
+            foreach (var entry in _assignedNpcs)
+                if (IsPlayerLeader(entry.Value.Leader, leaderIdentityId))
+                    return true;
+
+            return false;
         }
 
         public List<string> CreateRosterLinesForLeader(SiNpcManager npcManager, long leaderIdentityId)

@@ -393,6 +393,7 @@ namespace Si.UtilityAI
                     Npcs.CloseAll();
                     _squadOrders.Clear();
                     _squadCombatStates.Clear();
+                    _playerLeaderStates.Clear();
                     Squads?.ClearNpcs();
                     BroadcastClear();
                     return Respond(sender, $"Removed {removed} custom NPC(s).");

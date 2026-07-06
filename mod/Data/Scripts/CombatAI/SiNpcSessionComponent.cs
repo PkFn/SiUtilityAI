@@ -38,6 +38,8 @@ namespace Si.UtilityAI
             new Dictionary<long, SiSquadCommandState>();
         private readonly Dictionary<SiSquadLeaderKey, SiSquadCombatState> _squadCombatStates =
             new Dictionary<SiSquadLeaderKey, SiSquadCombatState>();
+        private readonly Dictionary<long, SiPlayerLeaderState> _playerLeaderStates =
+            new Dictionary<long, SiPlayerLeaderState>();
         private readonly Dictionary<long, SiMotionState> _leaderMotionStates =
             new Dictionary<long, SiMotionState>();
         private readonly Dictionary<long, SiMotionState> _npcMotionStates =
@@ -59,6 +61,7 @@ namespace Si.UtilityAI
         private readonly List<SiCoverSearchCacheKey> _expiredCoverSearchCacheKeys =
             new List<SiCoverSearchCacheKey>();
         private readonly List<long> _staleCoverReservationIds = new List<long>();
+        private readonly List<long> _stalePlayerLeaderIds = new List<long>();
         private readonly List<long> _pendingTransportSeatRestoreNpcIds = new List<long>();
         private readonly List<long> _resolvedPendingNpcIds = new List<long>();
         private List<MyObjectBuilder_SiNpcSessionComponent.SavedNpc> _savedNpcs;
@@ -132,6 +135,7 @@ namespace Si.UtilityAI
             Npcs = null;
             _squadOrders.Clear();
             _squadCombatStates.Clear();
+            _playerLeaderStates.Clear();
             _leaderMotionStates.Clear();
             _npcMotionStates.Clear();
             _pendingNpcSnapshots.Clear();
@@ -143,6 +147,7 @@ namespace Si.UtilityAI
             _expiredCoverScanCacheKeys.Clear();
             _expiredCoverSearchCacheKeys.Clear();
             _staleCoverReservationIds.Clear();
+            _stalePlayerLeaderIds.Clear();
             _pendingTransportSeatRestoreNpcIds.Clear();
             _resolvedPendingNpcIds.Clear();
             Spotting?.Clear();
@@ -164,6 +169,7 @@ namespace Si.UtilityAI
             if (IsAuthoritative)
             {
                 UpdateTrackedMotionStates();
+                HandleInactivePlayerLedSquads();
                 UpdateSquadOrders();
                 UpdateCombatStances();
                 CleanupTransportStates();

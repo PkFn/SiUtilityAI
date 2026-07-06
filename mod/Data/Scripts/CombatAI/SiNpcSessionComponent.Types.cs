@@ -220,6 +220,11 @@ namespace Si.UtilityAI
         public long CombatEntryToken { get; set; }
     }
 
+    internal sealed class SiPlayerLeaderState
+    {
+        public bool WasActive { get; set; }
+    }
+
     internal sealed class SiMotionState
     {
         public bool HasPosition { get; set; }

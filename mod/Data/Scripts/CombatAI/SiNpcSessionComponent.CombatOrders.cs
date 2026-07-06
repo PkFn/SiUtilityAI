@@ -66,7 +66,8 @@ namespace Si.UtilityAI
             string leaderName,
             SiSquadCombatStance stance,
             SiSquadCombatTransitionReason reason,
-            bool speakAsPlayerOrder)
+            bool speakAsPlayerOrder,
+            bool suppressSpeech = false)
         {
             var state = GetOrCreateCombatState(leader);
             if (!string.IsNullOrWhiteSpace(leaderName))
@@ -86,6 +87,9 @@ namespace Si.UtilityAI
                 state.CombatEntryToken++;
                 ClearSquadWaypoints(leader);
             }
+
+            if (suppressSpeech)
+                return;
 
             if (speakAsPlayerOrder)
                 SpeakSquadBehaviorChange(leader, PlayerOrderCombatStanceReport(stance), true);
@@ -223,6 +227,67 @@ namespace Si.UtilityAI
                 string failure;
                 ApplyFollowOrder(entry.Key, state, false, out failure);
             }
+        }
+
+        private void HandleInactivePlayerLedSquads()
+        {
+            if (Squads == null || Npcs == null || MyPlayers.Static == null)
+                return;
+
+            _stalePlayerLeaderIds.Clear();
+            foreach (var entry in _playerLeaderStates)
+                _stalePlayerLeaderIds.Add(entry.Key);
+
+            foreach (var playerEntry in MyPlayers.Static.GetAllPlayers())
+            {
+                var player = playerEntry.Value;
+                var identity = player?.Identity;
+                if (identity == null)
+                    continue;
+
+                var leaderIdentityId = identity.Id;
+                if (!Squads.HasLeaderNpcs(Npcs, leaderIdentityId))
+                {
+                    _playerLeaderStates.Remove(leaderIdentityId);
+                    _stalePlayerLeaderIds.Remove(leaderIdentityId);
+                    continue;
+                }
+
+                SiPlayerLeaderState state;
+                if (!_playerLeaderStates.TryGetValue(leaderIdentityId, out state))
+                    _playerLeaderStates[leaderIdentityId] = state = new SiPlayerLeaderState();
+
+                var isActive = IsPlayerLeaderActive(leaderIdentityId);
+                if (state.WasActive && !isActive)
+                    ApplyAutomaticPlayerSquadFallback(leaderIdentityId, PlayerName(player));
+
+                state.WasActive = isActive;
+                _stalePlayerLeaderIds.Remove(leaderIdentityId);
+            }
+
+            for (var i = 0; i < _stalePlayerLeaderIds.Count; i++)
+            {
+                var leaderIdentityId = _stalePlayerLeaderIds[i];
+                if (!Squads.HasLeaderNpcs(Npcs, leaderIdentityId))
+                    _playerLeaderStates.Remove(leaderIdentityId);
+            }
+
+            _stalePlayerLeaderIds.Clear();
+        }
+
+        private void ApplyAutomaticPlayerSquadFallback(long leaderIdentityId, string leaderName)
+        {
+            if (leaderIdentityId == 0 || Squads == null || Npcs == null || !Squads.HasLeaderNpcs(Npcs, leaderIdentityId))
+                return;
+
+            StopSquad(0, leaderIdentityId);
+            SetCombatStance(
+                PlayerLeaderKey(leaderIdentityId),
+                leaderName,
+                SiSquadCombatStance.Combat,
+                SiSquadCombatTransitionReason.PlayerOrder,
+                false,
+                true);
         }
 
         private void CleanupTransportStates()
