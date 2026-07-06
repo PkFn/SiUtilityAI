@@ -2958,14 +2958,6 @@ namespace Si.UtilityAI
                 return;
 
             npc.SetDiplomaticIdentity(identity, true);
-            try
-            {
-                if (npc.Entity != null)
-                    MyIdentities.Static?.SetControlledEntity(identity, npc.Entity);
-            }
-            catch
-            {
-            }
 
             var ownership = npc.Entity?.Components.Get<MyEntityOwnershipComponent>();
             if (ownership != null)
