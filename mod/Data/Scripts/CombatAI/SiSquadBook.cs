@@ -4,6 +4,7 @@ using System.Text;
 using Medieval.GameSystems.Factions;
 using Sandbox.Game.Players;
 using VRage.Game;
+using VRage.Game.Components;
 using VRage.Game.Definitions;
 using VRage.ObjectBuilders;
 using VRageMath;
@@ -342,6 +343,42 @@ namespace Si.UtilityAI
             return markers;
         }
 
+        public List<SiSquadMapMarker> CreateAlliedSquadMapMarkers(SiNpcManager npcManager, long observerIdentityId)
+        {
+            var markers = new List<SiSquadMapMarker>();
+            if (Definition == null || observerIdentityId == 0)
+                return markers;
+
+            PurgeClosedNpcs(npcManager);
+            var squads = BuildSquads(npcManager);
+            squads.Sort(CompareSquads);
+
+            var observerArmy = ArmyForPlayerIdentity(observerIdentityId);
+            MyDiplomaticParty observerParty;
+            var hasObserverParty = TryCreateDiplomaticParty(observerArmy, out observerParty);
+            foreach (var squad in squads)
+            {
+                if (!HasNpcMembers(squad))
+                    continue;
+                if (!ShouldShareLocationOnMap(observerArmy, hasObserverParty, observerParty, squad.Leader.Army))
+                    continue;
+
+                Vector3D position;
+                if (!TryGetLeaderPosition(npcManager, squad.Leader, out position))
+                    continue;
+
+                markers.Add(new SiSquadMapMarker(
+                    squad.Leader,
+                    position,
+                    FormatMapMarkerName(squad),
+                    FormatMapMarkerDescription(squad),
+                    false,
+                    "default"));
+            }
+
+            return markers;
+        }
+
         public List<string> CreateRosterLines(SiNpcManager npcManager)
         {
             var lines = new List<string>();
@@ -630,6 +667,85 @@ namespace Si.UtilityAI
         private static bool IsPlayerLeader(SiSquadLeaderKey leader, long identityId) =>
             leader.Kind == SiSquadLeaderKind.Player && leader.Id == identityId;
 
+        private static bool HasNpcMembers(SiSquadView squad)
+        {
+            if (squad?.Members == null)
+                return false;
+
+            for (var i = 0; i < squad.Members.Count; i++)
+                if (squad.Members[i].Kind == SiSquadMemberKind.Npc)
+                    return true;
+            return false;
+        }
+
+        private static bool TryGetLeaderPosition(
+            SiNpcManager npcManager,
+            SiSquadLeaderKey leader,
+            out Vector3D position)
+        {
+            position = Vector3D.Zero;
+            if (leader.Kind == SiSquadLeaderKind.Player)
+            {
+                foreach (var player in OnlinePlayers())
+                {
+                    if (player?.Identity?.Id != leader.Id)
+                        continue;
+
+                    var playerPosition = player.ControlledEntity?.Get<MyPositionComponentBase>();
+                    if (playerPosition == null)
+                        continue;
+
+                    position = playerPosition.WorldMatrix.Translation;
+                    return true;
+                }
+
+                return false;
+            }
+
+            SiNpc npc;
+            if (!TryGetNpc(npcManager, leader.Id, out npc))
+                return false;
+
+            position = npc.Entity.WorldMatrix.Translation;
+            return true;
+        }
+
+        private static bool ShouldShareLocationOnMap(
+            SiArmyKey observerArmy,
+            bool hasObserverParty,
+            MyDiplomaticParty observerParty,
+            SiArmyKey squadArmy)
+        {
+            if (observerArmy.Equals(squadArmy))
+                return true;
+
+            if (!hasObserverParty)
+                return false;
+
+            MyDiplomaticParty squadParty;
+            if (!TryCreateDiplomaticParty(squadArmy, out squadParty))
+                return false;
+
+            var diplomacy = MyDiplomacyManager.Instance;
+            if (diplomacy == null)
+                return false;
+
+            try
+            {
+                var relationship = diplomacy.GetRelationshipBetweenParties(observerParty, squadParty);
+                var statusDefinition = relationship.StatusDefinition;
+                if (statusDefinition != null)
+                    return statusDefinition.ShareLocationOnMap;
+
+                var status = relationship.Status;
+                return status == diplomacy.RelationshipSelf || status == diplomacy.RelationshipFaction;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         private static int RankOrder(SiRankDefinition rank) => rank?.Order ?? 0;
 
         private string FormatSquadLine(SiSquadView squad)
@@ -670,6 +786,33 @@ namespace Si.UtilityAI
             }
 
             builder.Append(MemberDisplayName(member));
+            return builder.ToString();
+        }
+
+        private static string FormatMapMarkerName(SiSquadView squad)
+        {
+            if (squad == null)
+                return "Allied squad";
+
+            var callsign = SquadCallsign(squad);
+            if (string.IsNullOrWhiteSpace(squad.ArmyName))
+                return callsign;
+            return squad.ArmyName + " - " + callsign;
+        }
+
+        private static string FormatMapMarkerDescription(SiSquadView squad)
+        {
+            if (squad == null)
+                return "Squad leader position";
+
+            var builder = new StringBuilder();
+            builder.Append("Leader: ");
+            builder.Append(!string.IsNullOrWhiteSpace(squad.LeaderName) ? squad.LeaderName : "Unknown");
+            builder.Append('\n');
+            builder.Append("Members: ");
+            builder.Append(squad.Members?.Count ?? 0);
+            builder.Append('\n');
+            builder.Append("Position tracks the squad leader.");
             return builder.ToString();
         }
 
@@ -945,6 +1088,32 @@ namespace Si.UtilityAI
 
         public SiNpc Npc { get; }
         public string Label { get; }
+    }
+
+    internal sealed class SiSquadMapMarker
+    {
+        public SiSquadMapMarker(
+            SiSquadLeaderKey leader,
+            in Vector3D position,
+            string name,
+            string description,
+            bool showOnHud,
+            string styleId)
+        {
+            Leader = leader;
+            Position = position;
+            Name = name;
+            Description = description;
+            ShowOnHud = showOnHud;
+            StyleId = styleId;
+        }
+
+        public SiSquadLeaderKey Leader { get; }
+        public Vector3D Position { get; }
+        public string Name { get; }
+        public string Description { get; }
+        public bool ShowOnHud { get; }
+        public string StyleId { get; }
     }
 
     internal enum SiSquadMemberKind

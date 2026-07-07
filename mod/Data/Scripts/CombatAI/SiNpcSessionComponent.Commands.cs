@@ -136,7 +136,7 @@ namespace Si.UtilityAI
         private void ToggleTroopMarkers()
         {
             _showTroopMarkers = !_showTroopMarkers;
-            NotifyShow($"Troop markers {(_showTroopMarkers ? "shown" : "hidden")}.");
+            NotifyShow($"Unit markers {(_showTroopMarkers ? "shown" : "hidden")}.");
         }
 
         private void ToggleSquadChatter()

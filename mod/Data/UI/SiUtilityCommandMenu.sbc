@@ -234,7 +234,7 @@
         <Buttons>
             <Button StyleName="ContextButtonSliced">
                 <Text>Toggle UI</Text>
-                <Tooltip>Show or hide unit markers.</Tooltip>
+                <Tooltip>Show or hide unit markers and squad map markers.</Tooltip>
                 <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandSettingsToggleUi" />
             </Button>
 			<Button StyleName="ContextButtonSliced">

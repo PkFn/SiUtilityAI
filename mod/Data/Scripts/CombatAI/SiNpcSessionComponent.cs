@@ -142,6 +142,7 @@ namespace Si.UtilityAI
             _positionCache.Clear();
             _transportNpcStates.Clear();
             _coverReservations.Clear();
+            ClearSquadMapMarkers();
             _coverScanCache.Clear();
             _coverSearchCache.Clear();
             _expiredCoverScanCacheKeys.Clear();
