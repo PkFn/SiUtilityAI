@@ -18,6 +18,7 @@
 - `rifledefenders` adds static defenders.
 - `modern small arms` adds player held guns.
 - `watercore` adds content using PAX Core.
+- `cartography` a useful map layer example that adds height isolines.
 
 ## Shared content
 - `ref_si_core/` is a soft link to another Visual Studio project and is editable. It is the shared core for reusable code across the user's mods. It's the only mod you can modify.
