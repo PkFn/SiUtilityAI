@@ -35,6 +35,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
         private static readonly Vector2 IdleMarkerSize = new Vector2(0.0105f, 0.0105f);
         private static readonly Vector2 HoveredMarkerSize = new Vector2(0.015f, 0.015f);
         private static readonly Vector2 SelectedMarkerSize = new Vector2(0.018f, 0.018f);
+        private static readonly Vector2 MarkerClusterSpacing = new Vector2(0.015f, 0.015f);
         private static readonly char[] PopupLineBreaks = { '\n' };
         private static readonly Vector2 CommandOverlayAnchor = new Vector2(-0.98f, -0.86f);
         private readonly Dictionary<string, string> _markerImages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -104,20 +105,22 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             if (snapshot == null
                 || snapshot.Count == 0)
             {
+                _hoveredMarker = null;
                 HideMarkerTooltip();
                 return;
             }
 
+            var layout = BuildMarkerLayout(snapshot);
             var mouseScreenPosition = MyGuiManager.MouseCursorPosition;
             var hoveredCell = Map.HoveredCell;
-            var hoveredMarker = FindMarkerForCell(snapshot, hoveredCell, mouseScreenPosition, out var hoveredMarkerPosition);
+            var hoveredMarker = FindMarkerForCell(layout, hoveredCell, mouseScreenPosition, out var hoveredMarkerPosition);
 
-            foreach (var marker in snapshot)
+            for (var i = 0; i < layout.Count; i++)
             {
-                var mapPosition = Map.GetMapPosition(marker.Position);
+                var marker = layout[i].Marker;
 
                 DrawMarkerIcon(
-                    mapPosition,
+                    layout[i].MapPosition,
                     marker.StyleId,
                     transitionAlpha,
                     false,
@@ -362,7 +365,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 return;
 
             var clickedMarker = FindMarkerForCell(
-                session.SquadMapMarkerSnapshot,
+                BuildMarkerLayout(session.SquadMapMarkerSnapshot),
                 cell,
                 MyGuiManager.MouseCursorPosition,
                 out _);
@@ -382,52 +385,82 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             session.TryIssueSelectedMapMoveOrder(target);
         }
 
+        private List<SiMarkerLayout> BuildMarkerLayout(IReadOnlyList<SiSquadMapMarker> snapshot)
+        {
+            var layout = new List<SiMarkerLayout>();
+            if (snapshot == null || Map?.CurrentView == null || _planetAreas == null)
+                return layout;
+
+            var groupedIndices = new Dictionary<long, List<int>>();
+            for (var i = 0; i < snapshot.Count; i++)
+            {
+                var marker = snapshot[i];
+                if (marker == null || !TryGetMarkerCell(marker, out var cellPosition))
+                    continue;
+
+                layout.Add(new SiMarkerLayout(
+                    marker,
+                    cellPosition,
+                    Map.GetMapPosition(marker.Position)));
+
+                var key = PackCellKey(cellPosition);
+                if (!groupedIndices.TryGetValue(key, out var indices))
+                    groupedIndices[key] = indices = new List<int>();
+                indices.Add(layout.Count - 1);
+            }
+
+            foreach (var entry in groupedIndices)
+            {
+                var indices = entry.Value;
+                if (indices.Count <= 1)
+                    continue;
+
+                var center = Vector2.Zero;
+                for (var i = 0; i < indices.Count; i++)
+                    center += layout[indices[i]].MapPosition;
+                center /= indices.Count;
+
+                for (var i = 0; i < indices.Count; i++)
+                {
+                    var layoutIndex = indices[i];
+                    var markerEntry = layout[layoutIndex];
+                    markerEntry.MapPosition = center + MarkerClusterOffset(i, indices.Count);
+                    layout[layoutIndex] = markerEntry;
+                }
+            }
+
+            return layout;
+        }
+
         private SiSquadMapMarker FindMarkerForCell(
-            IReadOnlyList<SiSquadMapMarker> snapshot,
+            IReadOnlyList<SiMarkerLayout> layout,
             Vector2I? hoveredCell,
             Vector2 mouseScreenPosition,
             out Vector2 hoveredMarkerPosition)
         {
             hoveredMarkerPosition = default(Vector2);
-            if (snapshot == null
+            if (layout == null
                 || hoveredCell == null
-                || _planetAreas == null
                 || Map?.CurrentView == null)
                 return null;
 
             SiSquadMapMarker hoveredMarker = null;
             var hoveredDistanceSquared = float.MaxValue;
-            for (var i = 0; i < snapshot.Count; i++)
+            for (var i = 0; i < layout.Count; i++)
             {
-                var marker = snapshot[i];
-                if (marker == null)
+                var markerEntry = layout[i];
+                var marker = markerEntry.Marker;
+                if (marker == null
+                    || markerEntry.CellPosition != hoveredCell.Value)
                     continue;
 
-                long areaId;
-                try
-                {
-                    areaId = _planetAreas.GetArea((Vector3)marker.Position);
-                }
-                catch
-                {
-                    continue;
-                }
-
-                var cellId = Map.CurrentZoomLevel == MyPlanetMapZoomLevel.Kingdom
-                    ? _planetAreas.GetRegionFromArea(areaId)
-                    : areaId;
-                if (!Map.CurrentView.TryGetCellIdPosition(cellId, out var cellPosition)
-                    || hoveredCell.Value != cellPosition)
-                    continue;
-
-                var mapPosition = Map.GetMapPosition(marker.Position);
-                var screenPosition = MyGuiManager.GetScreenCoordinateFromNormalizedCoordinate(mapPosition, false);
+                var screenPosition = MyGuiManager.GetScreenCoordinateFromNormalizedCoordinate(markerEntry.MapPosition, false);
                 var distanceSquared = Vector2.DistanceSquared(screenPosition, mouseScreenPosition);
                 if (distanceSquared >= hoveredDistanceSquared)
                     continue;
 
                 hoveredMarker = marker;
-                hoveredMarkerPosition = mapPosition;
+                hoveredMarkerPosition = markerEntry.MapPosition;
                 hoveredDistanceSquared = distanceSquared;
             }
 
@@ -467,6 +500,64 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                     return values[i];
 
             return null;
+        }
+
+        private bool TryGetMarkerCell(SiSquadMapMarker marker, out Vector2I cellPosition)
+        {
+            cellPosition = default(Vector2I);
+            if (marker == null || _planetAreas == null || Map?.CurrentView == null)
+                return false;
+
+            long areaId;
+            try
+            {
+                areaId = _planetAreas.GetArea((Vector3)marker.Position);
+            }
+            catch
+            {
+                return false;
+            }
+
+            var cellId = Map.CurrentZoomLevel == MyPlanetMapZoomLevel.Kingdom
+                ? _planetAreas.GetRegionFromArea(areaId)
+                : areaId;
+            return Map.CurrentView.TryGetCellIdPosition(cellId, out cellPosition);
+        }
+
+        private static long PackCellKey(Vector2I cellPosition)
+        {
+            return ((long)cellPosition.X << 32) | (uint)cellPosition.Y;
+        }
+
+        private static Vector2 MarkerClusterOffset(int index, int count)
+        {
+            if (count <= 1)
+                return Vector2.Zero;
+
+            var columns = (int)Math.Ceiling(Math.Sqrt(count));
+            var rows = (int)Math.Ceiling(count / (float)columns);
+            var column = index % columns;
+            var row = index / columns;
+            return new Vector2(
+                (column - (columns - 1) * 0.5f) * MarkerClusterSpacing.X,
+                (row - (rows - 1) * 0.5f) * MarkerClusterSpacing.Y);
+        }
+
+        private struct SiMarkerLayout
+        {
+            public SiMarkerLayout(
+                SiSquadMapMarker marker,
+                Vector2I cellPosition,
+                Vector2 mapPosition)
+            {
+                Marker = marker;
+                CellPosition = cellPosition;
+                MapPosition = mapPosition;
+            }
+
+            public SiSquadMapMarker Marker;
+            public Vector2I CellPosition;
+            public Vector2 MapPosition;
         }
     }
 }
