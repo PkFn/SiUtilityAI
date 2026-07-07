@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Xml.Serialization;
 using Medieval.GameSystems;
+using Medieval.GUI.Ingame.Map;
 using ObjectBuilders.GUI.Map;
 using Sandbox.Game.Entities;
 using Sandbox.Graphics;
@@ -388,16 +389,29 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             if (snapshot == null || Map?.CurrentView == null || _planetAreas == null)
                 return layout;
 
+            var environmentViewport = GetEnvironmentMapViewport(out var currentFace);
+            var screenViewport = GetScreenViewport();
+            if (environmentViewport.Size.X <= 0 || environmentViewport.Size.Y <= 0
+                || screenViewport.Size.X <= 0 || screenViewport.Size.Y <= 0)
+                return layout;
+
+            var envToScreenScale = screenViewport.Size / environmentViewport.Size;
+            var envToScreenTranslate = screenViewport.Position - envToScreenScale * environmentViewport.Position;
             for (var i = 0; i < snapshot.Count; i++)
             {
                 var marker = snapshot[i];
                 if (marker == null
-                    || !TryProjectMarker(marker, out var cellPosition, out var mapPosition))
+                    || !TryProjectMarker(
+                        marker,
+                        currentFace,
+                        environmentViewport,
+                        envToScreenScale,
+                        envToScreenTranslate,
+                        out var mapPosition))
                     continue;
 
                 layout.Add(new SiMarkerLayout(
                     marker,
-                    cellPosition,
                     mapPosition));
             }
 
@@ -473,9 +487,14 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             return null;
         }
 
-        private bool TryProjectMarker(SiSquadMapMarker marker, out Vector2I cellPosition, out Vector2 mapPosition)
+        private bool TryProjectMarker(
+            SiSquadMapMarker marker,
+            int currentFace,
+            RectangleF environmentViewport,
+            Vector2 envToScreenScale,
+            Vector2 envToScreenTranslate,
+            out Vector2 mapPosition)
         {
-            cellPosition = default(Vector2I);
             mapPosition = default(Vector2);
             if (marker == null || _planetAreas == null || Map?.CurrentView == null)
                 return false;
@@ -496,39 +515,15 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 return false;
             }
 
-            if (projectedFace != (int)Map.CurrentFace)
+            if (projectedFace != currentFace)
                 return false;
 
-            long areaId;
-            try
-            {
-                areaId = _planetAreas.GetArea((Vector3)localPosition);
-            }
-            catch
-            {
-                return false;
-            }
-
-            var cellId = Map.CurrentZoomLevel == MyPlanetMapZoomLevel.Kingdom
-                ? _planetAreas.GetRegionFromArea(areaId)
-                : areaId;
-            if (!Map.CurrentView.TryGetCellIdPosition(cellId, out cellPosition))
+            var environmentPosition = new Vector2((float)projectedTexcoords.X, (float)projectedTexcoords.Y);
+            if (!environmentViewport.Contains(environmentPosition))
                 return false;
 
-            var gridSize = Map.CurrentView.Size;
-            if (gridSize.X <= 0 || gridSize.Y <= 0)
-                return false;
-
-            var gridX = (projectedTexcoords.X + 1.0) * gridSize.X * 0.5;
-            var gridY = (projectedTexcoords.Y + 1.0) * gridSize.Y * 0.5;
-            var fracX = (float)Math.Max(0.0, Math.Min(1.0, gridX - cellPosition.X));
-            var fracY = (float)Math.Max(0.0, Math.Min(1.0, gridY - cellPosition.Y));
-
-            var cellRect = Map.GetCellRectangleWithoutGrid(cellPosition);
-            var pixelPosition = new Vector2(
-                cellRect.X + cellRect.Width * fracX,
-                cellRect.Y + cellRect.Height * fracY);
-            mapPosition = MyGuiManager.GetNormalizedCoordinateFromScreenCoordinate(pixelPosition);
+            var screenPosition = environmentPosition * envToScreenScale + envToScreenTranslate;
+            mapPosition = MyGuiManager.GetNormalizedCoordinateFromScreenCoordinate(screenPosition);
             return true;
         }
 
@@ -543,17 +538,50 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
         {
             public SiMarkerLayout(
                 SiSquadMapMarker marker,
-                Vector2I cellPosition,
                 Vector2 mapPosition)
             {
                 Marker = marker;
-                CellPosition = cellPosition;
                 MapPosition = mapPosition;
             }
 
             public SiSquadMapMarker Marker;
-            public Vector2I CellPosition;
             public Vector2 MapPosition;
+        }
+
+        private RectangleF GetEnvironmentMapViewport(out int face)
+        {
+            var view = Map.CurrentView;
+            var scalingCount = CurrentViewScalingCount();
+            var counts = view.Size;
+            int minCellX;
+            int minCellY;
+            int maxCellX;
+            int maxCellY;
+            MyPlanetAreasComponent.UnpackAreaId(view[0, 0], out face, out minCellX, out minCellY);
+            int ignoredFace;
+            MyPlanetAreasComponent.UnpackAreaId(view[counts.X - 1, counts.Y - 1], out ignoredFace, out maxCellX, out maxCellY);
+
+            var minTexCoord = (2f * new Vector2(minCellX, minCellY) - scalingCount) / scalingCount;
+            var maxTexCoord = (2f * new Vector2(maxCellX + 1, maxCellY + 1) - scalingCount) / scalingCount;
+            return new RectangleF(minTexCoord, maxTexCoord - minTexCoord);
+        }
+
+        private RectangleF GetScreenViewport()
+        {
+            return new RectangleF(Map.GetPositionAbsoluteTopLeft() + Map.MapOffset, Map.MapSize);
+        }
+
+        private int CurrentViewScalingCount()
+        {
+            switch (Map.CurrentZoomLevel)
+            {
+                case MyPlanetMapZoomLevel.Kingdom:
+                    return _planetAreas.RegionCount;
+                case MyPlanetMapZoomLevel.Region:
+                    return _planetAreas.AreaCount;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
     }
 }
