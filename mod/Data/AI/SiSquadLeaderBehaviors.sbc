@@ -16,6 +16,7 @@
     <ThreatTakeCoverScore>0.85</ThreatTakeCoverScore>
     <DamageTakeCoverScore>0.98</DamageTakeCoverScore>
     <TakeCoverScoreDecayPerSecond>0.08</TakeCoverScoreDecayPerSecond>
+    <SuccessfulFireMemoryMilliseconds>2500</SuccessfulFireMemoryMilliseconds>
     <CoverHoldCooldownMilliseconds>5000</CoverHoldCooldownMilliseconds>
     <RecentDamageMemoryMilliseconds>5000</RecentDamageMemoryMilliseconds>
     <TargetMemoryMilliseconds>2500</TargetMemoryMilliseconds>

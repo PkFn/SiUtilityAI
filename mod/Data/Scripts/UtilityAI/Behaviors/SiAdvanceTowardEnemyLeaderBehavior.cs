@@ -38,6 +38,7 @@ namespace Si.UtilityAI
         public float ThreatTakeCoverScore = 0.8f;
         public float DamageTakeCoverScore = 0.95f;
         public float TakeCoverScoreDecayPerSecond = 0.08f;
+        public int SuccessfulFireMemoryMilliseconds = 2500;
         public int CoverHoldCooldownMilliseconds = 4500;
         public int RecentDamageMemoryMilliseconds = 5000;
         public int TargetMemoryMilliseconds = 2500;
@@ -69,6 +70,7 @@ namespace Si.UtilityAI
         public float ThreatTakeCoverScore { get; private set; }
         public float DamageTakeCoverScore { get; private set; }
         public float TakeCoverScoreDecayPerSecond { get; private set; }
+        public int SuccessfulFireMemoryMilliseconds { get; private set; }
         public int CoverHoldCooldownMilliseconds { get; private set; }
         public int RecentDamageMemoryMilliseconds { get; private set; }
         public int TargetMemoryMilliseconds { get; private set; }
@@ -94,6 +96,7 @@ namespace Si.UtilityAI
             ThreatTakeCoverScore = Math.Max(MinimumTakeCoverScore, ob.ThreatTakeCoverScore);
             DamageTakeCoverScore = Math.Max(ThreatTakeCoverScore, ob.DamageTakeCoverScore);
             TakeCoverScoreDecayPerSecond = Math.Max(0, ob.TakeCoverScoreDecayPerSecond);
+            SuccessfulFireMemoryMilliseconds = Math.Max(0, ob.SuccessfulFireMemoryMilliseconds);
             CoverHoldCooldownMilliseconds = Math.Max(0, ob.CoverHoldCooldownMilliseconds);
             RecentDamageMemoryMilliseconds = Math.Max(0, ob.RecentDamageMemoryMilliseconds);
             TargetMemoryMilliseconds = Math.Max(0, ob.TargetMemoryMilliseconds);
@@ -217,7 +220,7 @@ namespace Si.UtilityAI
             }
 
             var hasUsableCover = HasUsableCurrentCover(context, session, enemyLeaderPosition);
-            var takeCoverScore = ComputeTakeCoverScore(now, hasEnemyLeaderTarget, session, context.Agent);
+            var takeCoverScore = ComputeTakeCoverScore(now, session, context.Agent);
 
             if (!hasUsableCover)
             {
@@ -452,19 +455,18 @@ namespace Si.UtilityAI
 
         private float ComputeTakeCoverScore(
             long now,
-            bool hasThreatBehavior,
             SiNpcSessionComponent session,
             SiNpc agent)
         {
             var score = _definition.MinimumTakeCoverScore;
-            if (hasThreatBehavior)
+            var lastSuccessfulFireTime = _shootBehavior?.GetLastSuccessfulFireTime() ?? long.MinValue;
+            if (lastSuccessfulFireTime > long.MinValue
+                && now - lastSuccessfulFireTime <= _definition.SuccessfulFireMemoryMilliseconds)
             {
-                var threatScore = _definition.ThreatTakeCoverScore;
-                if (_lastCoverArrivalTime > long.MinValue)
-                    threatScore = Math.Max(
-                        _definition.MinimumTakeCoverScore,
-                        threatScore - _definition.TakeCoverScoreDecayPerSecond
-                        * Math.Max(0, (now - _lastCoverArrivalTime) / 1000f));
+                var threatScore = Math.Max(
+                    _definition.MinimumTakeCoverScore,
+                    _definition.ThreatTakeCoverScore - _definition.TakeCoverScoreDecayPerSecond
+                    * Math.Max(0, (now - lastSuccessfulFireTime) / 1000f));
                 score = Math.Max(score, threatScore);
             }
 

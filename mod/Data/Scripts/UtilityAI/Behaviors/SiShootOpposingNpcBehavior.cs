@@ -237,6 +237,7 @@ namespace Si.UtilityAI
         private long _lastEngageSpeechTime = -1;
         private long _lastSpotSpeechTime = -1;
         private long _lastSpottedTargetId;
+        private long _lastSuccessfulFireTime = long.MinValue;
         private SiShootOpposingNpcBehaviorDefinition _runtimeDefinition;
         private SiNpcCombatStateComponent _combatState;
 
@@ -382,11 +383,12 @@ namespace Si.UtilityAI
             _combatState?.SetFiring(true);
 
             var aimSwayDegrees = ComputeDetectionAimSwayDegrees(observation.SpottingSum);
-            weapon.TryFire(
+            if (weapon.TryFire(
                 context,
                 targetEntity,
                 target.Velocity,
-                aimSwayDegrees);
+                aimSwayDegrees))
+                _lastSuccessfulFireTime = CurrentTimeMilliseconds();
         }
 
         void ISiUtilityBehavior.End(SiUtilityContext context)
@@ -394,6 +396,7 @@ namespace Si.UtilityAI
             _target = null;
             _nextTargetEvaluationTime = -1;
             _lastSpottedTargetId = 0;
+            _lastSuccessfulFireTime = long.MinValue;
             _combatState?.SetFiring(false);
             GetWeapon()?.ClearFireIntent();
             GetWeapon()?.ResetState();
@@ -834,6 +837,8 @@ namespace Si.UtilityAI
 
         internal float GetWeaponMuzzleUpOffsetForCover() =>
             GetWeapon()?.Definition?.MuzzleUpOffset ?? GetWeaponAimHeight();
+
+        internal long GetLastSuccessfulFireTime() => _lastSuccessfulFireTime;
 
         private bool IsOpposing(SiNpc self, SiNpc candidate, SiSquadBook squads, SiSquadEngagementStance stance)
         {
