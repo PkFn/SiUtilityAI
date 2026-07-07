@@ -27,15 +27,11 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
     [MyMapRenderLayer(typeof(MyObjectBuilder_SiSquadMapLayer), true)]
     internal sealed class SiSquadMapLayer : MyPlanetMapRenderLayerBase
     {
-        private const float MarkerTitleScale = 0.55f;
-        private const float MarkerDescriptionScale = 0.45f;
-        private const float HoverHitRadius = 0.0125f;
         private static readonly Vector2 IdleMarkerSize = new Vector2(0.0105f, 0.0105f);
         private static readonly Vector2 HoveredMarkerSize = new Vector2(0.015f, 0.015f);
-        private static readonly Vector2 HoverPopupOffset = new Vector2(18f, 14f);
-        private static readonly Vector2 HoverTextShadowOffset = new Vector2(1.5f, 1.5f);
         private static readonly char[] PopupLineBreaks = { '\n' };
         private readonly Dictionary<string, string> _markerImages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private readonly MyTooltip _tooltip = new MyTooltip();
         private MyPlanetAreasComponent _planetAreas;
 
         public override void Init(MyPlanetMapControl map, MyMapGridView view, MyObjectBuilder_PlanetMapRenderLayer builder)
@@ -66,8 +62,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 || Map?.CurrentView == null)
                 return;
 
-            var mousePosition = MyGuiManager.GetNormalizedCoordinateFromScreenCoordinate(MyGuiManager.MouseCursorPosition);
-            var hoverRadiusSquared = HoverHitRadius * HoverHitRadius;
+            var mouseScreenPosition = MyGuiManager.MouseCursorPosition;
             SiSquadMapMarker hoveredMarker = null;
             Vector2 hoveredMarkerPosition = default(Vector2);
             var hoveredDistanceSquared = float.MaxValue;
@@ -92,12 +87,18 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                     continue;
 
                 var mapPosition = Map.GetMapPosition(marker.Position);
-                var distanceSquared = Vector2.DistanceSquared(mapPosition, mousePosition);
-                if (distanceSquared <= hoverRadiusSquared && distanceSquared < hoveredDistanceSquared)
+                var screenPosition = MyGuiManager.GetScreenCoordinateFromNormalizedCoordinate(mapPosition, false);
+                var markerScreenSize = MyGuiManager.GetScreenSizeFromNormalizedSize(IdleMarkerSize, false);
+                var hitRegion = new RectangleF(screenPosition - markerScreenSize * 0.5f, markerScreenSize);
+                if (hitRegion.Contains(mouseScreenPosition))
                 {
-                    hoveredMarker = marker;
-                    hoveredMarkerPosition = mapPosition;
-                    hoveredDistanceSquared = distanceSquared;
+                    var distanceSquared = Vector2.DistanceSquared(screenPosition, mouseScreenPosition);
+                    if (distanceSquared < hoveredDistanceSquared)
+                    {
+                        hoveredMarker = marker;
+                        hoveredMarkerPosition = mapPosition;
+                        hoveredDistanceSquared = distanceSquared;
+                    }
                 }
 
                 DrawMarkerIcon(mapPosition, marker.StyleId, transitionAlpha, false);
@@ -107,7 +108,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 return;
 
             DrawMarkerIcon(hoveredMarkerPosition, hoveredMarker.StyleId, transitionAlpha, true);
-            DrawMarkerPopup(hoveredMarker, transitionAlpha);
+            DrawMarkerTooltip(hoveredMarker, transitionAlpha);
         }
 
         private void DrawMarkerIcon(Vector2 mapPosition, string styleId, float transitionAlpha, bool hovered)
@@ -135,51 +136,29 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 SpriteBatchMode.Default);
         }
 
-        private static void DrawMarkerPopup(SiSquadMapMarker marker, float transitionAlpha)
+        private void DrawMarkerTooltip(SiSquadMapMarker marker, float transitionAlpha)
         {
             if (marker == null)
                 return;
 
-            var screenPosition = MyGuiManager.MouseCursorPosition + HoverPopupOffset;
-            var title = marker.Name;
-            if (!string.IsNullOrWhiteSpace(title))
-                DrawPopupLine(screenPosition, title, new Color(0.9f, 1f, 0.9f, transitionAlpha), MarkerTitleScale);
-
-            if (string.IsNullOrWhiteSpace(marker.Description))
-                return;
-
-            var descriptionLines = marker.Description.Split(PopupLineBreaks, StringSplitOptions.RemoveEmptyEntries);
-            var linePosition = screenPosition + new Vector2(0f, 18f);
-            for (var i = 0; i < descriptionLines.Length; i++)
-            {
-                DrawPopupLine(linePosition, descriptionLines[i], new Color(0.8f, 0.95f, 0.8f, transitionAlpha), MarkerDescriptionScale);
-                linePosition += new Vector2(0f, 16f);
-            }
+            BuildTooltip(marker);
+            _tooltip.Draw(MyGuiManager.MouseCursorPosition, transitionAlpha);
         }
 
-        private static void DrawPopupLine(Vector2 screenPosition, string text, Color color, float scale)
+        private void BuildTooltip(SiSquadMapMarker marker)
         {
-            if (string.IsNullOrWhiteSpace(text))
-                return;
+            using (_tooltip.OpenBatch(true))
+            {
+                if (!string.IsNullOrWhiteSpace(marker.Name))
+                    _tooltip.AddTitle(marker.Name);
 
-            MyRenderProxy.DrawString(
-                MyGuiConstants.DEFAULT_FONT,
-                screenPosition + HoverTextShadowOffset,
-                new Color(0f, 0f, 0f, color.A / 255f * 0.8f),
-                text,
-                scale,
-                float.PositiveInfinity,
-                null,
-                SpriteBatchMode.Default);
-            MyRenderProxy.DrawString(
-                MyGuiConstants.DEFAULT_FONT,
-                screenPosition,
-                color,
-                text,
-                scale,
-                float.PositiveInfinity,
-                null,
-                SpriteBatchMode.Default);
+                if (string.IsNullOrWhiteSpace(marker.Description))
+                    return;
+
+                var descriptionLines = marker.Description.Split(PopupLineBreaks, StringSplitOptions.RemoveEmptyEntries);
+                for (var i = 0; i < descriptionLines.Length; i++)
+                    _tooltip.AddLine(descriptionLines[i]);
+            }
         }
     }
 }
