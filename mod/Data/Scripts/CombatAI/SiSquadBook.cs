@@ -64,10 +64,29 @@ namespace Si.UtilityAI
 
             AssignNpcToLeader(
                 npc,
-                new SiSquadLeaderKey(
-                    SiSquadLeaderKind.Ai,
-                    npc.EntityId,
-                    new SiArmyKey(SiArmyKind.Enemy, enemyArmyId)),
+                SiSquadLeaderKind.Ai,
+                npc.EntityId,
+                SiArmyKind.Enemy,
+                enemyArmyId,
+                string.IsNullOrWhiteSpace(leaderName) ? NpcName(npc, null) : leaderName,
+                true);
+        }
+
+        public void AssignNpcAsAiLeader(
+            SiNpc npc,
+            string leaderName,
+            SiArmyKind armyKind,
+            long armyId)
+        {
+            if (npc == null)
+                return;
+
+            AssignNpcToLeader(
+                npc,
+                SiSquadLeaderKind.Ai,
+                npc.EntityId,
+                armyKind,
+                armyId,
                 string.IsNullOrWhiteSpace(leaderName) ? NpcName(npc, null) : leaderName,
                 true);
         }

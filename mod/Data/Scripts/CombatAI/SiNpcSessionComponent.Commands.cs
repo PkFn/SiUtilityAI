@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Medieval.GameSystems.Factions;
 using Sandbox.Definitions.Chat;
 using Sandbox.Game.Entities;
@@ -23,6 +24,25 @@ namespace Si.UtilityAI
         private const string SpeakChannelName = "Speak";
         private static readonly MyStringHash HostileRelationship = MyStringHash.GetOrCompute("War");
         private static readonly MyStringHash SpeakChannel = MyStringHash.GetOrCompute(SpeakChannelName);
+
+        private sealed class SiPendingNpcSpawn
+        {
+            public SiPendingNpcSpawn(SiNpc npc, SiNpcSpawnRequest request)
+            {
+                Npc = npc;
+                Request = request;
+            }
+
+            public SiNpc Npc { get; }
+            public SiNpcSpawnRequest Request { get; }
+        }
+
+        private struct SiIndependentSquadSpawnContext
+        {
+            public bool HasLeader;
+            public SiSquadLeaderKey Leader;
+            public string LeaderName;
+        }
 
         public void Draw()
         {
@@ -384,6 +404,9 @@ namespace Si.UtilityAI
                 case "help":
                 case "?":
                     return Respond(sender, ExpandedHelpText());
+                case "squad":
+                case "squads":
+                    return HandleSquadPresetCommand(sender, tokens);
                 case "spawn":
                     return SpawnFromCommand(sender, tokens);
                 case "spawn-enemy":
@@ -441,6 +464,26 @@ namespace Si.UtilityAI
             return webbings.Count > 0 ? webbings[0] : null;
         }
 
+        private bool HandleSquadPresetCommand(ulong sender, string[] tokens)
+        {
+            if (tokens == null || tokens.Length < 3)
+                return Respond(sender, SquadPresetHelpText());
+
+            var action = tokens[2].ToLowerInvariant();
+            switch (action)
+            {
+                case "list":
+                    return Respond(sender, $"Available squad presets:\n{KnownSquadPresetsText()}");
+                case "help":
+                case "?":
+                    return Respond(sender, SquadPresetHelpText());
+                case "spawn":
+                    return SpawnSquadFromCommand(sender, tokens, 3);
+                default:
+                    return SpawnSquadFromCommand(sender, tokens, 2);
+            }
+        }
+
         private bool SpawnFromCommand(ulong sender, string[] tokens)
         {
             if (!TryParseSpawnRequest(tokens, false, out var request, out var failure))
@@ -459,26 +502,16 @@ namespace Si.UtilityAI
             if (playerPosition == null)
                 return Respond(sender, "You must control a character to spawn an NPC.");
 
-            var transform = CreateSpawnTransform(playerPosition.WorldMatrix);
-            var entityId = MyEntityIdentifier.AllocateId();
-            if (!Npcs.TrySpawnConfigured(
-                    SiNpcManager.SoldierArchetype,
-                    request.DisplayArchetype,
-                    entityId,
-                    transform,
-                    out var npc))
-                return Respond(sender, $"Failed to spawn custom NPC '{request.DisplayArchetype}'; its model or entity definition could not be loaded.");
-
-            string failure;
-            if (!ApplySpawnRequest(npc, request, out failure)
-                || !ConfigureSpawnedNpc(request, npc, player, out failure))
-            {
-                Npcs.Close(entityId);
+            if (!TrySpawnConfiguredNpc(
+                    player,
+                    CreateSpawnTransform(playerPosition.WorldMatrix),
+                    request,
+                    out var npc,
+                    out var failure))
                 return Respond(sender, failure ?? $"Failed to configure custom NPC '{request.DisplayArchetype}'.");
-            }
 
             BroadcastSpawn(npc, request);
-            return Respond(sender, $"Spawned {request.DisplayArchetype} ({entityId}).");
+            return Respond(sender, $"Spawned {request.DisplayArchetype} ({npc.EntityId}).");
         }
 
         private bool ConfigureSpawnedNpc(
@@ -554,6 +587,263 @@ namespace Si.UtilityAI
             return true;
         }
 
+        private bool TrySpawnConfiguredNpc(
+            MyPlayer player,
+            in MatrixD transform,
+            SiNpcSpawnRequest request,
+            out SiNpc npc,
+            out string failure)
+        {
+            npc = null;
+            failure = null;
+
+            var entityId = MyEntityIdentifier.AllocateId();
+            if (!Npcs.TrySpawnConfigured(
+                    SiNpcManager.SoldierArchetype,
+                    request.DisplayArchetype,
+                    entityId,
+                    transform,
+                    out npc))
+            {
+                failure = $"Failed to spawn custom NPC '{request.DisplayArchetype}'; its model or entity definition could not be loaded.";
+                return false;
+            }
+
+            if (ApplySpawnRequest(npc, request, out failure)
+                && ConfigureSpawnedNpc(request, npc, player, out failure))
+                return true;
+
+            Npcs.Close(entityId);
+            npc = null;
+            return false;
+        }
+
+        private bool SpawnSquadFromCommand(ulong sender, string[] tokens, int presetTokenIndex)
+        {
+            if (!TryParseSquadSpawnRequest(tokens, presetTokenIndex, out var presetSubtype, out var isEnemy, out var failure))
+                return Respond(sender, failure ?? SquadPresetHelpText());
+
+            return SpawnSquadFromCommand(sender, presetSubtype, isEnemy);
+        }
+
+        private bool SpawnSquadFromCommand(ulong sender, string presetSubtype, bool isEnemy)
+        {
+            if (!SiNpcSquadPresetCatalog.TryResolvePreset(
+                    presetSubtype,
+                    out var resolvedPresetSubtype,
+                    out _,
+                    out var members,
+                    out var failure))
+                return Respond(sender, failure ?? $"Unknown squad preset '{presetSubtype}'. Use {Command} help to see available squad presets.");
+
+            var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(sender, 0));
+            var playerPosition = player?.ControlledEntity?.Get<MyPositionComponentBase>();
+            if (playerPosition == null)
+                return Respond(sender, "You must control a character to spawn an AI squad.");
+
+            var pendingBroadcasts = new List<SiPendingNpcSpawn>();
+            var spawnedEntityIds = new List<long>();
+            var squadContext = default(SiIndependentSquadSpawnContext);
+            for (var i = 0; i < members.Count; i++)
+            {
+                var request = new SiNpcSpawnRequest(
+                    members[i].WebbingSubtype,
+                    members[i].IsParatrooper,
+                    isEnemy);
+                if (!TrySpawnIndependentAiSquadMember(
+                        player,
+                        CreateSpawnTransform(playerPosition.WorldMatrix, i),
+                        request,
+                        ref squadContext,
+                        out var npc,
+                        out failure))
+                {
+                    CloseSpawnedNpcs(spawnedEntityIds);
+                    return Respond(sender, failure ?? $"Failed to spawn squad preset '{resolvedPresetSubtype}'.");
+                }
+
+                spawnedEntityIds.Add(npc.EntityId);
+                pendingBroadcasts.Add(new SiPendingNpcSpawn(npc, request));
+            }
+
+            for (var i = 0; i < pendingBroadcasts.Count; i++)
+                BroadcastSpawn(pendingBroadcasts[i].Npc, pendingBroadcasts[i].Request);
+
+            return Respond(
+                sender,
+                $"Spawned squad preset '{resolvedPresetSubtype}' with {pendingBroadcasts.Count} {(isEnemy ? "enemy" : "allied")} AI trooper(s).");
+        }
+
+        private bool TrySpawnIndependentAiSquadMember(
+            MyPlayer player,
+            in MatrixD transform,
+            SiNpcSpawnRequest request,
+            ref SiIndependentSquadSpawnContext squadContext,
+            out SiNpc npc,
+            out string failure)
+        {
+            npc = null;
+            failure = null;
+
+            var entityId = MyEntityIdentifier.AllocateId();
+            if (!Npcs.TrySpawnConfigured(
+                    SiNpcManager.SoldierArchetype,
+                    request.DisplayArchetype,
+                    entityId,
+                    transform,
+                    out npc))
+            {
+                failure = $"Failed to spawn custom NPC '{request.DisplayArchetype}'; its model or entity definition could not be loaded.";
+                return false;
+            }
+
+            if (!ApplySpawnRequest(npc, request, out failure)
+                || !ConfigureIndependentAiSquadMember(request, npc, player, ref squadContext, out failure))
+            {
+                Npcs.Close(entityId);
+                npc = null;
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool ConfigureIndependentAiSquadMember(
+            SiNpcSpawnRequest request,
+            SiNpc npc,
+            MyPlayer player,
+            ref SiIndependentSquadSpawnContext squadContext,
+            out string failure)
+        {
+            failure = null;
+
+            if (request.IsEnemy)
+            {
+                if (!TryPrepareEnemyTrooper(npc, player, out var enemyFaction, out failure))
+                    return false;
+
+                var enemyArmy = new SiArmyKey(SiArmyKind.Faction, enemyFaction.FactionId);
+                return TryAssignIndependentAiSquadMember(
+                    npc,
+                    request,
+                    enemyArmy,
+                    EnemyTrooperName(npc),
+                    ref squadContext,
+                    out failure);
+            }
+
+            if (!ConfigureFriendlyTrooper(npc, player, out failure))
+                return false;
+
+            return TryAssignIndependentAiSquadMember(
+                npc,
+                request,
+                SiSquadBook.ArmyForPlayerIdentity(player.Identity.Id),
+                FriendlyTrooperName(npc),
+                ref squadContext,
+                out failure);
+        }
+
+        private bool TryAssignIndependentAiSquadMember(
+            SiNpc npc,
+            SiNpcSpawnRequest request,
+            SiArmyKey army,
+            string defaultLeaderName,
+            ref SiIndependentSquadSpawnContext squadContext,
+            out string failure)
+        {
+            failure = null;
+            if (npc == null)
+            {
+                failure = $"The spawned NPC for '{request.DisplayArchetype}' is missing.";
+                return false;
+            }
+
+            var squads = Squads;
+            if (squads == null)
+            {
+                failure = "The squad system is not available.";
+                return false;
+            }
+
+            if (!squadContext.HasLeader)
+            {
+                var leaderName = string.IsNullOrWhiteSpace(defaultLeaderName) ? request.DisplayArchetype : defaultLeaderName;
+                squads.AssignNpcAsAiLeader(npc, leaderName, army.Kind, army.Id);
+                squadContext = new SiIndependentSquadSpawnContext
+                {
+                    HasLeader = true,
+                    Leader = new SiSquadLeaderKey(SiSquadLeaderKind.Ai, npc.EntityId, army),
+                    LeaderName = leaderName,
+                };
+                return true;
+            }
+
+            squads.AssignNpcToLeader(
+                npc,
+                squadContext.Leader.Kind,
+                squadContext.Leader.Id,
+                squadContext.Leader.Army.Kind,
+                squadContext.Leader.Army.Id,
+                squadContext.LeaderName,
+                false);
+            return true;
+        }
+
+        private static void CloseSpawnedNpcs(List<long> entityIds)
+        {
+            if (_instance?.Npcs == null || entityIds == null)
+                return;
+
+            for (var i = 0; i < entityIds.Count; i++)
+                _instance.Npcs.Close(entityIds[i]);
+        }
+
+        private bool TryParseSquadSpawnRequest(
+            string[] tokens,
+            int presetTokenIndex,
+            out string presetSubtype,
+            out bool isEnemy,
+            out string failure)
+        {
+            presetSubtype = null;
+            isEnemy = false;
+            failure = null;
+
+            if (tokens == null
+                || presetTokenIndex < 0
+                || tokens.Length <= presetTokenIndex
+                || string.IsNullOrWhiteSpace(tokens[presetTokenIndex]))
+            {
+                failure = $"Usage: {Command} squad <preset> [enemy|friendly]. Use {Command} help to see available squad presets.";
+                return false;
+            }
+
+            presetSubtype = tokens[presetTokenIndex].Trim();
+            for (var i = presetTokenIndex + 1; i < tokens.Length; i++)
+            {
+                var token = tokens[i];
+                if (string.Equals(token, "enemy", StringComparison.OrdinalIgnoreCase))
+                {
+                    isEnemy = true;
+                    continue;
+                }
+
+                if (string.Equals(token, "friendly", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(token, "ally", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(token, "allied", StringComparison.OrdinalIgnoreCase))
+                {
+                    isEnemy = false;
+                    continue;
+                }
+
+                failure = $"Unknown squad flag '{token}'. Supported flags: enemy, friendly.";
+                return false;
+            }
+
+            return true;
+        }
+
         private bool TryParseSpawnRequest(
             string[] tokens,
             bool forceEnemy,
@@ -626,31 +916,43 @@ namespace Si.UtilityAI
 
         private bool ConfigureEnemyTrooper(SiNpc npc, MyPlayer player, out string failure)
         {
+            if (!TryPrepareEnemyTrooper(npc, player, out var enemyFaction, out failure))
+                return false;
+
+            AssignNpcToEnemySquad(npc, enemyFaction);
+            return true;
+        }
+
+        private bool TryPrepareEnemyTrooper(
+            SiNpc npc,
+            MyPlayer player,
+            out MyFaction enemyFaction,
+            out string failure)
+        {
             failure = null;
+            enemyFaction = null;
             if (npc == null || player?.Identity == null)
             {
                 failure = "You must control a character to spawn an enemy NPC.";
                 return false;
             }
 
-            var identity = MyIdentities.Static?.CreateIdentity(EnemyTrooperName(npc));
-            if (identity == null)
+            if (npc.DiplomaticIdentityId == 0)
             {
-                failure = "Failed to create a diplomatic identity for the enemy NPC.";
-                return false;
+                var identity = MyIdentities.Static?.CreateIdentity(EnemyTrooperName(npc));
+                if (identity == null)
+                {
+                    failure = "Failed to create a diplomatic identity for the enemy NPC.";
+                    return false;
+                }
+
+                SetNpcDiplomaticIdentity(npc, identity);
             }
 
-            SetNpcDiplomaticIdentity(npc, identity);
-
-            MyFaction enemyFaction;
-            if (!TryAssignIdentityToEnemyFaction(identity.Id, out enemyFaction, out failure))
+            if (!TryAssignIdentityToEnemyFaction(npc.DiplomaticIdentityId, out enemyFaction, out failure))
                 return false;
 
-            if (!TryMarkHostileToCaller(player, enemyFaction, out failure))
-                return false;
-
-            AssignNpcToEnemySquad(npc, enemyFaction);
-            return true;
+            return TryMarkHostileToCaller(player, enemyFaction, out failure);
         }
 
         private static bool TryAssignIdentityToEnemyFaction(
@@ -817,10 +1119,10 @@ namespace Si.UtilityAI
         }
 
         private string BasicHelpText() =>
-            $"{Command} spawn <webbing> [paratrooper] [enemy] | spawn-enemy [webbing] | list | clear | utility-ai [toggle|on|off|status] | gamelog [toggle|on|off|status] | help";
+            $"{Command} spawn <webbing> [paratrooper] [enemy] | squad <preset> [enemy|friendly] | squad list | spawn-enemy [webbing] | list | clear | utility-ai [toggle|on|off|status] | gamelog [toggle|on|off|status] | help";
 
         private string ExpandedHelpText() =>
-            $"{BasicHelpText()}.\nAvailable unit webbings:\n{KnownWebbingsText()}";
+            $"{BasicHelpText()}.\nAvailable unit webbings:\n{KnownWebbingsText()}\nAvailable squad presets:\n{KnownSquadPresetsText()}";
 
         private static string KnownWebbingsText()
         {
@@ -829,6 +1131,47 @@ namespace Si.UtilityAI
                 ? string.Join("\n", webbings)
                 : "none";
         }
+
+        private static string KnownSquadPresetsText()
+        {
+            var presets = SiNpcSquadPresetCatalog.GetKnownPresets();
+            if (presets.Count == 0)
+                return "none";
+
+            var lines = new List<string>(presets.Count);
+            for (var i = 0; i < presets.Count; i++)
+                lines.Add(FormatSquadPresetSummary(presets[i]));
+            return string.Join("\n", lines);
+        }
+
+        private static string FormatSquadPresetSummary(SiNpcSquadPresetDefinition preset)
+        {
+            if (preset == null)
+                return "unknown";
+
+            var parts = new List<string>();
+            if (preset.Members != null)
+                for (var i = 0; i < preset.Members.Count; i++)
+                {
+                    var member = preset.Members[i];
+                    if (member == null || string.IsNullOrWhiteSpace(member.WebbingSubtype) || member.Count <= 0)
+                        continue;
+
+                    parts.Add(member.WebbingSubtype + " x" + member.Count);
+                }
+
+            var label = preset.Id.SubtypeName;
+            if (!string.IsNullOrWhiteSpace(preset.DisplayName)
+                && !string.Equals(preset.DisplayName, preset.Id.SubtypeName, StringComparison.OrdinalIgnoreCase))
+                label += " - " + preset.DisplayName;
+
+            return parts.Count > 0
+                ? label + ": " + string.Join(", ", parts)
+                : label;
+        }
+
+        private string SquadPresetHelpText() =>
+            $"{Command} squad <preset> [enemy|friendly] | squad spawn <preset> [enemy|friendly] | squad list\nAvailable squad presets:\n{KnownSquadPresetsText()}";
 
         private string UtilityAiDecisionMakingStatusText() =>
             $"UtilityAI decision making {(_utilityDecisionMakingEnabled ? "enabled" : "disabled")}.";

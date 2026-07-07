@@ -227,6 +227,78 @@ namespace Si.UtilityAI
                 string failure;
                 ApplyFollowOrder(entry.Key, state, false, out failure);
             }
+
+            UpdateAiSquadOrders();
+        }
+
+        private void UpdateAiSquadOrders()
+        {
+            if (Npcs == null || Squads?.Definition == null)
+                return;
+
+            var leaders = new HashSet<SiSquadLeaderKey>();
+            foreach (var npc in Npcs.Npcs.Values)
+            {
+                if (npc == null)
+                    continue;
+
+                SiAssignedNpc assignment;
+                if (!Squads.TryGetAssignment(npc.EntityId, out assignment)
+                    || assignment.Leader.Kind != SiSquadLeaderKind.Ai
+                    || !leaders.Add(assignment.Leader))
+                    continue;
+
+                if (GetCombatStance(assignment.Leader) == SiSquadCombatStance.Combat)
+                    continue;
+
+                ApplyAiFollowOrder(assignment.Leader);
+            }
+        }
+
+        private int ApplyAiFollowOrder(SiSquadLeaderKey leader)
+        {
+            if (Npcs == null || Squads?.Definition == null || leader.Kind != SiSquadLeaderKind.Ai)
+                return 0;
+
+            if (!Npcs.Npcs.TryGetValue(leader.Id, out var leaderNpc)
+                || leaderNpc?.Entity == null
+                || leaderNpc.Entity.Closed
+                || leaderNpc.Entity.MarkedForClose)
+                return 0;
+
+            var troops = new List<SiNpc>();
+            foreach (var npc in Npcs.Npcs.Values)
+            {
+                if (npc == null || npc.EntityId == leader.Id)
+                    continue;
+
+                SiAssignedNpc assignment;
+                if (!Squads.TryGetAssignment(npc.EntityId, out assignment)
+                    || !assignment.Leader.Equals(leader))
+                    continue;
+
+                troops.Add(npc);
+            }
+
+            if (troops.Count == 0)
+                return 0;
+
+            var leaderTransform = leaderNpc.Entity.WorldMatrix;
+            var leaderMotion = UpdateLeaderMotionState(leader.Id, leaderTransform);
+            Vector3D origin;
+            Vector3D forward;
+            Vector3D right;
+            CreateLeaderFrame(leaderTransform, leaderMotion.Direction, out origin, out forward, out right);
+
+            var definition = Squads.Definition;
+            var refreshDistanceSquared = definition.WaypointRefreshDistance * definition.WaypointRefreshDistance;
+            return ApplyChainedFollowOrder(
+                troops,
+                SiSquadFormation.Column,
+                origin,
+                forward,
+                definition,
+                refreshDistanceSquared);
         }
 
         private void HandleInactivePlayerLedSquads()
@@ -1067,6 +1139,36 @@ namespace Si.UtilityAI
             playerForward.Normalize();
 
             var position = playerTransform.Translation + playerForward * SpawnDistance;
+            return MatrixD.CreateWorld(position, -playerForward, up);
+        }
+
+        private static MatrixD CreateSpawnTransform(in MatrixD playerTransform, int squadIndex)
+        {
+            if (squadIndex <= 0)
+                return CreateSpawnTransform(playerTransform);
+
+            var gravity = MyGravityProviderSystem.CalculateTotalGravityInPoint(playerTransform.Translation);
+            var up = gravity.LengthSquared() > 0.0001f
+                ? -Vector3D.Normalize(gravity)
+                : playerTransform.Up;
+
+            var playerForward = Vector3D.Reject(playerTransform.Forward, up);
+            if (playerForward.LengthSquared() < 0.0001)
+                playerForward = Vector3D.CalculatePerpendicularVector(up);
+            playerForward.Normalize();
+
+            var right = Vector3D.Cross(playerForward, up);
+            if (right.LengthSquared() < 0.0001)
+                right = Vector3D.CalculatePerpendicularVector(playerForward);
+            right.Normalize();
+
+            var row = (squadIndex + 1) / 2;
+            var side = squadIndex % 2 == 0 ? 1.0 : -1.0;
+            var lateralOffset = 1.25 * row * side;
+            var depthOffset = 0.9 + (row - 1) * 1.35;
+            var position = playerTransform.Translation
+                           + playerForward * (SpawnDistance + depthOffset)
+                           + right * lateralOffset;
             return MatrixD.CreateWorld(position, -playerForward, up);
         }
     }
