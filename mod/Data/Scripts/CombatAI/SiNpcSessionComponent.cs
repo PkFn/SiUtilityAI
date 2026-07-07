@@ -80,6 +80,7 @@ namespace Si.UtilityAI
         public SiNpcManager Npcs { get; private set; }
         internal SiSquadBook Squads { get; private set; }
         internal SiSpottingSystem Spotting { get; private set; }
+        internal SiMarkerSystemDefinition MarkerSettings { get; private set; }
         internal bool ShowSquadChatter => _showSquadChatter;
         internal bool UtilityDecisionMakingEnabled => _utilityDecisionMakingEnabled;
 
@@ -90,6 +91,7 @@ namespace Si.UtilityAI
             Npcs = new SiNpcManager();
             Squads = new SiSquadBook();
             Spotting = new SiSpottingSystem(this);
+            MarkerSettings = SiMarkerSystemDefinition.Load();
             Npcs.WaypointSet += OnWaypointSet;
             Npcs.WaypointCleared += OnWaypointCleared;
             Npcs.NpcSpoke += OnNpcSpoke;
@@ -153,6 +155,7 @@ namespace Si.UtilityAI
             _resolvedPendingNpcIds.Clear();
             Spotting?.Clear();
             Spotting = null;
+            MarkerSettings = null;
             _savedNpcs = null;
             _savedSquadOrders = null;
             Squads?.ClearNpcs();

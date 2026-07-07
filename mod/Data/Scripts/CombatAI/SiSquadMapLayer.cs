@@ -33,6 +33,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
         private readonly Dictionary<string, string> _markerImages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly MyTooltip _tooltip = new MyTooltip();
         private MyPlanetAreasComponent _planetAreas;
+        private bool _markerTooltipVisible;
 
         public override void Init(MyPlanetMapControl map, MyMapGridView view, MyObjectBuilder_PlanetMapRenderLayer builder)
         {
@@ -60,9 +61,13 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 || snapshot.Count == 0
                 || _planetAreas == null
                 || Map?.CurrentView == null)
+            {
+                HideMarkerTooltip();
                 return;
+            }
 
             var mouseScreenPosition = MyGuiManager.MouseCursorPosition;
+            var hoveredCell = Map.HoveredCell;
             SiSquadMapMarker hoveredMarker = null;
             Vector2 hoveredMarkerPosition = default(Vector2);
             var hoveredDistanceSquared = float.MaxValue;
@@ -87,11 +92,9 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                     continue;
 
                 var mapPosition = Map.GetMapPosition(marker.Position);
-                var screenPosition = MyGuiManager.GetScreenCoordinateFromNormalizedCoordinate(mapPosition, false);
-                var markerScreenSize = MyGuiManager.GetScreenSizeFromNormalizedSize(IdleMarkerSize, false);
-                var hitRegion = new RectangleF(screenPosition - markerScreenSize * 0.5f, markerScreenSize);
-                if (hitRegion.Contains(mouseScreenPosition))
+                if (hoveredCell.HasValue && hoveredCell.Value == cellPosition)
                 {
+                    var screenPosition = MyGuiManager.GetScreenCoordinateFromNormalizedCoordinate(mapPosition, false);
                     var distanceSquared = Vector2.DistanceSquared(screenPosition, mouseScreenPosition);
                     if (distanceSquared < hoveredDistanceSquared)
                     {
@@ -105,10 +108,13 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             }
 
             if (hoveredMarker == null)
+            {
+                HideMarkerTooltip();
                 return;
+            }
 
             DrawMarkerIcon(hoveredMarkerPosition, hoveredMarker.StyleId, transitionAlpha, true);
-            DrawMarkerTooltip(hoveredMarker, transitionAlpha);
+            ShowMarkerTooltip(hoveredMarker);
         }
 
         private void DrawMarkerIcon(Vector2 mapPosition, string styleId, float transitionAlpha, bool hovered)
@@ -136,13 +142,15 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 SpriteBatchMode.Default);
         }
 
-        private void DrawMarkerTooltip(SiSquadMapMarker marker, float transitionAlpha)
+        private void ShowMarkerTooltip(SiSquadMapMarker marker)
         {
             if (marker == null)
                 return;
 
             BuildTooltip(marker);
-            _tooltip.Draw(MyGuiManager.MouseCursorPosition, transitionAlpha);
+            Map.SetTooltip(_tooltip);
+            Map.ShowToolTip();
+            _markerTooltipVisible = true;
         }
 
         private void BuildTooltip(SiSquadMapMarker marker)
@@ -159,6 +167,17 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 for (var i = 0; i < descriptionLines.Length; i++)
                     _tooltip.AddLine(descriptionLines[i]);
             }
+        }
+
+        private void HideMarkerTooltip()
+        {
+            if (Map == null)
+                return;
+
+            Map.SetTooltip((MyTooltip)null);
+            if (_markerTooltipVisible)
+                Map.HideToolTip();
+            _markerTooltipVisible = false;
         }
     }
 }

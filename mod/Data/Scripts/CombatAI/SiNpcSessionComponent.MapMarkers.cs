@@ -25,7 +25,7 @@ namespace Si.UtilityAI
                 || Squads == null)
                 return;
 
-            _squadMapMarkerSnapshot.AddRange(Squads.CreateAlliedSquadMapMarkers(Npcs, player.Identity.Id));
+            _squadMapMarkerSnapshot.AddRange(Squads.CreateMapMarkers(Npcs, player.Identity.Id, MarkerSettings));
         }
 
         private void ClearSquadMapMarkers()

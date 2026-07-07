@@ -35,7 +35,7 @@ namespace Si.UtilityAI
             if (!_showTroopMarkers || Npcs == null || Squads == null)
                 return;
 
-            var definition = Squads.Definition;
+            var definition = MarkerSettings;
             if (definition == null || definition.MarkerTextScale <= 0)
                 return;
 

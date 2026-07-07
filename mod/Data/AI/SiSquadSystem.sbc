@@ -10,9 +10,6 @@
     <LineSpacing>2.25</LineSpacing>
     <VeeSpacing>2.25</VeeSpacing>
     <WaypointRefreshDistance>0.75</WaypointRefreshDistance>
-    <MarkerHeight>2.2</MarkerHeight>
-    <MarkerMaxDistance>75</MarkerMaxDistance>
-    <MarkerTextScale>0.65</MarkerTextScale>
     <EnemyJoinRadius>18</EnemyJoinRadius>
 
     <Ranks>

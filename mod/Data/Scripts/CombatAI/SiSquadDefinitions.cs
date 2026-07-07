@@ -25,9 +25,6 @@ namespace Si.UtilityAI
         public double LineSpacing { get; private set; }
         public double VeeSpacing { get; private set; }
         public double WaypointRefreshDistance { get; private set; }
-        public double MarkerHeight { get; private set; }
-        public double MarkerMaxDistance { get; private set; }
-        public float MarkerTextScale { get; private set; }
         public double EnemyJoinRadius { get; private set; }
 
         public SiRankDefinition PlayerRank => GetRank(PlayerRankId);
@@ -68,9 +65,6 @@ namespace Si.UtilityAI
             LineSpacing = Math.Max(0, ob.LineSpacing);
             VeeSpacing = Math.Max(0, ob.VeeSpacing);
             WaypointRefreshDistance = Math.Max(0, ob.WaypointRefreshDistance);
-            MarkerHeight = Math.Max(0, ob.MarkerHeight);
-            MarkerMaxDistance = Math.Max(0, ob.MarkerMaxDistance);
-            MarkerTextScale = Math.Max(0, ob.MarkerTextScale);
             EnemyJoinRadius = Math.Max(0, ob.EnemyJoinRadius);
         }
 
@@ -161,15 +155,6 @@ namespace Si.UtilityAI
 
         [XmlElement]
         public double WaypointRefreshDistance;
-
-        [XmlElement]
-        public double MarkerHeight;
-
-        [XmlElement]
-        public double MarkerMaxDistance;
-
-        [XmlElement]
-        public float MarkerTextScale;
 
         [XmlElement]
         public double EnemyJoinRadius;

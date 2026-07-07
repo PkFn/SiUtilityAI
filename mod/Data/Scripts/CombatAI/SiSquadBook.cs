@@ -343,7 +343,10 @@ namespace Si.UtilityAI
             return markers;
         }
 
-        public List<SiSquadMapMarker> CreateAlliedSquadMapMarkers(SiNpcManager npcManager, long observerIdentityId)
+        public List<SiSquadMapMarker> CreateMapMarkers(
+            SiNpcManager npcManager,
+            long observerIdentityId,
+            SiMarkerSystemDefinition markerSettings)
         {
             var markers = new List<SiSquadMapMarker>();
             if (Definition == null || observerIdentityId == 0)
@@ -360,7 +363,12 @@ namespace Si.UtilityAI
             {
                 if (!HasNpcMembers(squad))
                     continue;
-                if (!ShouldShareLocationOnMap(observerArmy, hasObserverParty, observerParty, squad.Leader.Army))
+                if (!ShouldShowMarkerToObserver(
+                        markerSettings,
+                        observerArmy,
+                        hasObserverParty,
+                        observerParty,
+                        squad.Leader.Army))
                     continue;
 
                 Vector3D position;
@@ -744,6 +752,19 @@ namespace Si.UtilityAI
             {
                 return false;
             }
+        }
+
+        private static bool ShouldShowMarkerToObserver(
+            SiMarkerSystemDefinition markerSettings,
+            SiArmyKey observerArmy,
+            bool hasObserverParty,
+            MyDiplomaticParty observerParty,
+            SiArmyKey squadArmy)
+        {
+            if ((markerSettings?.SquadVisibility ?? SiSquadMapMarkerVisibility.AlliedOnly) == SiSquadMapMarkerVisibility.All)
+                return true;
+
+            return ShouldShareLocationOnMap(observerArmy, hasObserverParty, observerParty, squadArmy);
         }
 
         private static int RankOrder(SiRankDefinition rank) => rank?.Order ?? 0;

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Definition xsi:type="MyObjectBuilder_SiMarkerSystemDefinition">
+    <Id Type="MyObjectBuilder_SiMarkerSystemDefinition" Subtype="SiDefaultMarkerSystem" />
+    <MarkerHeight>2.2</MarkerHeight>
+    <MarkerMaxDistance>75</MarkerMaxDistance>
+    <MarkerTextScale>0.65</MarkerTextScale>
+    <SquadVisibility>AlliedOnly</SquadVisibility>
+  </Definition>
+</Definitions>
