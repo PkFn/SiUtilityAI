@@ -7,7 +7,6 @@ using Sandbox.Game.Entities;
 using Sandbox.Graphics;
 using Sandbox.Graphics.GUI;
 using Sandbox.ModAPI;
-using SiCore.Core.Debug;
 using Si.UtilityAI;
 using VRage.ObjectBuilders;
 using VRage.Input.Devices.Mouse;
@@ -37,7 +36,6 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
         private static readonly Vector2 CommandOverlayAnchor = new Vector2(-0.98f, -0.86f);
         private readonly Dictionary<string, string> _markerImages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly MyTooltip _tooltip = new MyTooltip();
-        private readonly SiGameLog _log = new SiGameLog(nameof(SiSquadMapLayer), "[SiMapCmd]");
         private MyPlanetAreasComponent _planetAreas;
         private SiSquadMapMarker _hoveredMarker;
         private bool _markerTooltipVisible;
@@ -59,15 +57,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 : ob?.DefaultMarkerImage;
 
             _planetAreas = map?.Planet?.Components.Get<MyPlanetAreasComponent>();
-            _middleMouseDownLastFrame = false;
-            _ignoreMiddleMouseUntilRelease = true;
-            if (map != null)
-            {
-                map.CellTriggered += HandleCellTriggered;
-                map.SecondaryActivated += HandleSecondaryActivated;
-                map.OnMouseClicked += HandleMouseClicked;
-            }
-            _log.Info($"planetId={map?.Planet?.EntityId ?? 0} planetName={map?.Planet?.Name ?? "null"} layer={Name ?? "null"} hoveredMarker={_hoveredMarker?.Name ?? "null"} selected={SiNpcSessionComponent.Instance?.HasSelectedMapCommandLeader() ?? false} branch=Init subscriptions=CellTriggered|SecondaryActivated|OnMouseClicked"); // AGENT-DEBUG-LOG
+            ResetMiddleMousePollingState(true);
         }
 
         public override void Draw(float transitionAlpha)
@@ -78,7 +68,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 || _planetAreas == null
                 || Map?.CurrentView == null)
             {
-                ResetMiddleMousePollingState();
+                ResetMiddleMousePollingState(true);
                 HideMarkerTooltip();
                 return;
             }
@@ -130,23 +120,14 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
         public override void OnEnable(bool enable)
         {
             base.OnEnable(enable);
-            _middleMouseDownLastFrame = false;
-            _ignoreMiddleMouseUntilRelease = true;
-            _log.Info($"planetId={Map?.Planet?.EntityId ?? 0} planetName={Map?.Planet?.Name ?? "null"} layer={Name ?? "null"} hoveredMarker={_hoveredMarker?.Name ?? "null"} selected={SiNpcSessionComponent.Instance?.HasSelectedMapCommandLeader() ?? false} branch=OnEnable enabled={enable}"); // AGENT-DEBUG-LOG
+            ResetMiddleMousePollingState(true);
             if (!enable)
                 SiNpcSessionComponent.Instance?.ResetLocalMapCommandSelection();
         }
 
         public override void OnRemoving()
         {
-            if (Map != null)
-            {
-                Map.CellTriggered -= HandleCellTriggered;
-                Map.SecondaryActivated -= HandleSecondaryActivated;
-                Map.OnMouseClicked -= HandleMouseClicked;
-            }
-            ResetMiddleMousePollingState();
-            _log.Info($"planetId={Map?.Planet?.EntityId ?? 0} planetName={Map?.Planet?.Name ?? "null"} layer={Name ?? "null"} hoveredMarker={_hoveredMarker?.Name ?? "null"} selected={SiNpcSessionComponent.Instance?.HasSelectedMapCommandLeader() ?? false} branch=OnRemoving subscriptionsRemoved=true"); // AGENT-DEBUG-LOG
+            ResetMiddleMousePollingState(true);
             SiNpcSessionComponent.Instance?.ResetLocalMapCommandSelection();
             base.OnRemoving();
         }
@@ -256,39 +237,12 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 0.7f);
         }
 
-        private void HandleCellTriggered(Vector2I cell)
-        {
-            var session = SiNpcSessionComponent.Instance;
-            var clickedMarker = FindMarkerForCell(
-                session?.SquadMapMarkerSnapshot,
-                cell,
-                MyGuiManager.MouseCursorPosition,
-                out _);
-            _log.Info($"planetId={Map?.Planet?.EntityId ?? 0} planetName={Map?.Planet?.Name ?? "null"} layer={Name ?? "null"} hoveredMarker={clickedMarker?.Name ?? "null"} hoveredLeader={DescribeLeader(clickedMarker)} selected={session?.HasSelectedMapCommandLeader() ?? false} zoom={Map?.CurrentZoomLevel.ToString() ?? "null"} cell={cell} branch=CellTriggeredObserved"); // AGENT-DEBUG-LOG
-        }
-
-        private void HandleSecondaryActivated()
-        {
-            var session = SiNpcSessionComponent.Instance;
-            _log.Info($"planetId={Map?.Planet?.EntityId ?? 0} planetName={Map?.Planet?.Name ?? "null"} layer={Name ?? "null"} hoveredMarker={_hoveredMarker?.Name ?? "null"} hoveredLeader={DescribeLeader(_hoveredMarker)} selected={session?.HasSelectedMapCommandLeader() ?? false} zoom={Map?.CurrentZoomLevel.ToString() ?? "null"} hoveredCell={(Map?.HoveredCell.HasValue ?? false ? Map.HoveredCell.Value.ToString() : "null")} branch=SecondaryActivated"); // AGENT-DEBUG-LOG
-        }
-
-        private void HandleMouseClicked(MyGuiControlBase sender, bool captured)
-        {
-            var session = SiNpcSessionComponent.Instance;
-            _log.Info($"planetId={Map?.Planet?.EntityId ?? 0} planetName={Map?.Planet?.Name ?? "null"} layer={Name ?? "null"} hoveredMarker={_hoveredMarker?.Name ?? "null"} hoveredLeader={DescribeLeader(_hoveredMarker)} selected={session?.HasSelectedMapCommandLeader() ?? false} zoom={Map?.CurrentZoomLevel.ToString() ?? "null"} hoveredCell={(Map?.HoveredCell.HasValue ?? false ? Map.HoveredCell.Value.ToString() : "null")} branch=OnMouseClicked captured={captured} sender={sender?.GetType().Name ?? "null"}"); // AGENT-DEBUG-LOG
-        }
-
         private void PollMiddleMouseCommandActivation(SiNpcSessionComponent session)
         {
             var input = MyAPIGateway.Input;
-            if (session == null
-                || input == null
-                || Map == null
-                || !Map.IsMouseOver
-                || !IsActiveInteractiveLayer())
+            if (!CanProcessMapCommands(input, session))
             {
-                _middleMouseDownLastFrame = false;
+                ResetMiddleMousePollingState(true);
                 return;
             }
 
@@ -300,7 +254,6 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                     return;
 
                 _ignoreMiddleMouseUntilRelease = false;
-                _log.Info($"planetId={Map.Planet?.EntityId ?? 0} planetName={Map.Planet?.Name ?? "null"} layer={Name ?? "null"} hoveredMarker={_hoveredMarker?.Name ?? "null"} hoveredLeader={DescribeLeader(_hoveredMarker)} selected={session.HasSelectedMapCommandLeader()} zoom={Map.CurrentZoomLevel} hoveredCell={(Map.HoveredCell.HasValue ? Map.HoveredCell.Value.ToString() : "null")} branch=MiddleArm"); // AGENT-DEBUG-LOG
                 return;
             }
 
@@ -310,8 +263,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             if (!middlePressed && !middleRisingEdge)
                 return;
 
-            _log.Info($"planetId={Map.Planet?.EntityId ?? 0} planetName={Map.Planet?.Name ?? "null"} layer={Name ?? "null"} hoveredMarker={_hoveredMarker?.Name ?? "null"} hoveredLeader={DescribeLeader(_hoveredMarker)} selected={session.HasSelectedMapCommandLeader()} zoom={Map.CurrentZoomLevel} hoveredCell={(Map.HoveredCell.HasValue ? Map.HoveredCell.Value.ToString() : "null")} branch=MiddlePolled pressed={middlePressed} risingEdge={middleRisingEdge}"); // AGENT-DEBUG-LOG
-            HandleMapCommandActivation(Map.HoveredCell, middlePressed ? "PollMiddlePressed" : "PollMiddleRisingEdge");
+            HandleMapCommandActivation(session, Map.HoveredCell);
         }
 
         private bool TryResolveCommandTarget(Vector2I cell, out Vector3D target)
@@ -376,55 +328,32 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             }
         }
 
-        private static string DescribeLeader(SiSquadMapMarker marker)
+        private void HandleMapCommandActivation(SiNpcSessionComponent session, Vector2I? cell)
         {
-            if (marker == null)
-                return "none";
+            if (session == null
+                || Map == null
+                || !cell.HasValue)
+                return;
 
-            return $"{marker.Leader.Kind}:{marker.Leader.Id}:{marker.Leader.Army.Kind}:{marker.Leader.Army.Id}";
-        }
-
-        private void HandleMapCommandActivation(Vector2I? cell, string branchName)
-        {
-            var session = SiNpcSessionComponent.Instance;
             var clickedMarker = FindMarkerForCell(
-                session?.SquadMapMarkerSnapshot,
+                session.SquadMapMarkerSnapshot,
                 cell,
                 MyGuiManager.MouseCursorPosition,
                 out _);
-            _log.Info($"planetId={Map?.Planet?.EntityId ?? 0} planetName={Map?.Planet?.Name ?? "null"} layer={Name ?? "null"} hoveredMarker={clickedMarker?.Name ?? "null"} hoveredLeader={DescribeLeader(clickedMarker)} selected={session?.HasSelectedMapCommandLeader() ?? false} zoom={Map?.CurrentZoomLevel.ToString() ?? "null"} cell={(cell.HasValue ? cell.Value.ToString() : "null")} branch={branchName}"); // AGENT-DEBUG-LOG
-            if (session == null
-                || Map == null
-                || !Map.IsMouseOver
-                || !IsActiveInteractiveLayer()
-                || !cell.HasValue)
-            {
-                _log.Warning($"planetId={Map?.Planet?.EntityId ?? 0} planetName={Map?.Planet?.Name ?? "null"} layer={Name ?? "null"} hoveredMarker={clickedMarker?.Name ?? "null"} hoveredLeader={DescribeLeader(clickedMarker)} selected={session?.HasSelectedMapCommandLeader() ?? false} zoom={Map?.CurrentZoomLevel.ToString() ?? "null"} cell={(cell.HasValue ? cell.Value.ToString() : "null")} branch={branchName}Rejected reason={(session == null ? "NoSession" : Map == null ? "NoMap" : !Map.IsMouseOver ? "MouseNotOver" : !IsActiveInteractiveLayer() ? "InactiveView" : "NoHoveredCell")}"); // AGENT-DEBUG-LOG
-                return;
-            }
-
             if (clickedMarker != null && session.CanLocalPlayerCommandSquad(clickedMarker))
             {
-                var selected = session.ToggleLocalMapCommandSelection(clickedMarker);
-                _log.Info($"planetId={Map?.Planet?.EntityId ?? 0} planetName={Map?.Planet?.Name ?? "null"} layer={Name ?? "null"} hoveredMarker={clickedMarker?.Name ?? "null"} hoveredLeader={DescribeLeader(clickedMarker)} selected={session.HasSelectedMapCommandLeader()} zoom={Map.CurrentZoomLevel} cell={cell.Value} branch=MarkerToggle outcome={(selected ? "Selected" : "Deselected")}"); // AGENT-DEBUG-LOG
+                session.ToggleLocalMapCommandSelection(clickedMarker);
                 return;
             }
 
             if (!session.HasSelectedMapCommandLeader())
-            {
-                _log.Warning($"planetId={Map?.Planet?.EntityId ?? 0} planetName={Map?.Planet?.Name ?? "null"} layer={Name ?? "null"} hoveredMarker={clickedMarker?.Name ?? "null"} hoveredLeader={DescribeLeader(clickedMarker)} selected={false} zoom={Map.CurrentZoomLevel} cell={cell.Value} branch=MoveRejected reason=NoSelectedLeader"); // AGENT-DEBUG-LOG
                 return;
-            }
 
             Vector3D target;
             if (!TryResolveCommandTarget(cell.Value, out target))
-            {
-                _log.Warning($"planetId={Map?.Planet?.EntityId ?? 0} planetName={Map?.Planet?.Name ?? "null"} layer={Name ?? "null"} hoveredMarker={clickedMarker?.Name ?? "null"} hoveredLeader={DescribeLeader(clickedMarker)} selected={session.HasSelectedMapCommandLeader()} zoom={Map.CurrentZoomLevel} cell={cell.Value} branch=MoveRejected reason=TargetResolutionFailed"); // AGENT-DEBUG-LOG
                 return;
-            }
 
-            var issued = session.TryIssueSelectedMapMoveOrder(target);
-            _log.Info($"planetId={Map?.Planet?.EntityId ?? 0} planetName={Map?.Planet?.Name ?? "null"} layer={Name ?? "null"} hoveredMarker={clickedMarker?.Name ?? "null"} hoveredLeader={DescribeLeader(clickedMarker)} selected={session.HasSelectedMapCommandLeader()} zoom={Map.CurrentZoomLevel} cell={cell.Value} target={target} branch=MoveIssued outcome={issued}"); // AGENT-DEBUG-LOG
+            session.TryIssueSelectedMapMoveOrder(target);
         }
 
         private SiSquadMapMarker FindMarkerForCell(
@@ -487,9 +416,19 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                    && ReferenceEquals(View, Map.CurrentView);
         }
 
-        private void ResetMiddleMousePollingState()
+        private bool CanProcessMapCommands(VRage.Input.IMyInput input, SiNpcSessionComponent session)
+        {
+            return session != null
+                   && input != null
+                   && Map != null
+                   && Map.IsMouseOver
+                   && IsActiveInteractiveLayer();
+        }
+
+        private void ResetMiddleMousePollingState(bool requireRelease)
         {
             _middleMouseDownLastFrame = false;
+            _ignoreMiddleMouseUntilRelease = requireRelease;
         }
     }
 }

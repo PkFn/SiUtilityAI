@@ -92,6 +92,7 @@ namespace Si.UtilityAI
 
             RequestAiSquadMoveOrder(leader, target);
             NotifyShow($"Move order sent to {MapCommandLeaderName(leader) ?? "selected squad"}.");
+            ClearLocalMapCommandSelection(false);
             return true;
         }
 
