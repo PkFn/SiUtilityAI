@@ -377,10 +377,13 @@ namespace Si.UtilityAI
 
             var tokens = message.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
             if (tokens.Length < 2)
-                return Respond(sender, HelpText());
+                return Respond(sender, BasicHelpText());
 
             switch (tokens[1].ToLowerInvariant())
             {
+                case "help":
+                case "?":
+                    return Respond(sender, ExpandedHelpText());
                 case "spawn":
                     return SpawnFromCommand(sender, tokens);
                 case "spawn-enemy":
@@ -405,7 +408,7 @@ namespace Si.UtilityAI
                 case "log":
                     return HandleGameLogCommand(sender, tokens);
                 default:
-                    return Respond(sender, HelpText());
+                    return Respond(sender, BasicHelpText());
             }
         }
 
@@ -425,7 +428,7 @@ namespace Si.UtilityAI
         {
             var webbing = tokens.Length >= 3 ? tokens[2] : GetDefaultEnemyWebbing();
             if (string.IsNullOrWhiteSpace(webbing))
-                return Respond(sender, $"No trooper webbings are currently available. Available: {KnownWebbingsText()}.");
+                return Respond(sender, "No trooper webbings are currently available.");
 
             return SpawnFromCommand(
                 sender,
@@ -441,7 +444,7 @@ namespace Si.UtilityAI
         private bool SpawnFromCommand(ulong sender, string[] tokens)
         {
             if (!TryParseSpawnRequest(tokens, false, out var request, out var failure))
-                return Respond(sender, failure ?? HelpText());
+                return Respond(sender, failure ?? BasicHelpText());
 
             return SpawnFromCommand(sender, request);
         }
@@ -449,7 +452,7 @@ namespace Si.UtilityAI
         private bool SpawnFromCommand(ulong sender, SiNpcSpawnRequest request)
         {
             if (!SiNpcTrooperCatalog.TryResolveLoadout(request.WebbingSubtype, request.IsParatrooper, out _, out _))
-                return Respond(sender, $"Unknown trooper webbing '{request.WebbingSubtype}'. Available: {KnownWebbingsText()}.");
+                return Respond(sender, $"Unknown trooper webbing '{request.WebbingSubtype}'. Use {Command} help to see available unit webbings.");
 
             var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(sender, 0));
             var playerPosition = player?.ControlledEntity?.Get<MyPositionComponentBase>();
@@ -561,7 +564,7 @@ namespace Si.UtilityAI
             failure = null;
             if (tokens == null || tokens.Length < 3 || string.IsNullOrWhiteSpace(tokens[2]))
             {
-                failure = $"Usage: {Command} spawn <webbing> [paratrooper] [enemy]. Available: {KnownWebbingsText()}";
+                failure = $"Usage: {Command} spawn <webbing> [paratrooper] [enemy]. Use {Command} help to see available unit webbings.";
                 return false;
             }
 
@@ -813,8 +816,11 @@ namespace Si.UtilityAI
             }
         }
 
-        private string HelpText() =>
-            $"{Command} spawn <webbing> [paratrooper] [enemy] | spawn-enemy [webbing] | list | clear | utility-ai [toggle|on|off|status] | gamelog [toggle|on|off|status].\n Available webbings:\n {KnownWebbingsText()}";
+        private string BasicHelpText() =>
+            $"{Command} spawn <webbing> [paratrooper] [enemy] | spawn-enemy [webbing] | list | clear | utility-ai [toggle|on|off|status] | gamelog [toggle|on|off|status] | help";
+
+        private string ExpandedHelpText() =>
+            $"{BasicHelpText()}.\nAvailable unit webbings:\n{KnownWebbingsText()}";
 
         private static string KnownWebbingsText()
         {
