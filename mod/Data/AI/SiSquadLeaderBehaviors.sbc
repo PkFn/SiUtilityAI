@@ -11,7 +11,7 @@
     <MaximumCoverOffset>1.35</MaximumCoverOffset>
     <CoverOffsetStep>0.1</CoverOffsetStep>
     <AdvanceSectorAngleDegrees>150</AdvanceSectorAngleDegrees>
-    <MoveScore>0.2</MoveScore>
+    <MoveScore>0.5</MoveScore>
     <MinimumTakeCoverScore>0.05</MinimumTakeCoverScore>
     <ThreatTakeCoverScore>0.85</ThreatTakeCoverScore>
     <DamageTakeCoverScore>0.98</DamageTakeCoverScore>
