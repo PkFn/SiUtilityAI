@@ -31,6 +31,7 @@ namespace Si.UtilityAI
         private const double CoverScanCachePositionQuantization = 6.0;
         private const double CoverSearchCachePositionQuantization = 8.0;
         private const double CombatStanceNearbyEnemyDistance = 80;
+        private const double AiMapCommandArrivalDistance = 4.0;
 
         private static SiNpcSessionComponent _instance;
         private static double _speakRange = -1;
@@ -38,6 +39,8 @@ namespace Si.UtilityAI
             new Dictionary<long, SiSquadCommandState>();
         private readonly Dictionary<SiSquadLeaderKey, SiSquadCombatState> _squadCombatStates =
             new Dictionary<SiSquadLeaderKey, SiSquadCombatState>();
+        private readonly Dictionary<SiSquadLeaderKey, SiAiSquadMoveOrderState> _aiSquadMoveOrders =
+            new Dictionary<SiSquadLeaderKey, SiAiSquadMoveOrderState>();
         private readonly Dictionary<long, SiPlayerLeaderState> _playerLeaderStates =
             new Dictionary<long, SiPlayerLeaderState>();
         private readonly Dictionary<long, SiMotionState> _leaderMotionStates =
@@ -137,6 +140,7 @@ namespace Si.UtilityAI
             Npcs = null;
             _squadOrders.Clear();
             _squadCombatStates.Clear();
+            _aiSquadMoveOrders.Clear();
             _playerLeaderStates.Clear();
             _leaderMotionStates.Clear();
             _npcMotionStates.Clear();

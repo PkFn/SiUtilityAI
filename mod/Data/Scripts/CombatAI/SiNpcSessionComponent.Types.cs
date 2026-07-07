@@ -220,6 +220,16 @@ namespace Si.UtilityAI
         public long CombatEntryToken { get; set; }
     }
 
+    internal sealed class SiAiSquadMoveOrderState
+    {
+        public SiAiSquadMoveOrderState(in Vector3D target)
+        {
+            Target = target;
+        }
+
+        public Vector3D Target { get; set; }
+    }
+
     internal sealed class SiPlayerLeaderState
     {
         public bool WasActive { get; set; }

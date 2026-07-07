@@ -746,5 +746,38 @@ namespace Si.UtilityAI
 
             _instance?.ExecuteUtilityCommand(player, (SiUtilityCommandMenuCommand)command);
         }
+
+        [Event, Reliable, Server]
+        private static void RequestAiSquadMoveOrderServer(
+            byte leaderKind,
+            long leaderId,
+            byte armyKind,
+            long armyId,
+            Vector3D target)
+        {
+            if (!Enum.IsDefined(typeof(SiSquadLeaderKind), (int)leaderKind)
+                || !Enum.IsDefined(typeof(SiArmyKind), (int)armyKind)
+                || (SiSquadLeaderKind)leaderKind != SiSquadLeaderKind.Ai
+                || leaderId == 0)
+            {
+                MyEventContext.ValidationFailed();
+                return;
+            }
+
+            var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(MyEventContext.Current.Sender.Value, 0));
+            if (player?.Identity == null)
+            {
+                MyEventContext.ValidationFailed();
+                return;
+            }
+
+            _instance?.ApplyAiSquadMoveOrder(
+                player,
+                new SiSquadLeaderKey(
+                    (SiSquadLeaderKind)leaderKind,
+                    leaderId,
+                    new SiArmyKey((SiArmyKind)armyKind, armyId)),
+                target);
+        }
     }
 }

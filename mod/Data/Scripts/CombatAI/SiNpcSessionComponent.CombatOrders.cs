@@ -251,6 +251,7 @@ namespace Si.UtilityAI
                 if (GetCombatStance(assignment.Leader) == SiSquadCombatStance.Combat)
                     continue;
 
+                MaintainAiLeaderMoveOrder(assignment.Leader);
                 ApplyAiFollowOrder(assignment.Leader);
             }
         }
@@ -468,6 +469,13 @@ namespace Si.UtilityAI
                 _leaderMotionStates.Remove(change.OldLeader.Id);
             }
 
+            if (_aiSquadMoveOrders.TryGetValue(change.OldLeader, out var moveOrder))
+            {
+                _aiSquadMoveOrders.Remove(change.OldLeader);
+                if (moveOrder != null)
+                    _aiSquadMoveOrders[change.NewLeader] = moveOrder;
+            }
+
             SiSquadCombatState combatState;
             if (!_squadCombatStates.TryGetValue(change.OldLeader, out combatState))
                 return;
@@ -625,6 +633,102 @@ namespace Si.UtilityAI
             }
 
             return issued;
+        }
+
+        private void RequestAiSquadMoveOrder(SiSquadLeaderKey leader, in Vector3D target)
+        {
+            if (leader.Kind != SiSquadLeaderKind.Ai)
+                return;
+
+            var player = LocalPlayer();
+            if (player?.Identity == null || !CanIdentityCommandArmy(player.Identity.Id, leader.Army))
+                return;
+
+            if (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer)
+            {
+                MyMultiplayerModApi.Static.RaiseStaticEvent(
+                    x => RequestAiSquadMoveOrderServer,
+                    (byte)leader.Kind,
+                    leader.Id,
+                    (byte)leader.Army.Kind,
+                    leader.Army.Id,
+                    target);
+                return;
+            }
+
+            ApplyAiSquadMoveOrder(player, leader, target);
+        }
+
+        private void ApplyAiSquadMoveOrder(MyPlayer issuer, SiSquadLeaderKey leader, in Vector3D target)
+        {
+            if (issuer?.Identity == null
+                || leader.Kind != SiSquadLeaderKind.Ai
+                || Npcs == null
+                || Squads == null
+                || !CanIdentityCommandArmy(issuer.Identity.Id, leader.Army)
+                || !HasSquadMembers(leader))
+                return;
+
+            _aiSquadMoveOrders[leader] = new SiAiSquadMoveOrderState(target);
+            MaintainAiLeaderMoveOrder(leader);
+        }
+
+        private bool MaintainAiLeaderMoveOrder(SiSquadLeaderKey leader)
+        {
+            if (leader.Kind != SiSquadLeaderKind.Ai
+                || Npcs == null
+                || !_aiSquadMoveOrders.TryGetValue(leader, out var state)
+                || state == null)
+                return false;
+
+            if (!Npcs.Npcs.TryGetValue(leader.Id, out var leaderNpc)
+                || leaderNpc?.Entity == null
+                || leaderNpc.Entity.Closed
+                || leaderNpc.Entity.MarkedForClose
+                || leaderNpc.IsDead)
+                return false;
+
+            var definition = Squads?.Definition;
+            var refreshDistance = definition?.WaypointRefreshDistance ?? 0;
+            var arrivalDistance = Math.Max(
+                AiMapCommandArrivalDistance,
+                refreshDistance);
+            if (Vector3D.DistanceSquared(
+                    leaderNpc.Entity.WorldMatrix.Translation,
+                    state.Target) <= arrivalDistance * arrivalDistance)
+            {
+                _aiSquadMoveOrders.Remove(leader);
+                Npcs.TryClearWaypoint(leader.Id);
+                return false;
+            }
+
+            var refreshDistanceSquared = refreshDistance * refreshDistance;
+            var mover = leaderNpc as ISiWaypointMover;
+            if (mover != null
+                && mover.HasWaypoint
+                && refreshDistanceSquared > 0
+                && Vector3D.DistanceSquared(mover.Waypoint, state.Target) < refreshDistanceSquared)
+                return true;
+
+            return Npcs.TrySetWaypoint(leader.Id, state.Target);
+        }
+
+        private bool HasSquadMembers(SiSquadLeaderKey leader)
+        {
+            if (Npcs == null || Squads == null)
+                return false;
+
+            foreach (var npc in Npcs.Npcs.Values)
+            {
+                if (npc == null)
+                    continue;
+
+                SiAssignedNpc assignment;
+                if (Squads.TryGetAssignment(npc.EntityId, out assignment) && assignment.Leader.Equals(leader))
+                    return true;
+            }
+
+            return false;
         }
 
         private int ClearLeaderWaypoints(long leaderIdentityId)
