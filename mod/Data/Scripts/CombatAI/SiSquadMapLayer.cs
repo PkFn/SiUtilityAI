@@ -27,7 +27,14 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
     [MyMapRenderLayer(typeof(MyObjectBuilder_SiSquadMapLayer), true)]
     internal sealed class SiSquadMapLayer : MyPlanetMapRenderLayerBase
     {
-        private const float MarkerTextScale = 0.55f;
+        private const float MarkerTitleScale = 0.55f;
+        private const float MarkerDescriptionScale = 0.45f;
+        private const float HoverHitRadius = 0.0125f;
+        private static readonly Vector2 IdleMarkerSize = new Vector2(0.0105f, 0.0105f);
+        private static readonly Vector2 HoveredMarkerSize = new Vector2(0.015f, 0.015f);
+        private static readonly Vector2 HoverPopupOffset = new Vector2(18f, 14f);
+        private static readonly Vector2 HoverTextShadowOffset = new Vector2(1.5f, 1.5f);
+        private static readonly char[] PopupLineBreaks = { '\n' };
         private readonly Dictionary<string, string> _markerImages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private MyPlanetAreasComponent _planetAreas;
 
@@ -59,6 +66,12 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 || Map?.CurrentView == null)
                 return;
 
+            var mousePosition = MyGuiManager.GetNormalizedCoordinateFromScreenCoordinate(MyGuiManager.MouseCursorPosition);
+            var hoverRadiusSquared = HoverHitRadius * HoverHitRadius;
+            SiSquadMapMarker hoveredMarker = null;
+            Vector2 hoveredMarkerPosition = default(Vector2);
+            var hoveredDistanceSquared = float.MaxValue;
+
             foreach (var marker in snapshot)
             {
                 long areaId;
@@ -79,12 +92,25 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                     continue;
 
                 var mapPosition = Map.GetMapPosition(marker.Position);
-                DrawMarkerIcon(mapPosition, marker.StyleId, transitionAlpha);
-                DrawMarkerLabel(mapPosition, marker.Name, transitionAlpha);
+                var distanceSquared = Vector2.DistanceSquared(mapPosition, mousePosition);
+                if (distanceSquared <= hoverRadiusSquared && distanceSquared < hoveredDistanceSquared)
+                {
+                    hoveredMarker = marker;
+                    hoveredMarkerPosition = mapPosition;
+                    hoveredDistanceSquared = distanceSquared;
+                }
+
+                DrawMarkerIcon(mapPosition, marker.StyleId, transitionAlpha, false);
             }
+
+            if (hoveredMarker == null)
+                return;
+
+            DrawMarkerIcon(hoveredMarkerPosition, hoveredMarker.StyleId, transitionAlpha, true);
+            DrawMarkerPopup(hoveredMarker, transitionAlpha);
         }
 
-        private void DrawMarkerIcon(Vector2 mapPosition, string styleId, float transitionAlpha)
+        private void DrawMarkerIcon(Vector2 mapPosition, string styleId, float transitionAlpha, bool hovered)
         {
             if (!_markerImages.TryGetValue(styleId ?? string.Empty, out var texture) || string.IsNullOrWhiteSpace(texture))
                 _markerImages.TryGetValue("default", out texture);
@@ -94,8 +120,10 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             MyRenderProxy.DrawSprite(
                 texture,
                 mapPosition,
-                Vector2.Zero,
-                new Color(1f, 1f, 1f, transitionAlpha),
+                hovered ? HoveredMarkerSize : IdleMarkerSize,
+                hovered
+                    ? new Color(1f, 1f, 1f, transitionAlpha)
+                    : new Color(0.88f, 1f, 0.88f, 0.9f * transitionAlpha),
                 MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER,
                 0f,
                 Vector2.UnitX,
@@ -107,19 +135,51 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 SpriteBatchMode.Default);
         }
 
-        private static void DrawMarkerLabel(Vector2 mapPosition, string label, float transitionAlpha)
+        private static void DrawMarkerPopup(SiSquadMapMarker marker, float transitionAlpha)
         {
-            if (string.IsNullOrWhiteSpace(label))
+            if (marker == null)
                 return;
 
-            var screenPosition = MyGuiManager.GetScreenCoordinateFromNormalizedCoordinate(mapPosition + new Vector2(0.008f, -0.006f));
+            var screenPosition = MyGuiManager.MouseCursorPosition + HoverPopupOffset;
+            var title = marker.Name;
+            if (!string.IsNullOrWhiteSpace(title))
+                DrawPopupLine(screenPosition, title, new Color(0.9f, 1f, 0.9f, transitionAlpha), MarkerTitleScale);
+
+            if (string.IsNullOrWhiteSpace(marker.Description))
+                return;
+
+            var descriptionLines = marker.Description.Split(PopupLineBreaks, StringSplitOptions.RemoveEmptyEntries);
+            var linePosition = screenPosition + new Vector2(0f, 18f);
+            for (var i = 0; i < descriptionLines.Length; i++)
+            {
+                DrawPopupLine(linePosition, descriptionLines[i], new Color(0.8f, 0.95f, 0.8f, transitionAlpha), MarkerDescriptionScale);
+                linePosition += new Vector2(0f, 16f);
+            }
+        }
+
+        private static void DrawPopupLine(Vector2 screenPosition, string text, Color color, float scale)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return;
+
+            MyRenderProxy.DrawString(
+                MyGuiConstants.DEFAULT_FONT,
+                screenPosition + HoverTextShadowOffset,
+                new Color(0f, 0f, 0f, color.A / 255f * 0.8f),
+                text,
+                scale,
+                float.PositiveInfinity,
+                null,
+                SpriteBatchMode.Default);
             MyRenderProxy.DrawString(
                 MyGuiConstants.DEFAULT_FONT,
                 screenPosition,
-                new Color(0.8f, 1f, 0.8f, transitionAlpha),
-                label,
-                MarkerTextScale,
-                float.PositiveInfinity);
+                color,
+                text,
+                scale,
+                float.PositiveInfinity,
+                null,
+                SpriteBatchMode.Default);
         }
     }
 }
