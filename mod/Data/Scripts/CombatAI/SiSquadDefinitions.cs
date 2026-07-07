@@ -100,9 +100,11 @@ namespace Si.UtilityAI
         {
             get
             {
+                if (!string.IsNullOrWhiteSpace(Phonetic))
+                    return Phonetic;
                 if (!string.IsNullOrWhiteSpace(DisplayName))
                     return DisplayName;
-                return string.IsNullOrWhiteSpace(Phonetic) ? Code : Code + "-" + Phonetic;
+                return Code;
             }
         }
     }

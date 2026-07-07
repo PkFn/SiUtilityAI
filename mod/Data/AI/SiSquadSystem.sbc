@@ -18,32 +18,32 @@
     </Ranks>
 
     <Letters>
-      <Letter Code="A" Phonetic="Alpha" DisplayName="A-Alpha" />
-      <Letter Code="B" Phonetic="Bravo" DisplayName="B-Bravo" />
-      <Letter Code="C" Phonetic="Charlie" DisplayName="C-Charlie" />
-      <Letter Code="D" Phonetic="Delta" DisplayName="D-Delta" />
-      <Letter Code="E" Phonetic="Echo" DisplayName="E-Echo" />
-      <Letter Code="F" Phonetic="Foxtrot" DisplayName="F-Foxtrot" />
-      <Letter Code="G" Phonetic="Golf" DisplayName="G-Golf" />
-      <Letter Code="H" Phonetic="Hotel" DisplayName="H-Hotel" />
-      <Letter Code="I" Phonetic="India" DisplayName="I-India" />
-      <Letter Code="J" Phonetic="Juliett" DisplayName="J-Juliett" />
-      <Letter Code="K" Phonetic="Kilo" DisplayName="K-Kilo" />
-      <Letter Code="L" Phonetic="Lima" DisplayName="L-Lima" />
-      <Letter Code="M" Phonetic="Mike" DisplayName="M-Mike" />
-      <Letter Code="N" Phonetic="November" DisplayName="N-November" />
-      <Letter Code="O" Phonetic="Oscar" DisplayName="O-Oscar" />
-      <Letter Code="P" Phonetic="Papa" DisplayName="P-Papa" />
-      <Letter Code="Q" Phonetic="Quebec" DisplayName="Q-Quebec" />
-      <Letter Code="R" Phonetic="Romeo" DisplayName="R-Romeo" />
-      <Letter Code="S" Phonetic="Sierra" DisplayName="S-Sierra" />
-      <Letter Code="T" Phonetic="Tango" DisplayName="T-Tango" />
-      <Letter Code="U" Phonetic="Uniform" DisplayName="U-Uniform" />
-      <Letter Code="V" Phonetic="Victor" DisplayName="V-Victor" />
-      <Letter Code="W" Phonetic="Whiskey" DisplayName="W-Whiskey" />
-      <Letter Code="X" Phonetic="X-ray" DisplayName="X-X-ray" />
-      <Letter Code="Y" Phonetic="Yankee" DisplayName="Y-Yankee" />
-      <Letter Code="Z" Phonetic="Zulu" DisplayName="Z-Zulu" />
+      <Letter Code="A" Phonetic="Alpha" DisplayName="Alpha" />
+      <Letter Code="B" Phonetic="Bravo" DisplayName="Bravo" />
+      <Letter Code="C" Phonetic="Charlie" DisplayName="Charlie" />
+      <Letter Code="D" Phonetic="Delta" DisplayName="Delta" />
+      <Letter Code="E" Phonetic="Echo" DisplayName="Echo" />
+      <Letter Code="F" Phonetic="Foxtrot" DisplayName="Foxtrot" />
+      <Letter Code="G" Phonetic="Golf" DisplayName="Golf" />
+      <Letter Code="H" Phonetic="Hotel" DisplayName="Hotel" />
+      <Letter Code="I" Phonetic="India" DisplayName="India" />
+      <Letter Code="J" Phonetic="Juliett" DisplayName="Juliett" />
+      <Letter Code="K" Phonetic="Kilo" DisplayName="Kilo" />
+      <Letter Code="L" Phonetic="Lima" DisplayName="Lima" />
+      <Letter Code="M" Phonetic="Mike" DisplayName="Mike" />
+      <Letter Code="N" Phonetic="November" DisplayName="November" />
+      <Letter Code="O" Phonetic="Oscar" DisplayName="Oscar" />
+      <Letter Code="P" Phonetic="Papa" DisplayName="Papa" />
+      <Letter Code="Q" Phonetic="Quebec" DisplayName="Quebec" />
+      <Letter Code="R" Phonetic="Romeo" DisplayName="Romeo" />
+      <Letter Code="S" Phonetic="Sierra" DisplayName="Sierra" />
+      <Letter Code="T" Phonetic="Tango" DisplayName="Tango" />
+      <Letter Code="U" Phonetic="Uniform" DisplayName="Uniform" />
+      <Letter Code="V" Phonetic="Victor" DisplayName="Victor" />
+      <Letter Code="W" Phonetic="Whiskey" DisplayName="Whiskey" />
+      <Letter Code="X" Phonetic="X-ray" DisplayName="X-ray" />
+      <Letter Code="Y" Phonetic="Yankee" DisplayName="Yankee" />
+      <Letter Code="Z" Phonetic="Zulu" DisplayName="Zulu" />
     </Letters>
   </Definition>
 </Definitions>

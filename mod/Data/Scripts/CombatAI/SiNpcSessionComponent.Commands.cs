@@ -248,15 +248,16 @@ namespace Si.UtilityAI
             chat.BroadcastMessage(HouseChannel, sender, message);
         }
 
-        private void SpeakAiMapMoveOrder(MyPlayer player, in Vector3D target)
+        private void SpeakAiMapMoveOrder(MyPlayer player, SiSquadLeaderKey leader, in Vector3D target)
         {
             if (player == null)
                 return;
 
+            var squadCallsign = Squads?.GetSquadCallsign(Npcs, leader) ?? "Squad";
             string grid;
             var message = TryFormatMapCommandGrid(target, out grid)
-                ? $"Move to grid {grid}."
-                : "Move to target.";
+                ? $"{squadCallsign}, move to grid {grid}."
+                : $"{squadCallsign}, move to target.";
             BroadcastPlayerHouseCommand(player, message);
         }
 
@@ -420,9 +421,8 @@ namespace Si.UtilityAI
                 Respond(sender, line);
 
             var state = GetSquadOrder(leaderIdentityId);
-            Respond(
-                sender,
-                $"Order: {OrderName(state.Mode)}, formation {FormationName(state.Formation)}, engagement {EngagementName(state.EngagementStance)}, combat {CombatStanceName(GetCombatStance(PlayerLeaderKey(leaderIdentityId)))}, transport {TransportModeName(state.TransportMode)}.");
+            lines.Add($"Order: {OrderName(state.Mode)}, formation {FormationName(state.Formation)}, engagement {EngagementName(state.EngagementStance)}, combat {CombatStanceName(GetCombatStance(PlayerLeaderKey(leaderIdentityId)))}, transport {TransportModeName(state.TransportMode)}.");
+            RespondLines(sender, lines);
         }
 
         private void StopSquad(ulong sender, long leaderIdentityId)
@@ -1167,10 +1167,10 @@ namespace Si.UtilityAI
         }
 
         private static string EnemyTrooperName(SiNpc npc) =>
-            "Enemy trooper " + npc.EntityId;
+            "Enemy AI";
 
         private static string FriendlyTrooperName(SiNpc npc) =>
-            "Trooper " + npc.EntityId;
+            "AI";
 
         private bool HandleSquadCommand(ulong sender, string message, MyChatCommandType handledAsType)
         {
@@ -1255,15 +1255,21 @@ namespace Si.UtilityAI
             return true;
         }
 
+        private bool RespondLines(ulong sender, IReadOnlyList<string> lines)
+        {
+            if (lines == null || lines.Count == 0)
+                return Respond(sender, string.Empty);
+
+            return Respond(sender, string.Join("\n\n", lines));
+        }
+
         private bool RespondSquadRoster(ulong sender)
         {
             var lines = Squads?.CreateRosterLines(Npcs);
             if (lines == null || lines.Count == 0)
                 return Respond(sender, "No squad roster is available.");
 
-            foreach (var line in lines)
-                Respond(sender, line);
-            return true;
+            return RespondLines(sender, lines);
         }
 
         private static string PlayerName(MyPlayer player)

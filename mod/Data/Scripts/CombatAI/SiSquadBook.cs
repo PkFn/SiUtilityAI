@@ -364,6 +364,20 @@ namespace Si.UtilityAI
             return markers;
         }
 
+        public string GetSquadCallsign(SiNpcManager npcManager, SiSquadLeaderKey leader)
+        {
+            if (Definition == null || leader.Id == 0)
+                return null;
+
+            PurgeClosedNpcs(npcManager);
+            var squads = BuildSquads(npcManager);
+            for (var i = 0; i < squads.Count; i++)
+                if (squads[i].Leader.Equals(leader))
+                    return SquadCallsign(squads[i]);
+
+            return null;
+        }
+
         public List<SiSquadMapMarker> CreateMapMarkers(
             SiNpcManager npcManager,
             long observerIdentityId,
@@ -508,10 +522,11 @@ namespace Si.UtilityAI
             if (squads.TryGetValue(leader, out squad))
                 return squad;
 
+            var displayLeaderName = LeaderDisplayName(leader, leaderName);
             squad = new SiSquadView(
                 leader,
-                ArmyName(leader.Army, leaderName),
-                leaderName);
+                ArmyName(leader.Army, displayLeaderName),
+                displayLeaderName);
             squads.Add(leader, squad);
             return squad;
         }
@@ -544,7 +559,7 @@ namespace Si.UtilityAI
                 squad.Members.Sort(CompareMembers);
                 var squadCallsign = SquadCallsign(squad);
                 for (var i = 0; i < squad.Members.Count; i++)
-                    squad.Members[i].SetCallsign(squadCallsign + " " + (i + 1));
+                    squad.Members[i].SetCallsign(squadCallsign + "-" + (i + 1));
             }
         }
 
@@ -848,18 +863,13 @@ namespace Si.UtilityAI
             var builder = new StringBuilder();
             builder.Append(squad.ArmyName);
             builder.Append(" - ");
-            builder.Append(squad.Letter != null
-                ? squad.Letter.CallSign
-                : "#" + (squad.LetterIndex + 1));
-            builder.Append(": \n");
+            builder.Append(SquadCallsign(squad));
 
             for (var i = 0; i < squad.Members.Count; i++)
             {
-                if (i > 0)
-                    builder.Append("; \n");
+                builder.Append('\n');
                 builder.Append(FormatMember(squad.Members[i]));
             }
-            builder.Append("; \n");
 
             return builder.ToString();
         }
@@ -961,6 +971,41 @@ namespace Si.UtilityAI
             if (squad?.Letter != null)
                 return squad.Letter.CallSign;
             return "Squad " + ((squad?.LetterIndex ?? 0) + 1);
+        }
+
+        private static string LeaderDisplayName(SiSquadLeaderKey leader, string leaderName)
+        {
+            if (leader.Kind != SiSquadLeaderKind.Ai)
+                return leaderName;
+
+            if (LooksLikeGeneratedAiName(leaderName))
+                return "AI";
+
+            return string.IsNullOrWhiteSpace(leaderName) ? "AI" : leaderName;
+        }
+
+        private static bool LooksLikeGeneratedAiName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return true;
+
+            return HasNumericSuffix(name, "Trooper ")
+                   || HasNumericSuffix(name, "Enemy trooper ");
+        }
+
+        private static bool HasNumericSuffix(string text, string prefix)
+        {
+            if (string.IsNullOrWhiteSpace(text)
+                || string.IsNullOrWhiteSpace(prefix)
+                || !text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                || text.Length <= prefix.Length)
+                return false;
+
+            for (var i = prefix.Length; i < text.Length; i++)
+                if (!char.IsDigit(text[i]))
+                    return false;
+
+            return true;
         }
 
         private static SiSquadLeaderKey CreatePlayerLeader(long identityId)
