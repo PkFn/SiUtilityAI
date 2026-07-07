@@ -8,8 +8,6 @@ using Sandbox.Graphics;
 using Sandbox.Graphics.GUI;
 using Si.UtilityAI;
 using VRage.ObjectBuilders;
-using VRage.Input;
-using VRage.Input.Devices.Mouse;
 using VRage.Utils;
 using VRageMath;
 using VRageRender;
@@ -37,6 +35,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
         private readonly Dictionary<string, string> _markerImages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly MyTooltip _tooltip = new MyTooltip();
         private MyPlanetAreasComponent _planetAreas;
+        private SiSquadMapMarker _hoveredMarker;
         private bool _markerTooltipVisible;
 
         public override void Init(MyPlanetMapControl map, MyMapGridView view, MyObjectBuilder_PlanetMapRenderLayer builder)
@@ -54,6 +53,8 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 : ob?.DefaultMarkerImage;
 
             _planetAreas = map?.Planet?.Components.Get<MyPlanetAreasComponent>();
+            if (map != null)
+                map.SecondaryActivated += HandleSecondaryActivated;
         }
 
         public override void Draw(float transitionAlpha)
@@ -116,15 +117,15 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                     session.IsMapCommandLeaderSelected(marker.Leader));
             }
 
-            HandleMapCommandInput(session, hoveredMarker);
-
             if (hoveredMarker == null)
             {
+                _hoveredMarker = null;
                 HideMarkerTooltip();
                 DrawMapCommandOverlay(session, null);
                 return;
             }
 
+            _hoveredMarker = hoveredMarker;
             DrawMarkerIcon(
                 hoveredMarkerPosition,
                 hoveredMarker.StyleId,
@@ -144,6 +145,8 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
 
         public override void OnRemoving()
         {
+            if (Map != null)
+                Map.SecondaryActivated -= HandleSecondaryActivated;
             SiNpcSessionComponent.Instance?.ResetLocalMapCommandSelection();
             base.OnRemoving();
         }
@@ -253,18 +256,17 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 0.7f);
         }
 
-        private void HandleMapCommandInput(SiNpcSessionComponent session, SiSquadMapMarker hoveredMarker)
+        private void HandleSecondaryActivated()
         {
+            var session = SiNpcSessionComponent.Instance;
             if (session == null
                 || Map == null
-                || !Map.IsMouseOver
-                || MyInput.Static == null
-                || !MyInput.Static.IsMousePressed(MyMouseButtons.Middle))
+                || !Map.IsMouseOver)
                 return;
 
-            if (hoveredMarker != null && session.CanLocalPlayerCommandSquad(hoveredMarker))
+            if (_hoveredMarker != null && session.CanLocalPlayerCommandSquad(_hoveredMarker))
             {
-                session.ToggleLocalMapCommandSelection(hoveredMarker);
+                session.ToggleLocalMapCommandSelection(_hoveredMarker);
                 return;
             }
 
