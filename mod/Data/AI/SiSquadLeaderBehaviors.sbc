@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Definition xsi:type="MyObjectBuilder_SiAdvanceTowardEnemyLeaderBehaviorDefinition">
+    <Id Type="MyObjectBuilder_SiAdvanceTowardEnemyLeaderBehavior" Subtype="SiAiLeaderAdvanceToEnemyLeader" />
+    <SearchRadius>36</SearchRadius>
+    <WaypointRefreshDistance>0.6</WaypointRefreshDistance>
+    <CoverOccupancyRadius>1.45</CoverOccupancyRadius>
+    <CoverArrivalDistance>1.1</CoverArrivalDistance>
+    <MinimumCoverOffset>0.25</MinimumCoverOffset>
+    <PreferredTreeOffset>0.55</PreferredTreeOffset>
+    <MaximumCoverOffset>1.35</MaximumCoverOffset>
+    <CoverOffsetStep>0.1</CoverOffsetStep>
+    <AdvanceSectorAngleDegrees>150</AdvanceSectorAngleDegrees>
+    <MoveScore>0.2</MoveScore>
+    <MinimumTakeCoverScore>0.05</MinimumTakeCoverScore>
+    <ThreatTakeCoverScore>0.85</ThreatTakeCoverScore>
+    <DamageTakeCoverScore>0.98</DamageTakeCoverScore>
+    <TakeCoverScoreDecayPerSecond>0.08</TakeCoverScoreDecayPerSecond>
+    <CoverHoldCooldownMilliseconds>5000</CoverHoldCooldownMilliseconds>
+    <RecentDamageMemoryMilliseconds>5000</RecentDamageMemoryMilliseconds>
+    <TargetMemoryMilliseconds>2500</TargetMemoryMilliseconds>
+    <MinimumAdvanceProgressDistance>1.25</MinimumAdvanceProgressDistance>
+    <StopAdvanceDistance>12</StopAdvanceDistance>
+    <LeaderCoverBlacklistRadius>1.0</LeaderCoverBlacklistRadius>
+  </Definition>
+</Definitions>

@@ -54,6 +54,22 @@ namespace Si.UtilityAI
                    && state.Mode == SiSquadOrderMode.Follow;
         }
 
+        internal bool TryGetAssignment(SiNpc npc, out SiAssignedNpc assignment)
+        {
+            assignment = null;
+            return npc != null
+                   && Squads != null
+                   && Squads.TryGetAssignment(npc.EntityId, out assignment);
+        }
+
+        internal bool IsAiSquadLeader(SiNpc npc)
+        {
+            SiAssignedNpc assignment;
+            return TryGetAssignment(npc, out assignment)
+                   && assignment.IsLeader
+                   && assignment.Leader.Kind == SiSquadLeaderKind.Ai;
+        }
+
         internal bool TryGetLeaderPosition(SiNpc npc, out Vector3D position)
         {
             position = Vector3D.Zero;
@@ -64,10 +80,19 @@ namespace Si.UtilityAI
             if (!Squads.TryGetAssignment(npc.EntityId, out assignment))
                 return false;
 
-            if (assignment.Leader.Kind == SiSquadLeaderKind.Player)
+            return TryGetLeaderPosition(assignment.Leader, out position);
+        }
+
+        internal bool TryGetLeaderPosition(SiSquadLeaderKey leader, out Vector3D position)
+        {
+            position = Vector3D.Zero;
+            if (leader.Id == 0)
+                return false;
+
+            if (leader.Kind == SiSquadLeaderKind.Player)
             {
                 VRageMath.MatrixD leaderTransform;
-                if (!TryGetLeaderTransform(assignment.Leader.Id, out leaderTransform))
+                if (!TryGetLeaderTransform(leader.Id, out leaderTransform))
                     return false;
 
                 position = leaderTransform.Translation;
@@ -76,7 +101,7 @@ namespace Si.UtilityAI
 
             SiNpc leaderNpc;
             if (Npcs == null
-                || !Npcs.Npcs.TryGetValue(assignment.Leader.Id, out leaderNpc)
+                || !Npcs.Npcs.TryGetValue(leader.Id, out leaderNpc)
                 || leaderNpc?.Entity == null)
                 return false;
 
@@ -110,6 +135,8 @@ namespace Si.UtilityAI
         {
             if (requester == null)
                 return false;
+            if (IsLeaderCoverBlacklisted(requester, coverPosition))
+                return false;
 
             foreach (var reservation in _coverReservations)
             {
@@ -123,6 +150,31 @@ namespace Si.UtilityAI
             }
 
             return true;
+        }
+
+        internal long GetLastSquadShotAtTime(SiNpc npc)
+        {
+            if (npc == null || Squads == null)
+                return long.MinValue;
+
+            SiAssignedNpc assignment;
+            if (!Squads.TryGetAssignment(npc.EntityId, out assignment))
+                return long.MinValue;
+
+            if (!_squadCombatStates.TryGetValue(assignment.Leader, out var combatState) || combatState == null)
+                return long.MinValue;
+
+            return combatState.LastShotAtTime;
+        }
+
+        internal bool WasSquadRecentlyShotAt(SiNpc npc, long recentMilliseconds)
+        {
+            if (recentMilliseconds <= 0)
+                return false;
+
+            var lastShotAtTime = GetLastSquadShotAtTime(npc);
+            return lastShotAtTime > long.MinValue
+                   && CurrentTimeMilliseconds() - lastShotAtTime <= recentMilliseconds;
         }
 
         internal bool TryReserveCover(SiNpc requester, in Vector3D coverPosition, double radius)
@@ -348,6 +400,26 @@ namespace Si.UtilityAI
                 behaviorDefinitionId,
                 CoverScanCachePositionQuantization);
             _coverScanCache[key] = entry;
+        }
+
+        private bool IsLeaderCoverBlacklisted(SiNpc requester, in Vector3D coverPosition)
+        {
+            if (requester == null || Squads == null)
+                return false;
+
+            SiAssignedNpc assignment;
+            if (!Squads.TryGetAssignment(requester.EntityId, out assignment) || assignment.IsLeader)
+                return false;
+
+            var radius = SiAdvanceTowardEnemyLeaderBehaviorDefinition.LoadDefault()?.LeaderCoverBlacklistRadius ?? 0f;
+            if (radius <= 0)
+                return false;
+
+            Vector3D leaderPosition;
+            if (!TryGetLeaderPosition(assignment.Leader, out leaderPosition))
+                return false;
+
+            return Vector3D.DistanceSquared(leaderPosition, coverPosition) <= radius * radius;
         }
     }
 }

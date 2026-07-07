@@ -104,6 +104,12 @@ namespace Si.UtilityAI
             var session = SiNpcSessionComponent.Instance;
             if (context?.Agent == null || session == null)
                 return 0;
+            if (session.IsAiSquadLeader(context.Agent))
+            {
+                ResetState(context);
+                context.Agent.ClearCombatMovementRole();
+                return 0;
+            }
 
             if (session.GetCombatStance(context.Agent) != SiSquadCombatStance.Combat)
             {

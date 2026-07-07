@@ -30,6 +30,7 @@
     <Component Type="SiNpcCombatStateComponent" />
     <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
     <Component Type="SiUseTransportSeatsBehavior" Subtype="SiTrooperUseTransportSeats" />
+    <Component Type="SiAdvanceTowardEnemyLeaderBehavior" Subtype="SiAiLeaderAdvanceToEnemyLeader" />
     <Component Type="SiTakeCoverBehavior" Subtype="SiTrooperTakeCover" />
     <Component Type="SiTakePlainViewBehavior" Subtype="SiTrooperTakePlainView" />
     <Component Type="SiSelfUnstuckTeleportBehavior" Subtype="SiTrooperSelfUnstuckTeleport" />

@@ -670,6 +670,7 @@ namespace Si.UtilityAI
                 return;
 
             _aiSquadMoveOrders[leader] = new SiAiSquadMoveOrderState(target);
+            SpeakAiMapMoveOrder(issuer, target);
             MaintainAiLeaderMoveOrder(leader);
         }
 

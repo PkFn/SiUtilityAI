@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Equinox76561198048419394.Core.Util;
+using Medieval.GameSystems;
 using Medieval.GameSystems.Factions;
 using Sandbox.Definitions.Chat;
 using Sandbox.Game.Entities;
@@ -21,7 +23,9 @@ namespace Si.UtilityAI
     public sealed partial class SiNpcSessionComponent
     {
         private static readonly Vector2 SpottingTextAnchor = new Vector2(-0.98f, -0.92f);
+        private const string HouseChannelName = "House";
         private const string SpeakChannelName = "Speak";
+        private static readonly MyStringHash HouseChannel = MyStringHash.GetOrCompute(HouseChannelName);
         private static readonly MyStringHash HostileRelationship = MyStringHash.GetOrCompute("War");
         private static readonly MyStringHash SpeakChannel = MyStringHash.GetOrCompute(SpeakChannelName);
 
@@ -229,6 +233,72 @@ namespace Si.UtilityAI
                     speaker,
                     message);
             }
+        }
+
+        private void BroadcastPlayerHouseCommand(MyPlayer player, string message)
+        {
+            if (string.IsNullOrWhiteSpace(message) || player == null)
+                return;
+
+            var chat = _chat ?? MyChatSystem.Static;
+            var sender = player.Id.SteamId;
+            if (chat == null || sender == 0)
+                return;
+
+            chat.BroadcastMessage(HouseChannel, sender, message);
+        }
+
+        private void SpeakAiMapMoveOrder(MyPlayer player, in Vector3D target)
+        {
+            if (player == null)
+                return;
+
+            string grid;
+            var message = TryFormatMapCommandGrid(target, out grid)
+                ? $"Move to grid {grid}."
+                : "Move to target.";
+            BroadcastPlayerHouseCommand(player, message);
+        }
+
+        private static bool TryFormatMapCommandGrid(in Vector3D target, out string grid)
+        {
+            grid = null;
+
+            var planet = MyGamePruningStructureSandbox.GetClosestPlanet(target);
+            var areas = planet?.Components.Get<MyPlanetAreasComponent>();
+            if (areas == null)
+                return false;
+
+            long areaId;
+            try
+            {
+                var localTarget = Vector3D.Transform(in target, in areas.Entity.PositionComp.WorldMatrixInvScaledRef);
+                areaId = areas.GetArea((Vector3)localTarget);
+            }
+            catch
+            {
+                return false;
+            }
+
+            string kingdom;
+            string region;
+            string area;
+            try
+            {
+                areas.UnpackAreaIdToNames(areaId, out kingdom, out region, out area);
+            }
+            catch
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(region) || string.IsNullOrWhiteSpace(area))
+                return false;
+
+            grid = string.IsNullOrWhiteSpace(kingdom)
+                ? $"{region}, {area}"
+                : $"{kingdom}, {region}, {area}";
+            return true;
         }
 
         private static string UtilityCommandSpeech(SiUtilityCommandMenuCommand command)
