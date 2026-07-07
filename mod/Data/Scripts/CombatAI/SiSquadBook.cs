@@ -373,7 +373,7 @@ namespace Si.UtilityAI
                     FormatMapMarkerName(squad),
                     FormatMapMarkerDescription(squad),
                     false,
-                    "default"));
+                    squad.Leader.Kind == SiSquadLeaderKind.Player ? "player" : "ally"));
             }
 
             return markers;

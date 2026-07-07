@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Definition xsi:type="MyObjectBuilder_PlanetMapDefinition">
+    <Id Type="MyObjectBuilder_PlanetMapDefinition" Subtype="Main" />
+
+    <RegionView>
+      <Layers>
+        <Layer xsi:type="MyObjectBuilder_MapBackgroundLayer" />
+        <Layer xsi:type="MyObjectBuilder_PlanetWonderLayer" />
+        <Layer xsi:type="MyObjectBuilder_AreaDevelopmentLayer">
+          <Threshold BlockCount="10" Sprite="Textures\GUI\Map\SmallGrid.png" />
+          <Threshold BlockCount="30" Sprite="Textures\GUI\Map\MediumGrid.png" />
+          <Threshold BlockCount="60" Sprite="Textures\GUI\Map\LargeGrid.png" />
+        </Layer>
+        <Layer xsi:type="MyObjectBuilder_RegionFastTravelLayer" Name="FastTravel" Visible="false">
+          <UnreachableColor R="255" G="255" B="255" A="128" />
+          <ReachableColor R="100" G="255" B="100" A="0" />
+          <BlockedByTerrainColor R="0" G="0" B="0" A="224" />
+          <BlockedByPlayerColor R="240" G="192" B="0" A="128" />
+        </Layer>
+        <Layer xsi:type="MyObjectBuilder_AreaOwnershipLayer">
+          <AlliedBgColor Hex="#806464FF" />
+          <PlayerBgColor Hex="#8064FF64" />
+          <EnemyBgColor Hex="#80DC6415" />
+        </Layer>
+        <Layer xsi:type="MyObjectBuilder_AreaUpkeepLayer">
+          <TaxIcon>Textures\GUI\Map\TaxIcon.png</TaxIcon>
+        </Layer>
+        <Layer xsi:type="MyObjectBuilder_PlanetMapPositionLayer" Name="PlanetMapPositionLayer">
+          <LocalPlayerImage>Textures\GUI\Map\PlayerPosition.png</LocalPlayerImage>
+          <OtherPlayersImage>Textures\GUI\Map\AllyPosition.png</OtherPlayersImage>
+        </Layer>
+        <Layer xsi:type="MyObjectBuilder_SiSquadMapLayer" Name="SiSquadMarkersLayer" Visible="true">
+          <DefaultMarkerImage>Textures\GUI\Map\AllyPosition.png</DefaultMarkerImage>
+          <PlayerLedMarkerImage>Textures\GUI\Map\PlayerPosition.png</PlayerLedMarkerImage>
+          <AlliedMarkerImage>Textures\GUI\Map\AllyPosition.png</AlliedMarkerImage>
+        </Layer>
+        <Layer xsi:type="MyObjectBuilder_ActionTrackingLayer">
+          <ActionImage>Textures\GUI\Map\Action.png</ActionImage>
+        </Layer>
+        <Layer xsi:type="MyObjectBuilder_CurrentMapSelectionLayer">
+          <SelectionImage>Textures\GUI\Map\MapSelection.dds</SelectionImage>
+        </Layer>
+        <Layer xsi:type="MyObjectBuilder_PlanetMapGridLayer">
+          <GridColor R="0" G="0" B="0" A="228" />
+        </Layer>
+      </Layers>
+    </RegionView>
+
+    <KingdomView>
+      <Layers>
+        <Layer xsi:type="MyObjectBuilder_MapBackgroundLayer" />
+        <Layer xsi:type="MyObjectBuilder_PlanetWonderLayer" />
+        <Layer xsi:type="MyObjectBuilder_KingdomFastTravelLayer" Name="FastTravel" Visible="false">
+          <UnreachableColor R="255" G="255" B="255" A="128" />
+          <ReachableColor R="100" G="255" B="100" A="0" />
+          <BlockedByTerrainColor R="0" G="0" B="0" A="224" />
+          <BlockedByPlayerColor R="240" G="192" B="0" A="128" />
+        </Layer>
+        <Layer xsi:type="MyObjectBuilder_RegionOwnershipLayer">
+          <PlayerIcon>Textures\GUI\Map\PlayerLandIcon.png</PlayerIcon>
+          <AllyIcon>Textures\GUI\Map\AllyLandIcon.png</AllyIcon>
+          <EnemyIcon>Textures\GUI\Map\EnemyLandIcon.png</EnemyIcon>
+          <PlayerAllyIcon>Textures\GUI\Map\PlayerAllyLandIcon.png</PlayerAllyIcon>
+          <PlayerEnemyIcon>Textures\GUI\Map\PlayerEnemyLandIcon.png</PlayerEnemyIcon>
+          <AllyEnemyIcon>Textures\GUI\Map\AllyEnemyLandIcon.png</AllyEnemyIcon>
+          <PlayerAllyEnemyIcon>Textures\GUI\Map\PlayerAllyEnemyLandIcon.png</PlayerAllyEnemyIcon>
+        </Layer>
+        <Layer xsi:type="MyObjectBuilder_RegionUpkeepLayer">
+          <TaxIcon>Textures\GUI\Map\TaxIcon.png</TaxIcon>
+        </Layer>
+        <Layer xsi:type="MyObjectBuilder_PlanetMapPositionLayer" Name="PlanetMapPositionLayer">
+          <LocalPlayerImage>Textures\GUI\Map\PlayerPosition.png</LocalPlayerImage>
+          <OtherPlayersImage>Textures\GUI\Map\AllyPosition.png</OtherPlayersImage>
+        </Layer>
+        <Layer xsi:type="MyObjectBuilder_SiSquadMapLayer" Name="SiSquadMarkersLayer" Visible="true">
+          <DefaultMarkerImage>Textures\GUI\Map\AllyPosition.png</DefaultMarkerImage>
+          <PlayerLedMarkerImage>Textures\GUI\Map\PlayerPosition.png</PlayerLedMarkerImage>
+          <AlliedMarkerImage>Textures\GUI\Map\AllyPosition.png</AlliedMarkerImage>
+        </Layer>
+        <Layer xsi:type="MyObjectBuilder_ActionTrackingLayer">
+          <ActionImage>Textures\GUI\Map\Action.png</ActionImage>
+        </Layer>
+        <Layer xsi:type="MyObjectBuilder_CurrentMapSelectionLayer">
+          <SelectionImage>Textures\GUI\Map\MapSelection.dds</SelectionImage>
+        </Layer>
+        <Layer xsi:type="MyObjectBuilder_PlanetMapGridLayer">
+          <GridColor R="0" G="0" B="0" A="228" />
+        </Layer>
+      </Layers>
+    </KingdomView>
+  </Definition>
+</Definitions>
