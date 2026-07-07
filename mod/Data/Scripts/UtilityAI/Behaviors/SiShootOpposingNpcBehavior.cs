@@ -238,6 +238,9 @@ namespace Si.UtilityAI
         private long _lastSpotSpeechTime = -1;
         private long _lastSpottedTargetId;
         private long _lastSuccessfulFireTime = long.MinValue;
+        private long _lastVisibleThreatTime = long.MinValue;
+        private long _lastVisibleThreatEntityId;
+        private Vector3D _lastVisibleThreatPosition;
         private SiShootOpposingNpcBehaviorDefinition _runtimeDefinition;
         private SiNpcCombatStateComponent _combatState;
 
@@ -299,6 +302,7 @@ namespace Si.UtilityAI
             }
 
             var observation = TryReportSpotting(context, target, distance);
+            RememberVisibleThreat(target, observation);
 
             var normalizedDistance = Definition.SearchRadius > 0
                 ? MathHelper.Clamp(1f - (float)(distance / Definition.SearchRadius), 0, 1)
@@ -373,6 +377,7 @@ namespace Si.UtilityAI
                 return;
             }
 
+            RememberVisibleThreat(target, observation);
             if (_combatState != null && !_combatState.AllowsFiring)
             {
                 _combatState.SetFiring(false);
@@ -397,6 +402,9 @@ namespace Si.UtilityAI
             _nextTargetEvaluationTime = -1;
             _lastSpottedTargetId = 0;
             _lastSuccessfulFireTime = long.MinValue;
+            _lastVisibleThreatTime = long.MinValue;
+            _lastVisibleThreatEntityId = 0;
+            _lastVisibleThreatPosition = Vector3D.Zero;
             _combatState?.SetFiring(false);
             GetWeapon()?.ClearFireIntent();
             GetWeapon()?.ResetState();
@@ -839,6 +847,39 @@ namespace Si.UtilityAI
             GetWeapon()?.Definition?.MuzzleUpOffset ?? GetWeaponAimHeight();
 
         internal long GetLastSuccessfulFireTime() => _lastSuccessfulFireTime;
+
+        internal bool TryGetRecentThreat(long maxAgeMilliseconds, out long targetEntityId, out Vector3D targetPosition)
+        {
+            targetEntityId = 0;
+            targetPosition = Vector3D.Zero;
+            if (maxAgeMilliseconds < 0 || _lastVisibleThreatTime < 0)
+                return false;
+
+            if (CurrentTimeMilliseconds() - _lastVisibleThreatTime > maxAgeMilliseconds)
+                return false;
+
+            targetEntityId = _lastVisibleThreatEntityId;
+            targetPosition = _lastVisibleThreatPosition;
+            return targetEntityId != 0 || targetPosition != Vector3D.Zero;
+        }
+
+        private void RememberVisibleThreat(ShootTarget target, SiSpottingObservation observation)
+        {
+            if (!IsObservationVisible(observation))
+                return;
+
+            var threatEntity = ResolveThreatEntity(target, observation);
+            if (threatEntity == null)
+                return;
+
+            _lastVisibleThreatEntityId = threatEntity.EntityId;
+            _lastVisibleThreatPosition = observation.VehicleSpotted
+                                         && observation.VehicleTargetPosition != Vector3D.Zero
+                                         && threatEntity.EntityId == observation.VehicleEntityId
+                ? observation.VehicleTargetPosition
+                : threatEntity.WorldMatrix.Translation;
+            _lastVisibleThreatTime = CurrentTimeMilliseconds();
+        }
 
         private bool IsOpposing(SiNpc self, SiNpc candidate, SiSquadBook squads, SiSquadEngagementStance stance)
         {

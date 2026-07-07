@@ -538,6 +538,44 @@ namespace Si.UtilityAI
                 return true;
             }
 
+            if (_shootBehavior != null
+                && _shootBehavior.TryGetRecentThreat(
+                    _definition.TargetMemoryMilliseconds,
+                    out var rememberedThreatEntityId,
+                    out var rememberedThreatPosition))
+            {
+                enemyLeaderPosition = rememberedThreatPosition;
+                enemyLeaderEntityId = rememberedThreatEntityId;
+                if (rememberedThreatEntityId != 0
+                    && session.Npcs?.Npcs != null
+                    && session.Npcs.Npcs.TryGetValue(rememberedThreatEntityId, out var rememberedThreatNpc)
+                    && session.Squads != null
+                    && session.Squads.TryGetAssignment(rememberedThreatNpc.EntityId, out var rememberedAssignment)
+                    && session.TryGetLeaderPosition(rememberedAssignment.Leader, out var rememberedLeaderPosition))
+                {
+                    enemyLeaderPosition = rememberedLeaderPosition;
+                    enemyLeaderEntityId = rememberedAssignment.Leader.Id;
+                }
+
+                _lastKnownEnemyLeaderPosition = enemyLeaderPosition;
+                _lastKnownEnemyLeaderObservationTime = now;
+                _hasLastKnownEnemyLeaderPosition = true;
+                return true;
+            }
+
+            if (TryFindNearestOpposingLeaderTarget(
+                    session,
+                    context?.Agent,
+                    context?.Position ?? Vector3D.Zero,
+                    out enemyLeaderPosition,
+                    out enemyLeaderEntityId))
+            {
+                _lastKnownEnemyLeaderPosition = enemyLeaderPosition;
+                _lastKnownEnemyLeaderObservationTime = now;
+                _hasLastKnownEnemyLeaderPosition = true;
+                return true;
+            }
+
             if (!_hasLastKnownEnemyLeaderPosition
                 || now - _lastKnownEnemyLeaderObservationTime > _definition.TargetMemoryMilliseconds)
                 return false;
@@ -545,6 +583,53 @@ namespace Si.UtilityAI
             enemyLeaderPosition = _lastKnownEnemyLeaderPosition;
             enemyLeaderEntityId = 0;
             return true;
+        }
+
+        private static bool TryFindNearestOpposingLeaderTarget(
+            SiNpcSessionComponent session,
+            SiNpc agent,
+            in Vector3D origin,
+            out Vector3D enemyLeaderPosition,
+            out long enemyLeaderEntityId)
+        {
+            enemyLeaderPosition = Vector3D.Zero;
+            enemyLeaderEntityId = 0;
+
+            if (session?.Npcs?.Npcs == null
+                || session.Squads == null
+                || agent == null
+                || !session.TryGetAssignment(agent, out var selfAssignment))
+                return false;
+
+            var selfLeader = selfAssignment.Leader;
+            var seenLeaders = new HashSet<SiSquadLeaderKey>();
+            var bestDistanceSquared = double.MaxValue;
+
+            foreach (var entry in session.Npcs.Npcs)
+            {
+                var candidateNpc = entry.Value;
+                if (candidateNpc?.Entity == null
+                    || !session.Squads.TryGetAssignment(candidateNpc.EntityId, out var candidateAssignment))
+                    continue;
+
+                var candidateLeader = candidateAssignment.Leader;
+                if (candidateLeader.Id == 0
+                    || candidateLeader.Equals(selfLeader)
+                    || candidateLeader.Army.Equals(selfLeader.Army)
+                    || !seenLeaders.Add(candidateLeader)
+                    || !session.TryGetLeaderPosition(candidateLeader, out var candidateLeaderPosition))
+                    continue;
+
+                var distanceSquared = Vector3D.DistanceSquared(origin, candidateLeaderPosition);
+                if (distanceSquared >= bestDistanceSquared)
+                    continue;
+
+                bestDistanceSquared = distanceSquared;
+                enemyLeaderPosition = candidateLeaderPosition;
+                enemyLeaderEntityId = candidateLeader.Id;
+            }
+
+            return bestDistanceSquared < double.MaxValue;
         }
 
         private void RememberAdvanceDirection(SiUtilityContext context, in Vector3D enemyLeaderPosition)
