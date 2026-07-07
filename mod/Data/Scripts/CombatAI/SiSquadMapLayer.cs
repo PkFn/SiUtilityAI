@@ -111,8 +111,8 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             }
 
             var layout = BuildMarkerLayout(snapshot);
-            var mouseScreenPosition = MyGuiManager.MouseCursorPosition;
-            var hoveredMarker = FindMarkerAtCursor(layout, mouseScreenPosition, out var hoveredMarkerPosition);
+            var mouseNormalizedPosition = MyGuiManager.MouseCursorPosition;
+            var hoveredMarker = FindMarkerAtCursor(layout, mouseNormalizedPosition, out var hoveredMarkerPosition);
 
             for (var i = 0; i < layout.Count; i++)
             {
@@ -420,7 +420,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
 
         private SiSquadMapMarker FindMarkerAtCursor(
             IReadOnlyList<SiMarkerLayout> layout,
-            Vector2 mouseScreenPosition,
+            Vector2 mouseNormalizedPosition,
             out Vector2 hoveredMarkerPosition)
         {
             hoveredMarkerPosition = default(Vector2);
@@ -428,6 +428,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 || Map?.CurrentView == null)
                 return null;
 
+            var mousePixelPosition = MyGuiManager.GetScreenCoordinateFromNormalizedCoordinate(mouseNormalizedPosition, false);
             SiSquadMapMarker hoveredMarker = null;
             var hoveredDistanceSquared = float.MaxValue;
             var maxDistanceSquared = MarkerHitRadiusSquared();
@@ -438,8 +439,8 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 if (marker == null)
                     continue;
 
-                var screenPosition = MyGuiManager.GetScreenCoordinateFromNormalizedCoordinate(markerEntry.MapPosition, false);
-                var distanceSquared = Vector2.DistanceSquared(screenPosition, mouseScreenPosition);
+                var markerPixelPosition = MyGuiManager.GetScreenCoordinateFromNormalizedCoordinate(markerEntry.MapPosition, false);
+                var distanceSquared = Vector2.DistanceSquared(markerPixelPosition, mousePixelPosition);
                 if (distanceSquared > maxDistanceSquared
                     || distanceSquared >= hoveredDistanceSquared)
                     continue;
@@ -522,8 +523,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             if (!environmentViewport.Contains(environmentPosition))
                 return false;
 
-            var screenPosition = environmentPosition * envToScreenScale + envToScreenTranslate;
-            mapPosition = MyGuiManager.GetNormalizedCoordinateFromScreenCoordinate(screenPosition);
+            mapPosition = environmentPosition * envToScreenScale + envToScreenTranslate;
             return true;
         }
 
