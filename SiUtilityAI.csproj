@@ -27,8 +27,10 @@
   <ItemGroup>
     <EmbeddedResource Remove="ref_vanilla_content\**" />
     <EmbeddedResource Remove="ref_workshop\**" />
+    <EmbeddedResource Remove="ref_gamelog\**" />
     <None Remove="ref_vanilla_content\**" />
     <None Remove="ref_workshop\**" />
+    <None Remove="ref_gamelog\**" />
   </ItemGroup>
 
   <ItemGroup>

@@ -78,6 +78,7 @@
 - Use `powershell -ExecutionPolicy Bypass -File .\tools\Remove-AgentDebugLogs.ps1` from the repo root to remove every marked debug log line under `mod/Data/`. Use `-WhatIf` first to preview the files and counts without editing, and pass `-Root .\some\other\Data` to target a different Data tree when needed.
 - Include the entity id, entity name, key definition subtype, and the exact branch outcome being tested. One good log line with concrete state is better than many vague ones.
 - For wiring problems, log the component or inventory lookup results directly. If useful, dump the runtime component type list once on first failure instead of spamming it every retry.
+- The log file is at `ref_gamelog/MedievalEngineers.log`.
 - After the issue is understood or fixed, remove or reduce verbose success-path logging and keep only the diagnostics that are likely to help with future regressions.
 
 ## Verification
