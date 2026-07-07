@@ -45,6 +45,7 @@
   - Use partial classes and nested helper types only where the surrounding `ref_equi_core` style would do so.
 - Match nearby file style for namespaces, visibility, attributes, nullability, and update/event patterns.
 - Avoid introducing new framework abstractions unless they fit the game's script-loading constraints and existing project style.
+- When addressing to an asset (model, sound, etc.) always make sure it's available.
 
 ## Data-Driven Component Tuning
 
