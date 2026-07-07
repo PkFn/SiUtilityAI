@@ -24,6 +24,9 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
         public string DefaultMarkerImage;
         public string PlayerLedMarkerImage;
         public string AlliedMarkerImage;
+        public string FriendlyMarkerImage;
+        public string EnemyMarkerImage;
+        public string IndependentMarkerImage;
     }
 
     [MyMapRenderLayer(typeof(MyObjectBuilder_SiSquadMapLayer), true)]
@@ -48,13 +51,36 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
 
             var ob = builder as MyObjectBuilder_SiSquadMapLayer;
             _markerImages.Clear();
-            _markerImages["default"] = ob?.DefaultMarkerImage;
+            _markerImages["default"] = FirstNonEmpty(
+                ob?.DefaultMarkerImage,
+                ob?.IndependentMarkerImage,
+                ob?.FriendlyMarkerImage,
+                ob?.AlliedMarkerImage,
+                ob?.EnemyMarkerImage);
             _markerImages["player"] = !string.IsNullOrWhiteSpace(ob?.PlayerLedMarkerImage)
                 ? ob.PlayerLedMarkerImage
-                : ob?.DefaultMarkerImage;
+                : FirstNonEmpty(
+                    ob?.FriendlyMarkerImage,
+                    ob?.AlliedMarkerImage,
+                    ob?.DefaultMarkerImage);
             _markerImages["ally"] = !string.IsNullOrWhiteSpace(ob?.AlliedMarkerImage)
                 ? ob.AlliedMarkerImage
-                : ob?.DefaultMarkerImage;
+                : FirstNonEmpty(
+                    ob?.FriendlyMarkerImage,
+                    ob?.DefaultMarkerImage);
+            _markerImages["friendly"] = FirstNonEmpty(
+                ob?.FriendlyMarkerImage,
+                ob?.AlliedMarkerImage,
+                ob?.PlayerLedMarkerImage,
+                ob?.DefaultMarkerImage);
+            _markerImages["enemy"] = FirstNonEmpty(
+                ob?.EnemyMarkerImage,
+                ob?.DefaultMarkerImage,
+                ob?.IndependentMarkerImage);
+            _markerImages["independent"] = FirstNonEmpty(
+                ob?.IndependentMarkerImage,
+                ob?.DefaultMarkerImage,
+                ob?.FriendlyMarkerImage);
 
             _planetAreas = map?.Planet?.Components.Get<MyPlanetAreasComponent>();
             ResetMiddleMousePollingState(true);
@@ -429,6 +455,18 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
         {
             _middleMouseDownLastFrame = false;
             _ignoreMiddleMouseUntilRelease = requireRelease;
+        }
+
+        private static string FirstNonEmpty(params string[] values)
+        {
+            if (values == null)
+                return null;
+
+            for (var i = 0; i < values.Length; i++)
+                if (!string.IsNullOrWhiteSpace(values[i]))
+                    return values[i];
+
+            return null;
         }
     }
 }

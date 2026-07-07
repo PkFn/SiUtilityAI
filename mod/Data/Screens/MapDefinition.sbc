@@ -31,9 +31,12 @@
           <OtherPlayersImage>Textures\GUI\Map\AllyPosition.png</OtherPlayersImage>
         </Layer>
         <Layer xsi:type="MyObjectBuilder_SiSquadMapLayer" Name="SiSquadMarkersLayer" Visible="true">
-          <DefaultMarkerImage>Textures\GUI\Map\AllyPosition.png</DefaultMarkerImage>
-          <PlayerLedMarkerImage>Textures\GUI\Map\PlayerPosition.png</PlayerLedMarkerImage>
-          <AlliedMarkerImage>Textures\GUI\Map\AllyPosition.png</AlliedMarkerImage>
+          <DefaultMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Independent.png</DefaultMarkerImage>
+          <PlayerLedMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Friendly.png</PlayerLedMarkerImage>
+          <AlliedMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Friendly.png</AlliedMarkerImage>
+          <FriendlyMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Friendly.png</FriendlyMarkerImage>
+          <EnemyMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Enemy.png</EnemyMarkerImage>
+          <IndependentMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Independent.png</IndependentMarkerImage>
         </Layer>
         <Layer xsi:type="MyObjectBuilder_ActionTrackingLayer">
           <ActionImage>Textures\GUI\Map\Action.png</ActionImage>
@@ -74,9 +77,12 @@
           <OtherPlayersImage>Textures\GUI\Map\AllyPosition.png</OtherPlayersImage>
         </Layer>
         <Layer xsi:type="MyObjectBuilder_SiSquadMapLayer" Name="SiSquadMarkersLayer" Visible="true">
-          <DefaultMarkerImage>Textures\GUI\Map\AllyPosition.png</DefaultMarkerImage>
-          <PlayerLedMarkerImage>Textures\GUI\Map\PlayerPosition.png</PlayerLedMarkerImage>
-          <AlliedMarkerImage>Textures\GUI\Map\AllyPosition.png</AlliedMarkerImage>
+          <DefaultMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Independent.png</DefaultMarkerImage>
+          <PlayerLedMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Friendly.png</PlayerLedMarkerImage>
+          <AlliedMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Friendly.png</AlliedMarkerImage>
+          <FriendlyMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Friendly.png</FriendlyMarkerImage>
+          <EnemyMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Enemy.png</EnemyMarkerImage>
+          <IndependentMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Independent.png</IndependentMarkerImage>
         </Layer>
         <Layer xsi:type="MyObjectBuilder_ActionTrackingLayer">
           <ActionImage>Textures\GUI\Map\Action.png</ActionImage>

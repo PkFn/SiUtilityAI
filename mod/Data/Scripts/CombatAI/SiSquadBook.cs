@@ -7,6 +7,7 @@ using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.Definitions;
 using VRage.ObjectBuilders;
+using VRage.Utils;
 using VRageMath;
 
 namespace Si.UtilityAI
@@ -15,6 +16,7 @@ namespace Si.UtilityAI
     {
         private static readonly MyDefinitionId DefaultDefinitionId =
             new MyDefinitionId(typeof(MyObjectBuilder_SiSquadSystemDefinition), "SiDefaultSquadSystem");
+        private static readonly MyStringHash HostileRelationship = MyStringHash.GetOrCompute("War");
 
         private readonly Dictionary<long, SiAssignedNpc> _assignedNpcs =
             new Dictionary<long, SiAssignedNpc>();
@@ -380,7 +382,7 @@ namespace Si.UtilityAI
             var hasObserverParty = TryCreateDiplomaticParty(observerArmy, out observerParty);
             foreach (var squad in squads)
             {
-                if (!HasNpcMembers(squad))
+                if (!HasMapMarkerMembers(squad))
                     continue;
                 if (!ShouldShowMarkerToObserver(
                         markerSettings,
@@ -400,7 +402,11 @@ namespace Si.UtilityAI
                     FormatMapMarkerName(squad),
                     FormatMapMarkerDescription(squad),
                     false,
-                    squad.Leader.Kind == SiSquadLeaderKind.Player ? "player" : "ally"));
+                    ResolveMapMarkerStyle(
+                        observerArmy,
+                        hasObserverParty,
+                        observerParty,
+                        squad.Leader.Army)));
             }
 
             return markers;
@@ -694,15 +700,12 @@ namespace Si.UtilityAI
         private static bool IsPlayerLeader(SiSquadLeaderKey leader, long identityId) =>
             leader.Kind == SiSquadLeaderKind.Player && leader.Id == identityId;
 
-        private static bool HasNpcMembers(SiSquadView squad)
+        private static bool HasMapMarkerMembers(SiSquadView squad)
         {
             if (squad?.Members == null)
                 return false;
 
-            for (var i = 0; i < squad.Members.Count; i++)
-                if (squad.Members[i].Kind == SiSquadMemberKind.Npc)
-                    return true;
-            return false;
+            return squad.Members.Count > 0;
         }
 
         private static bool TryGetLeaderPosition(
@@ -784,6 +787,58 @@ namespace Si.UtilityAI
                 return true;
 
             return ShouldShareLocationOnMap(observerArmy, hasObserverParty, observerParty, squadArmy);
+        }
+
+        private static string ResolveMapMarkerStyle(
+            SiArmyKey observerArmy,
+            bool hasObserverParty,
+            MyDiplomaticParty observerParty,
+            SiArmyKey squadArmy)
+        {
+            if (ShouldShareLocationOnMap(observerArmy, hasObserverParty, observerParty, squadArmy))
+                return "friendly";
+
+            return HasHostileRelationship(hasObserverParty, observerParty, squadArmy)
+                ? "enemy"
+                : "independent";
+        }
+
+        private static bool HasHostileRelationship(
+            bool hasObserverParty,
+            MyDiplomaticParty observerParty,
+            SiArmyKey squadArmy)
+        {
+            if (!hasObserverParty)
+                return false;
+
+            MyDiplomaticParty squadParty;
+            if (!TryCreateDiplomaticParty(squadArmy, out squadParty))
+                return false;
+
+            var diplomacy = MyDiplomacyManager.Instance;
+            if (diplomacy == null)
+                return false;
+
+            return IsHostileRelationship(diplomacy, observerParty, squadParty)
+                   || IsHostileRelationship(diplomacy, squadParty, observerParty);
+        }
+
+        private static bool IsHostileRelationship(
+            MyDiplomacyManager diplomacy,
+            MyDiplomaticParty firstParty,
+            MyDiplomaticParty secondParty)
+        {
+            if (diplomacy == null)
+                return false;
+
+            try
+            {
+                return diplomacy.GetRelationshipBetweenParties(firstParty, secondParty).Status == HostileRelationship;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static int RankOrder(SiRankDefinition rank) => rank?.Order ?? 0;
