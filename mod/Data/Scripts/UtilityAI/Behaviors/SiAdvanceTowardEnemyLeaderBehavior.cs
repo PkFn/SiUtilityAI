@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Xml.Serialization;
 using Sandbox.ModAPI;
+using SiCore.Core.Debug;
 using VRage.Components;
 using VRage.Game;
 using VRage.Game.Components;
@@ -129,6 +130,7 @@ namespace Si.UtilityAI
     public class SiAdvanceTowardEnemyLeaderBehaviorComponent : MyEntityComponent, ISiUtilityBehavior, ISiContinuousUtilityBehavior
     {
         private const double MinimumDirectionLengthSquared = 0.0001;
+        private const long DebugLogCooldownMilliseconds = 2000;
 
         private static readonly double[] SideOffsetSamples =
         {
@@ -146,6 +148,7 @@ namespace Si.UtilityAI
 
         private SiAdvanceTowardEnemyLeaderBehaviorDefinition _definition;
         private SiShootOpposingNpcBehaviorComponent _shootBehavior;
+        private readonly SiGameLog _log = new SiGameLog(nameof(SiAdvanceTowardEnemyLeaderBehaviorComponent), "[SiLeaderAdvance]");
         private Vector3D _reservedCoverPosition;
         private Vector3D _reservedStandPosition;
         private bool _hasReservedCover;
@@ -161,6 +164,7 @@ namespace Si.UtilityAI
         private Vector3D _lastAdvanceDirection;
         private bool _hasLastAdvanceDirection;
         private AdvanceMode _mode;
+        private long _lastDebugLogTime = long.MinValue;
 
         public string BehaviorName => DefinitionId.ToString();
 
@@ -207,6 +211,7 @@ namespace Si.UtilityAI
                 if (_mode == AdvanceMode.Cover && _hasReservedCover && IsTravellingToCover(context))
                     return Math.Max(_definition.MoveScore, _definition.MinimumTakeCoverScore);
 
+                LogDecision(context, $"branch=no-target mode={_mode} hasReserved={_hasReservedCover} travelling={IsTravellingToCover(context)} lastEnemyAgeMs={AgeMilliseconds(now, _lastKnownEnemyLeaderObservationTime)}"); // AGENT-DEBUG-LOG
                 ResetDirectAdvance(context);
                 return 0;
             }
@@ -215,6 +220,7 @@ namespace Si.UtilityAI
             if (Vector3D.DistanceSquared(context.Position, enemyLeaderPosition)
                 <= _definition.StopAdvanceDistance * _definition.StopAdvanceDistance)
             {
+                LogDecision(context, $"branch=stop-distance mode={_mode} enemyLeader={FormatVector(enemyLeaderPosition)} distance={Vector3D.Distance(context.Position, enemyLeaderPosition):0.0} stopDistance={_definition.StopAdvanceDistance:0.0}"); // AGENT-DEBUG-LOG
                 ResetDirectAdvance(context);
                 return 0;
             }
@@ -234,15 +240,18 @@ namespace Si.UtilityAI
                 {
                     if (!session.TryReserveCover(context.Agent, coverPosition, _definition.CoverOccupancyRadius))
                     {
+                        LogDecision(context, $"branch=reserve-cover-failed mode={_mode} enemyLeader={FormatVector(enemyLeaderPosition)} cover={FormatVector(coverPosition)} moveScore={_definition.MoveScore:0.00} takeCoverScore={takeCoverScore:0.00}"); // AGENT-DEBUG-LOG
                         ReleaseReservedCover(session, context);
                         AssignDirectAdvance(enemyLeaderPosition);
                         return _definition.MoveScore;
                     }
 
+                    LogDecision(context, $"branch=assign-cover mode={_mode} enemyLeader={FormatVector(enemyLeaderPosition)} cover={FormatVector(coverPosition)} stand={FormatVector(standPosition)} moveScore={_definition.MoveScore:0.00} takeCoverScore={takeCoverScore:0.00}"); // AGENT-DEBUG-LOG
                     AssignReservedCover(coverPosition, standPosition);
                     return Math.Max(_definition.MoveScore, takeCoverScore);
                 }
 
+                LogDecision(context, $"branch=no-forward-cover mode={_mode} enemyLeader={FormatVector(enemyLeaderPosition)} directTarget={FormatVector(enemyLeaderPosition)} scanned={_coverPositions.Count} moveScore={_definition.MoveScore:0.00} takeCoverScore={takeCoverScore:0.00}"); // AGENT-DEBUG-LOG
                 ReleaseReservedCover(session, context);
                 AssignDirectAdvance(enemyLeaderPosition);
                 return _definition.MoveScore;
@@ -253,9 +262,15 @@ namespace Si.UtilityAI
 
             ResetDirectAdvance(context);
             if (now - _lastCoverArrivalTime < _definition.CoverHoldCooldownMilliseconds)
+            {
+                LogDecision(context, $"branch=hold-cover-cooldown mode={_mode} enemyLeader={FormatVector(enemyLeaderPosition)} cooldownRemainingMs={Math.Max(0, _definition.CoverHoldCooldownMilliseconds - AgeMilliseconds(now, _lastCoverArrivalTime))} takeCoverScore={takeCoverScore:0.00} moveScore={_definition.MoveScore:0.00}"); // AGENT-DEBUG-LOG
                 return 0;
+            }
             if (takeCoverScore > _definition.MoveScore)
+            {
+                LogDecision(context, $"branch=hold-cover-score mode={_mode} enemyLeader={FormatVector(enemyLeaderPosition)} takeCoverScore={takeCoverScore:0.00} moveScore={_definition.MoveScore:0.00} lastFireAgeMs={AgeMilliseconds(now, _shootBehavior?.GetLastSuccessfulFireTime() ?? long.MinValue)} lastDamageAgeMs={AgeMilliseconds(now, _lastDamageReactionTime)}"); // AGENT-DEBUG-LOG
                 return 0;
+            }
 
             if (TryAssignForwardCover(
                     context,
@@ -267,15 +282,18 @@ namespace Si.UtilityAI
             {
                 if (!session.TryReserveCover(context.Agent, nextCoverPosition, _definition.CoverOccupancyRadius))
                 {
+                    LogDecision(context, $"branch=advance-cover-reserve-failed mode={_mode} enemyLeader={FormatVector(enemyLeaderPosition)} nextCover={FormatVector(nextCoverPosition)} takeCoverScore={takeCoverScore:0.00} moveScore={_definition.MoveScore:0.00}"); // AGENT-DEBUG-LOG
                     ReleaseReservedCover(session, context);
                     AssignDirectAdvance(enemyLeaderPosition);
                     return _definition.MoveScore;
                 }
 
+                LogDecision(context, $"branch=advance-cover mode={_mode} enemyLeader={FormatVector(enemyLeaderPosition)} nextCover={FormatVector(nextCoverPosition)} nextStand={FormatVector(nextStandPosition)} takeCoverScore={takeCoverScore:0.00} moveScore={_definition.MoveScore:0.00}"); // AGENT-DEBUG-LOG
                 AssignReservedCover(nextCoverPosition, nextStandPosition);
                 return _definition.MoveScore;
             }
 
+            LogDecision(context, $"branch=advance-direct mode={_mode} enemyLeader={FormatVector(enemyLeaderPosition)} scanned={_coverPositions.Count} takeCoverScore={takeCoverScore:0.00} moveScore={_definition.MoveScore:0.00}"); // AGENT-DEBUG-LOG
             ReleaseReservedCover(session, context);
             AssignDirectAdvance(enemyLeaderPosition);
             return _definition.MoveScore;
@@ -770,6 +788,26 @@ namespace Si.UtilityAI
                      || double.IsInfinity(value.Y)
                      || double.IsNaN(value.Z)
                      || double.IsInfinity(value.Z));
+        }
+
+        private void LogDecision(SiUtilityContext context, string message)
+        {
+            var now = CurrentTimeMilliseconds();
+            if (_lastDebugLogTime > long.MinValue && now - _lastDebugLogTime < DebugLogCooldownMilliseconds)
+                return;
+
+            _lastDebugLogTime = now;
+            _log.Warning($"entityId={Entity?.EntityId ?? 0} name={Entity?.Name ?? "null"} definition={DefinitionId.SubtypeName} mode={_mode} hasReserved={_hasReservedCover} awaitingCoverArrival={_awaitingCoverArrival} hasDirectTarget={_hasDirectMoveTarget} waypoint={(context?.HasWaypoint ?? false ? FormatVector(context.Waypoint) : "none")} position={FormatVector(context?.Position ?? Vector3D.Zero)} {message}"); // AGENT-DEBUG-LOG
+        }
+
+        private static long AgeMilliseconds(long now, long timestamp)
+        {
+            return timestamp <= long.MinValue / 2 ? -1 : Math.Max(0, now - timestamp);
+        }
+
+        private static string FormatVector(in Vector3D value)
+        {
+            return $"{value.X:0.0},{value.Y:0.0},{value.Z:0.0}";
         }
 
         private static long CurrentTimeMilliseconds()
