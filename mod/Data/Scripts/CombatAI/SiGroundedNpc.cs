@@ -267,6 +267,7 @@ namespace Si.UtilityAI
             var definition = GetControllerDefinition();
             cmp.WantsWalk = definition.WantsWalk;
             cmp.WantsSprint = definition.WantsSprint;
+            cmp.TryCrouch(_wantsCrouch);
             cmp.BlockMovement = IsDead;
         }
 

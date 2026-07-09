@@ -91,3 +91,7 @@
 - Ignore errors that are not caused by `mod/` or `ref_si_core/`; in particular, do not modify `ref_equi_core/`, `ref_pax_core/`, or `ref_pax_defenders/` to make the build pass. A nonzero build exit code is acceptable only when every remaining error has been reviewed and classified as unrelated.
 - Static checks such as targeted search, XML well-formedness checks for `.sbc`, and signature comparison may supplement the build where useful, but they do not replace it for C# changes.
 - Report the build command and result, summarize any ignored unrelated errors, and mention when the change still needs in-game validation.
+
+
+## Knowledge base
+- `knowledge` has `.md` guides dedicated to game API.
