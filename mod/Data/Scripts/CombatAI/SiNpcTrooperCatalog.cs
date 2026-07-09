@@ -4,35 +4,10 @@ using System.Xml.Serialization;
 using VRage.Game;
 using VRage.Game.Definitions;
 using VRage.Game.ObjectBuilders;
-using VRage.Game.ObjectBuilders.ComponentSystem;
 using VRage.ObjectBuilders;
-using VRage.ObjectBuilders.Inventory;
 
 namespace Si.UtilityAI
 {
-    [MyObjectBuilderDefinition]
-    [XmlSerializerAssembly("MedievalEngineers.ObjectBuilders.XmlSerializers")]
-    public class MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition : MyObjectBuilder_DefinitionBase
-    {
-        public SerializableDefinitionId? Weapon;
-        public SerializableDefinitionId? ShootBehavior;
-    }
-
-    [MyDefinitionType(typeof(MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition))]
-    public class SiNpcTrooperWeaponBindingDefinition : MyDefinitionBase
-    {
-        public SerializableDefinitionId? Weapon { get; private set; }
-        public SerializableDefinitionId? ShootBehavior { get; private set; }
-
-        protected override void Init(MyObjectBuilder_DefinitionBase builder)
-        {
-            base.Init(builder);
-            var ob = (MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition)builder;
-            Weapon = ob.Weapon;
-            ShootBehavior = ob.ShootBehavior;
-        }
-    }
-
     [MyObjectBuilderDefinition]
     [XmlSerializerAssembly("MedievalEngineers.ObjectBuilders.XmlSerializers")]
     public class MyObjectBuilder_SiNpcUniformGuessDefinition : MyObjectBuilder_DefinitionBase
@@ -64,8 +39,7 @@ namespace Si.UtilityAI
         public string SubtypeName;
         public MyDefinitionId WebbingItemId;
         public SiNpcLoadoutComponentDefinition CompatibilityDefinition;
-        public MyDefinitionId WeaponDefinitionId;
-        public MyDefinitionId ShootBehaviorDefinitionId;
+        public SiNpcTrooperWeaponBindingDefinition WeaponBindings;
         public bool IsParatrooper;
         public SerializableDefinitionId? Uniform;
     }
@@ -188,14 +162,13 @@ namespace Si.UtilityAI
 
             var webbingId = (MyDefinitionId)definition.Webbing.Value;
             if (!MyDefinitionManager.TryGet(webbingId, out MyContainerDefinition webbingContainer)
-                || webbingContainer == null
-                || webbingContainer.Id.TypeId != typeof(MyObjectBuilder_EquipmentItem))
+                || webbingContainer == null)
                 return false;
 
             if (!TryGetWeaponBinding(definition.Id.SubtypeName, out var weaponBinding)
                 || weaponBinding == null
-                || !weaponBinding.Weapon.HasValue
-                || !weaponBinding.ShootBehavior.HasValue)
+                || !weaponBinding.TryGetSlot(SiNpcWeaponSlot.MainFirearm, out var mainFirearm)
+                || !mainFirearm.TryResolveRangedDefinition(out _))
                 return false;
 
             loadout = new SiTrooperLoadout
@@ -203,8 +176,7 @@ namespace Si.UtilityAI
                 SubtypeName = definition.Id.SubtypeName,
                 WebbingItemId = webbingId,
                 CompatibilityDefinition = definition,
-                WeaponDefinitionId = (MyDefinitionId)weaponBinding.Weapon.Value,
-                ShootBehaviorDefinitionId = (MyDefinitionId)weaponBinding.ShootBehavior.Value,
+                WeaponBindings = weaponBinding,
                 IsParatrooper = definition.IsParatrooper,
                 Uniform = definition.Uniform.HasValue ? definition.Uniform : null,
             };

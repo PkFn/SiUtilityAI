@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <!--
+  Example slot binding layout for a webbing definition:
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition">
+    <Id Type="MyObjectBuilder_SiNpcTrooperWeaponBindingDefinition" Subtype="Webbing_Example" />
+    <Slots>
+      <Slot Name="MainFirearm">
+        <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_Generic" />
+        <ShootBehavior Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_Generic" />
+      </Slot>
+      <Slot Name="AtFirearm">
+        <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_PIAT" />
+      </Slot>
+      <Slot Name="Handgun">
+        <Weapon Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_P08" />
+        <ShootBehavior Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_P08" />
+      </Slot>
+      <Slot Name="Melee">
+        <Weapon Type="MyObjectBuilder_SiNpcMeleeWeaponComponent" Subtype="SiTrooperMelee_SwordIron" />
+      </Slot>
+    </Slots>
+  </Definition>
+
+  AT slots are vehicle-only by code convention and can use launchers or anti-materiel rifles such as PTRD.
+  -->
+
+  <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition">
+    <Id Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiPistolTrooperSharedBalance" />
+    <SearchRadius>60</SearchRadius>
+    <BaseScore>0.65</BaseScore>
+    <MaxScore>0.8</MaxScore>
+    <DistanceScore>0.2</DistanceScore>
+    <DistanceExponent>1.1</DistanceExponent>
+    <ConfirmedFireOpportunityScore>0.9</ConfirmedFireOpportunityScore>
+    <RequireLineOfSight>true</RequireLineOfSight>
+    <RotateToTarget>true</RotateToTarget>
+    <EngageSpeech>engaging</EngageSpeech>
+    <EngageSpeechCooldownMilliseconds>7000</EngageSpeechCooldownMilliseconds>
+    <SpotTargetName>enemy infantry</SpotTargetName>
+    <SpotSpeechCooldownMilliseconds>15000</SpotSpeechCooldownMilliseconds>
+    <DetectionAccuracyWorseningMultiplier>1.5</DetectionAccuracyWorseningMultiplier>
+    <TargetReevaluationIntervalMilliseconds>300</TargetReevaluationIntervalMilliseconds>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiShootOpposingNpcBehaviorDefinition">
+    <Id Type="MyObjectBuilder_SiShootOpposingNpcBehavior" Subtype="SiTrooperShootOpposingTrooper_P08" />
+    <Balance Type="MyObjectBuilder_SiShootOpposingNpcBehaviorBalanceDefinition" Subtype="SiPistolTrooperSharedBalance" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition">
+    <Id Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiHandgunTrooperSharedWeaponBalance" />
+    <FireCooldownMilliseconds>400</FireCooldownMilliseconds>
+    <BurstCount>1</BurstCount>
+    <BurstCooldownMilliseconds>400</BurstCooldownMilliseconds>
+    <ProjectileVelocityMultiplier>1</ProjectileVelocityMultiplier>
+    <ProjectileAccuracyMultiplier>1</ProjectileAccuracyMultiplier>
+    <ProjectileSyncDistance>900</ProjectileSyncDistance>
+    <CharacterDamageMultiplier>1</CharacterDamageMultiplier>
+    <ShootingSpreadDegrees>6</ShootingSpreadDegrees>
+    <ShootSoundSpeedMetersPerSecond>343</ShootSoundSpeedMetersPerSecond>
+    <ShootSoundMaxDelayMilliseconds>6000</ShootSoundMaxDelayMilliseconds>
+    <ShootSoundFalloffMilliseconds>2000</ShootSoundFalloffMilliseconds>
+    <ShootSoundDirectMaximumDelayMilliseconds>20</ShootSoundDirectMaximumDelayMilliseconds>
+    <ShootSoundFrontAngleThreshold>0.6</ShootSoundFrontAngleThreshold>
+    <ShootSoundFrontAngleBlendRange>0.15</ShootSoundFrontAngleBlendRange>
+    <ShootSoundDistanceBlendStartMilliseconds>100</ShootSoundDistanceBlendStartMilliseconds>
+    <ShootSoundDistanceBlendRangeMilliseconds>200</ShootSoundDistanceBlendRangeMilliseconds>
+    <AimTargetHeight>1.35</AimTargetHeight>
+    <AimExtraHeight>0.35</AimExtraHeight>
+    <AimCloseRangeDistance>12</AimCloseRangeDistance>
+    <AimCloseRangeHeightOffset>-0.05</AimCloseRangeHeightOffset>
+    <MuzzleForwardOffset>0.45</MuzzleForwardOffset>
+    <MuzzleUpOffset>0.45</MuzzleUpOffset>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition">
+    <Id Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiLauncherTrooperSharedWeaponBalance" />
+    <FireCooldownMilliseconds>2500</FireCooldownMilliseconds>
+    <BurstCount>1</BurstCount>
+    <BurstCooldownMilliseconds>2500</BurstCooldownMilliseconds>
+    <ProjectileVelocityMultiplier>1</ProjectileVelocityMultiplier>
+    <ProjectileAccuracyMultiplier>1</ProjectileAccuracyMultiplier>
+    <ProjectileSyncDistance>2000</ProjectileSyncDistance>
+    <CharacterDamageMultiplier>1</CharacterDamageMultiplier>
+    <ShootingSpreadDegrees>0.75</ShootingSpreadDegrees>
+    <ShootSoundSpeedMetersPerSecond>343</ShootSoundSpeedMetersPerSecond>
+    <ShootSoundMaxDelayMilliseconds>6000</ShootSoundMaxDelayMilliseconds>
+    <ShootSoundFalloffMilliseconds>2000</ShootSoundFalloffMilliseconds>
+    <ShootSoundDirectMaximumDelayMilliseconds>20</ShootSoundDirectMaximumDelayMilliseconds>
+    <ShootSoundFrontAngleThreshold>0.6</ShootSoundFrontAngleThreshold>
+    <ShootSoundFrontAngleBlendRange>0.15</ShootSoundFrontAngleBlendRange>
+    <ShootSoundDistanceBlendStartMilliseconds>100</ShootSoundDistanceBlendStartMilliseconds>
+    <ShootSoundDistanceBlendRangeMilliseconds>200</ShootSoundDistanceBlendRangeMilliseconds>
+    <AimTargetHeight>1.1</AimTargetHeight>
+    <AimExtraHeight>0.05</AimExtraHeight>
+    <AimCloseRangeDistance>8</AimCloseRangeDistance>
+    <AimCloseRangeHeightOffset>0</AimCloseRangeHeightOffset>
+    <MuzzleForwardOffset>1.0</MuzzleForwardOffset>
+    <MuzzleUpOffset>1.0</MuzzleUpOffset>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition">
+    <Id Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiAntiMaterialTrooperSharedWeaponBalance" />
+    <FireCooldownMilliseconds>1000</FireCooldownMilliseconds>
+    <BurstCount>1</BurstCount>
+    <BurstCooldownMilliseconds>1000</BurstCooldownMilliseconds>
+    <ProjectileVelocityMultiplier>1</ProjectileVelocityMultiplier>
+    <ProjectileAccuracyMultiplier>1</ProjectileAccuracyMultiplier>
+    <ProjectileSyncDistance>2000</ProjectileSyncDistance>
+    <CharacterDamageMultiplier>1</CharacterDamageMultiplier>
+    <ShootingSpreadDegrees>0.3</ShootingSpreadDegrees>
+    <ShootSoundSpeedMetersPerSecond>343</ShootSoundSpeedMetersPerSecond>
+    <ShootSoundMaxDelayMilliseconds>6000</ShootSoundMaxDelayMilliseconds>
+    <ShootSoundFalloffMilliseconds>2000</ShootSoundFalloffMilliseconds>
+    <ShootSoundDirectMaximumDelayMilliseconds>20</ShootSoundDirectMaximumDelayMilliseconds>
+    <ShootSoundFrontAngleThreshold>0.6</ShootSoundFrontAngleThreshold>
+    <ShootSoundFrontAngleBlendRange>0.15</ShootSoundFrontAngleBlendRange>
+    <ShootSoundDistanceBlendStartMilliseconds>100</ShootSoundDistanceBlendStartMilliseconds>
+    <ShootSoundDistanceBlendRangeMilliseconds>200</ShootSoundDistanceBlendRangeMilliseconds>
+    <AimTargetHeight>1.45</AimTargetHeight>
+    <AimExtraHeight>0.4</AimExtraHeight>
+    <AimCloseRangeDistance>25</AimCloseRangeDistance>
+    <AimCloseRangeHeightOffset>-0.05</AimCloseRangeHeightOffset>
+    <MuzzleForwardOffset>1.5</MuzzleForwardOffset>
+    <MuzzleUpOffset>0.7</MuzzleUpOffset>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_P08" />
+    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiHandgunTrooperSharedWeaponBalance" />
+    <HeldItem Type="HandItemWithVariable" Subtype="P-08" />
+    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="P-08Script" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_PIAT" />
+    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiLauncherTrooperSharedWeaponBalance" />
+    <HeldItem Type="HandItemWithVariable" Subtype="PAX_PIAT" />
+    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="PAX_PIATScript" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcRangedWeaponComponent" Subtype="SiTrooperWeapon_PTRD" />
+    <Balance Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiAntiMaterialTrooperSharedWeaponBalance" />
+    <HeldItem Type="HandItemWithVariable" Subtype="PTRD_20mm" />
+    <WeaponBehavior Type="MyObjectBuilder_PAX_HandheldGunDefinition" Subtype="PTRD_20mmScript" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SiNpcMeleeWeaponComponentDefinition">
+    <Id Type="MyObjectBuilder_SiNpcMeleeWeaponComponent" Subtype="SiTrooperMelee_SwordIron" />
+    <HeldItem Type="HandItem" Subtype="SwordIron" />
+  </Definition>
+</Definitions>

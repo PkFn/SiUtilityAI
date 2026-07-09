@@ -3,7 +3,9 @@ using Sandbox.Definitions.Equipment;
 using Sandbox.Game.EntityComponents.Character;
 using Sandbox.Game.Inventory;
 using VRage.Game;
+using VRage.Game.Components;
 using VRage.Game.Definitions;
+using VRage.Game.ObjectBuilders.ComponentSystem;
 using VRage.ObjectBuilders;
 using VRageMath;
 
@@ -38,12 +40,27 @@ namespace Pax.Cannons
         public string ShootSoundFarFront { get; set; }
         public string GunCycleSound { get; set; }
         public string LauncherReloadSoundName { get; set; }
+        public long LauncherReloadTime { get; set; }
         public string ShootEffect { get; set; }
         public float ShootEffectScale { get; set; }
         public float FrontOfBarrelOffset { get; set; }
         public Vector2 ProjectilePositionOffset { get; set; }
         public Vector3 ShootEffectPositionOffset { get; set; }
         public float MaxSyncedCreationDistance { get; set; }
+    }
+
+    [MyObjectBuilderDefinition]
+    [XmlSerializerAssembly("MedievalEngineers.ObjectBuilders.XmlSerializers")]
+    public class MyObjectBuilder_PAX_CustomProjectileDefinition : MyObjectBuilder_EntityComponentDefinition
+    {
+    }
+
+    [MyDefinitionType(typeof(MyObjectBuilder_PAX_CustomProjectileDefinition))]
+    public class MyPAX_CustomProjectileDefinition : MyEntityComponentDefinition
+    {
+        public float Mass { get; set; }
+        public float DragMultiplier { get; set; }
+        public float ProjectilePower { get; set; }
     }
 
     public class MyPAX_HandheldGun : MyHandItemBehaviorBase

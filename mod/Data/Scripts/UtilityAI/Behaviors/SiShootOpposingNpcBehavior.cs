@@ -243,6 +243,7 @@ namespace Si.UtilityAI
         private Vector3D _lastVisibleThreatPosition;
         private SiShootOpposingNpcBehaviorDefinition _runtimeDefinition;
         private SiNpcCombatStateComponent _combatState;
+        private SiNpcWeaponSetComponent _weaponSet;
 
         public string BehaviorName => DefinitionId.ToString();
         private SiShootOpposingNpcBehaviorDefinition Definition => _runtimeDefinition ?? _definition;
@@ -282,6 +283,7 @@ namespace Si.UtilityAI
             base.OnAddedToContainer();
             _takeCoverBehavior = Entity?.Components?.Get<SiTakeCoverBehaviorComponent>();
             _combatState = Entity?.Components?.Get<SiNpcCombatStateComponent>();
+            _weaponSet = Entity?.Components?.Get<SiNpcWeaponSetComponent>();
         }
 
         float ISiUtilityBehavior.Evaluate(SiUtilityContext context)
@@ -410,8 +412,11 @@ namespace Si.UtilityAI
             GetWeapon()?.ResetState();
         }
 
-        private SiNpcRangedWeaponComponent GetWeapon() =>
-            Entity?.Components?.Get<SiNpcRangedWeaponComponent>();
+        private SiNpcRangedWeaponComponent GetWeapon()
+        {
+            _weaponSet?.TryActivateMainFirearm();
+            return Entity?.Components?.Get<SiNpcRangedWeaponComponent>();
+        }
 
         private float ComputeDetectionAimSwayDegrees(float detectionScore)
         {

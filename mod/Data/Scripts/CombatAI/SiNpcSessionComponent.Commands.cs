@@ -612,9 +612,8 @@ namespace Si.UtilityAI
 
             var loadoutComponent = npc.Entity.Components.Get<SiNpcLoadoutComponent>();
             var uniform = npc.Entity.Components.Get<SiNpcUniformComponent>();
-            var weapon = npc.Entity.Components.Get<SiNpcRangedWeaponComponent>();
-            var shoot = npc.Entity.Components.Get<SiShootOpposingNpcBehaviorComponent>();
-            if (loadoutComponent == null || uniform == null || weapon == null || shoot == null)
+            var weaponSet = npc.Entity.Components.Get<SiNpcWeaponSetComponent>();
+            if (loadoutComponent == null || uniform == null || weaponSet == null)
             {
                 failure = "The generic trooper container is missing a required runtime component.";
                 return false;
@@ -633,15 +632,9 @@ namespace Si.UtilityAI
                 return false;
             }
 
-            if (!weapon.ApplyRuntimeDefinition(loadout.WeaponDefinitionId))
+            if (!weaponSet.ApplyRuntimeDefinition(loadout.WeaponBindings))
             {
-                failure = $"Weapon definition for '{resolvedWebbingSubtype}' could not be applied.";
-                return false;
-            }
-
-            if (!shoot.ApplyRuntimeDefinition(loadout.ShootBehaviorDefinitionId))
-            {
-                failure = $"Shoot behavior definition for '{resolvedWebbingSubtype}' could not be applied.";
+                failure = $"Weapon slot bindings for '{resolvedWebbingSubtype}' could not be applied.";
                 return false;
             }
 
