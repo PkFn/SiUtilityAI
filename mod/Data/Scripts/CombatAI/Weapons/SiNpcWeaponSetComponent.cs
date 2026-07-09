@@ -68,7 +68,7 @@ namespace Si.UtilityAI
                 return false;
 
             if (_activeSlot == slot)
-                return EnsureBindingEquipped(binding);
+                return true;
 
             if (binding.TryResolveRangedDefinition(out var rangedDefinition))
             {
@@ -102,20 +102,6 @@ namespace Si.UtilityAI
         {
             binding = null;
             return _runtimeDefinition != null && _runtimeDefinition.TryGetSlot(slot, out binding);
-        }
-
-        private bool EnsureBindingEquipped(SiNpcWeaponSlotBindingDefinition binding)
-        {
-            if (binding == null)
-                return false;
-
-            if (binding.TryResolveRangedDefinition(out _))
-                return _rangedWeapon != null && _rangedWeapon.TryEquipHeldWeapon();
-
-            if (binding.TryResolveMeleeDefinition(out _))
-                return _meleeWeapon != null && _meleeWeapon.TryEquipHeldWeapon();
-
-            return false;
         }
 
         private void CacheComponents()

@@ -86,6 +86,9 @@ namespace Si.UtilityAI
                 return false;
             }
 
+            if (HasEquippedSubtype(entity, itemId.SubtypeName))
+                return true;
+
             MyInventoryItem item;
             if (!TryEnsureItemInInventory(inventory, itemId, out item))
             {

@@ -322,6 +322,7 @@ namespace Si.UtilityAI
 
         void ISiUtilityBehavior.Begin(SiUtilityContext context)
         {
+            EnsureMainFirearmActive();
             GetWeapon()?.ResetState();
             TrySpeakWithCooldown(
                 context,
@@ -333,6 +334,7 @@ namespace Si.UtilityAI
         void ISiUtilityBehavior.Tick(SiUtilityContext context, long elapsedMilliseconds)
         {
             var session = SiNpcSessionComponent.Instance;
+            EnsureMainFirearmActive();
             var weapon = GetWeapon();
             var stance = session?.GetEngagementStance(context.Agent) ?? SiSquadEngagementStance.HoldFire;
             var runningToCover = _takeCoverBehavior?.IsRunningToCover(context) ?? false;
@@ -412,9 +414,16 @@ namespace Si.UtilityAI
             GetWeapon()?.ResetState();
         }
 
+        private void EnsureMainFirearmActive()
+        {
+            if (MyAPIGateway.Multiplayer != null && !MyAPIGateway.Multiplayer.IsServer)
+                return;
+
+            _weaponSet?.TryActivateMainFirearm();
+        }
+
         private SiNpcRangedWeaponComponent GetWeapon()
         {
-            _weaponSet?.TryActivateMainFirearm();
             return Entity?.Components?.Get<SiNpcRangedWeaponComponent>();
         }
 
