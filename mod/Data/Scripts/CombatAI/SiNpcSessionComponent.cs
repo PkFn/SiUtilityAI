@@ -129,6 +129,7 @@ namespace Si.UtilityAI
 
         protected override void OnUnload()
         {
+            ClearAiLeaderPersistence();
             if (Npcs != null)
             {
                 Npcs.WaypointSet -= OnWaypointSet;
@@ -194,6 +195,7 @@ namespace Si.UtilityAI
             if (IsAuthoritative)
             {
                 ReassignLeaderlessSquads();
+                UpdateAiLeaderPersistence();
                 Spotting?.Update(elapsedMilliseconds);
             }
         }
