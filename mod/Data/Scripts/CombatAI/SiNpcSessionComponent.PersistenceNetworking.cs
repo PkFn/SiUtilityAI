@@ -51,6 +51,7 @@ namespace Si.UtilityAI
                     Mode = (byte)entry.Value.Mode,
                     Formation = (byte)entry.Value.Formation,
                     EngagementStance = (byte)entry.Value.EngagementStance,
+                    RearmOverride = entry.Value.RearmOverride,
                     TransportMode = (byte)entry.Value.TransportMode,
                     TransportVehicleEntityId = entry.Value.TransportVehicleEntityId,
                     CombatStance = (byte)GetCombatStance(PlayerLeaderKey(entry.Key)),
@@ -243,6 +244,7 @@ namespace Si.UtilityAI
                     Mode = (SiSquadOrderMode)saved.Mode,
                     Formation = (SiSquadFormation)saved.Formation,
                     EngagementStance = (SiSquadEngagementStance)saved.EngagementStance,
+                    RearmOverride = saved.RearmOverride,
                     TransportMode = SiSquadTransportMode.None,
                     TransportVehicleEntityId = 0,
                 };

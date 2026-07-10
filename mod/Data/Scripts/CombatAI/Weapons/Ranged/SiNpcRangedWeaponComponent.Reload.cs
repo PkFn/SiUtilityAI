@@ -133,14 +133,11 @@ namespace Si.UtilityAI
 
         private void UpdateAmmoSpeechState()
         {
-            if (Definition == null || !Definition.ConsumeAmmo)
+            if (Entity == null)
             {
                 _lastAmmoSpeechState = AmmoSpeechState.Unknown;
                 return;
             }
-
-            if (!HasInventory())
-                return;
 
             var state = EvaluateAmmoSpeechState();
             if (state == _lastAmmoSpeechState)
@@ -156,21 +153,20 @@ namespace Si.UtilityAI
 
         private AmmoSpeechState EvaluateAmmoSpeechState()
         {
-            if (Definition == null || !Definition.ConsumeAmmo)
+            if (Entity == null)
                 return AmmoSpeechState.Unknown;
 
-            var loadedRounds = GetLoadedRoundsFromEquippedItem();
-            var hasLooseAmmo = HasCompatibleLooseAmmo();
-            var hasLoadedMagazine = HasCompatibleLoadedMagazine();
-            var hasMagazineShell = HasCompatibleMagazineShell();
-            var hasReserveAmmo = UsesDetachableMagazineMaintenance
-                ? hasLoadedMagazine || (hasLooseAmmo && hasMagazineShell)
-                : hasLooseAmmo || hasLoadedMagazine;
+            var session = SiNpcSessionComponent.Instance;
+            if (session?.Npcs == null
+                || !session.Npcs.Npcs.TryGetValue(Entity.EntityId, out var npc)
+                || !SiNpcAmmoStatusHelper.TryGetAmmoStatus(npc, out var ammoStatus))
+                return AmmoSpeechState.Unknown;
 
-            if (loadedRounds <= 0)
-                return hasReserveAmmo ? AmmoSpeechState.Normal : AmmoSpeechState.Empty;
-
-            return hasReserveAmmo ? AmmoSpeechState.Normal : AmmoSpeechState.Low;
+            if (ammoStatus.IsEmpty)
+                return AmmoSpeechState.Empty;
+            if (ammoStatus.IsLow)
+                return AmmoSpeechState.Low;
+            return AmmoSpeechState.Normal;
         }
 
         private bool TrySpeak(string message)

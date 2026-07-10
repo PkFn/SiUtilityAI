@@ -791,7 +791,7 @@ namespace Si.UtilityAI
 
         private bool TryCacheAndIssueFollowWaypoint(SiNpc npc, in Vector3D target, double refreshDistanceSquared)
         {
-            if (npc == null)
+            if (npc == null || IsRearming(npc))
                 return false;
 
             CacheFormationPosition(npc, target);

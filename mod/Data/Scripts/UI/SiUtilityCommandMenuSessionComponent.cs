@@ -66,6 +66,11 @@ namespace Si.UtilityAI
             RequestCommand(SiUtilityCommandMenuCommand.Follow);
         }
 
+        internal void CommandRootRearm()
+        {
+            RequestCommand(SiUtilityCommandMenuCommand.Rearm);
+        }
+
         internal void CommandFormationColumn()
         {
             RequestCommand(SiUtilityCommandMenuCommand.FormationColumn);
@@ -142,6 +147,7 @@ namespace Si.UtilityAI
         Info,
         Stop,
         Follow,
+        Rearm,
         FormationColumn,
         FormationFile,
         FormationLine,

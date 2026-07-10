@@ -28,6 +28,14 @@
     <ActionIntervalMilliseconds>500</ActionIntervalMilliseconds>
   </Definition>
 
+  <Definition xsi:type="MyObjectBuilder_SiRearmBehaviorDefinition">
+    <Id Type="MyObjectBuilder_SiRearmBehavior" Subtype="SiTrooperRearm" />
+    <Score>1.0</Score>
+    <SearchRadius>20</SearchRadius>
+    <TransferDistance>2.25</TransferDistance>
+    <WaypointRefreshDistance>0.75</WaypointRefreshDistance>
+  </Definition>
+
   <Definition xsi:type="MyObjectBuilder_SiTakeCoverBehaviorDefinition">
     <Id Type="MyObjectBuilder_SiTakeCoverBehavior" Subtype="SiTrooperTakeCover" />
     <SearchRadius>50</SearchRadius>

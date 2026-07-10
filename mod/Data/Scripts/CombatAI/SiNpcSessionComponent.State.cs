@@ -2,6 +2,7 @@ using System;
 using Medieval.GameSystems.Factions;
 using Sandbox.Game.Entities;
 using VRage.Game;
+using VRage.Game.Entity;
 using VRageMath;
 
 namespace Si.UtilityAI
@@ -39,6 +40,22 @@ namespace Si.UtilityAI
         private SiSquadCombatStance GetCombatStance(SiSquadLeaderKey leader) =>
             GetOrCreateCombatState(leader).Stance;
 
+        internal bool IsRearmOverrideActive(SiNpc npc)
+        {
+            return TryGetPlayerCommandState(npc, out _, out var state)
+                   && state != null
+                   && state.RearmOverride;
+        }
+
+        internal bool IsRearming(SiNpc npc)
+        {
+            if (!IsRearmOverrideActive(npc))
+                return false;
+
+            return SiNpcAmmoStatusHelper.TryGetAmmoStatus(npc, out var ammoStatus)
+                   && ammoStatus.NeedsRearm;
+        }
+
         internal bool IsFollowingPlayer(SiNpc npc)
         {
             if (npc == null || Squads == null)
@@ -60,6 +77,17 @@ namespace Si.UtilityAI
             return npc != null
                    && Squads != null
                    && Squads.TryGetAssignment(npc.EntityId, out assignment);
+        }
+
+        internal bool CanPlayerAccessNpcInventory(MyEntity npcEntity, long playerIdentityId)
+        {
+            if (npcEntity == null || playerIdentityId == 0 || Npcs == null || Squads == null)
+                return false;
+
+            return Npcs.Npcs.ContainsKey(npcEntity.EntityId)
+                   && Squads.TryGetAssignment(npcEntity.EntityId, out var assignment)
+                   && assignment.Leader.Kind == SiSquadLeaderKind.Player
+                   && assignment.Leader.Id == playerIdentityId;
         }
 
         internal bool IsAiSquadLeader(SiNpc npc)
@@ -420,6 +448,29 @@ namespace Si.UtilityAI
                 return false;
 
             return Vector3D.DistanceSquared(leaderPosition, coverPosition) <= radius * radius;
+        }
+
+        private bool TryGetPlayerCommandState(
+            SiNpc npc,
+            out SiAssignedNpc assignment,
+            out SiSquadCommandState state)
+        {
+            assignment = null;
+            state = null;
+            if (npc == null || Squads == null)
+                return false;
+
+            if (!Squads.TryGetAssignment(npc.EntityId, out assignment)
+                || assignment.Leader.Kind != SiSquadLeaderKind.Player)
+                return false;
+
+            return _squadOrders.TryGetValue(assignment.Leader.Id, out state);
+        }
+
+        private static void SetRearmOverride(SiSquadCommandState state, bool enabled)
+        {
+            if (state != null)
+                state.RearmOverride = enabled;
         }
     }
 }

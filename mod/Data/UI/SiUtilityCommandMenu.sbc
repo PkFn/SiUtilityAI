@@ -79,7 +79,7 @@
 
 	<Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
 		<Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityCommandMenuMotionButtons" />
-		<Columns>2</Columns>
+		<Columns>3</Columns>
 		<Rows>1</Rows>
 		<ButtonStyleId>ButtonListWide</ButtonStyleId>
 		<Buttons>
@@ -92,6 +92,11 @@
 				<Text>Follow</Text>
 				<Tooltip>Order units to follow.</Tooltip>
 				<Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandRootFollow" />
+			</Button>
+			<Button StyleName="ContextButtonSliced">
+				<Text>Rearm</Text>
+				<Tooltip>Low-ammo bots will loot nearby containers until they are topped up.</Tooltip>
+				<Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandRootRearm" />
 			</Button>
 		</Buttons>
 	</Definition>

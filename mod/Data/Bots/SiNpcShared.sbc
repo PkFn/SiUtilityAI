@@ -12,6 +12,7 @@
     <Component Type="EntityOwnershipComponent" />
     <Component Type="EntityStateComponent" Subtype="CharacterStances" />
     <Component Type="Inventory" Subtype="Internal" />
+    <Component Type="SiNpcInventoryShareComponent" />
     <Component Type="RagdollComponent" Subtype="Humanoid" />
     <Component Type="CharacterMovementComponent" Subtype="SiTrooperMovement" />
     <Component Type="ModelComponent" Subtype="Medieval_male_noApron" />
@@ -29,6 +30,7 @@
     <Component Type="EntityFXComponent" Subtype="Medieval_male" />
     <Component Type="SiNpcCombatStateComponent" />
     <Component Type="SiUtilityBrainComponent" Subtype="SiDefaultUtilityBrain" />
+    <Component Type="SiRearmBehavior" Subtype="SiTrooperRearm" />
     <Component Type="SiUseTransportSeatsBehavior" Subtype="SiTrooperUseTransportSeats" />
     <Component Type="SiAdvanceTowardEnemyLeaderBehavior" Subtype="SiAiLeaderAdvanceToEnemyLeader" />
     <Component Type="SiTakeCoverBehavior" Subtype="SiTrooperTakeCover" />

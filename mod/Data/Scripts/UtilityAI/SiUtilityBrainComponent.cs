@@ -295,7 +295,7 @@ namespace Si.UtilityAI
         {
             if (float.IsNaN(score) || score <= 0)
                 return 0;
-            return score;
+            return Math.Min(1f, score);
         }
 
         private void EndActiveBehavior()

@@ -90,6 +90,8 @@ namespace Si.UtilityAI
                 float healthMax;
                 if (marker.Npc.TryGetHealth(out healthCurrent, out healthMax))
                     label += $"\nHealth {healthCurrent:0}/{healthMax:0}";
+                if (SiNpcAmmoStatusHelper.TryGetAmmoStatus(marker.Npc, out var ammoStatus))
+                    label += $"\nAmmo {ammoStatus.MarkerText}";
 
                 MyRenderProxy.DebugDrawText3D(
                     position + entity.WorldMatrix.Up * definition.MarkerHeight,
@@ -310,6 +312,8 @@ namespace Si.UtilityAI
                     return "Halt";
                 case SiUtilityCommandMenuCommand.Follow:
                     return "Follow me";
+                case SiUtilityCommandMenuCommand.Rearm:
+                    return "Rearm";
                 case SiUtilityCommandMenuCommand.FormationColumn:
                     return "Form column";
                 case SiUtilityCommandMenuCommand.FormationFile:
@@ -355,6 +359,9 @@ namespace Si.UtilityAI
                     return;
                 case SiUtilityCommandMenuCommand.Follow:
                     FollowSquad(sender, leaderIdentityId);
+                    return;
+                case SiUtilityCommandMenuCommand.Rearm:
+                    RearmSquad(sender, leaderIdentityId);
                     return;
                 case SiUtilityCommandMenuCommand.FormationColumn:
                     SetFormation(sender, leaderIdentityId, SiSquadFormation.Column);
@@ -421,7 +428,8 @@ namespace Si.UtilityAI
                 Respond(sender, line);
 
             var state = GetSquadOrder(leaderIdentityId);
-            lines.Add($"Order: {OrderName(state.Mode)}, formation {FormationName(state.Formation)}, engagement {EngagementName(state.EngagementStance)}, combat {CombatStanceName(GetCombatStance(PlayerLeaderKey(leaderIdentityId)))}, transport {TransportModeName(state.TransportMode)}.");
+            var rearmText = state.RearmOverride ? ", rearm active" : string.Empty;
+            lines.Add($"Order: {OrderName(state.Mode)}{rearmText}, formation {FormationName(state.Formation)}, engagement {EngagementName(state.EngagementStance)}, combat {CombatStanceName(GetCombatStance(PlayerLeaderKey(leaderIdentityId)))}, transport {TransportModeName(state.TransportMode)}.");
             RespondLines(sender, lines);
         }
 
@@ -429,6 +437,7 @@ namespace Si.UtilityAI
         {
             var state = GetSquadOrder(leaderIdentityId);
             state.Mode = SiSquadOrderMode.Stopped;
+            SetRearmOverride(state, false);
             CancelTransportOverride(leaderIdentityId, state);
             ClearLeaderWaypoints(leaderIdentityId);
         }
@@ -437,6 +446,7 @@ namespace Si.UtilityAI
         {
             var state = GetSquadOrder(leaderIdentityId);
             state.Mode = SiSquadOrderMode.Follow;
+            SetRearmOverride(state, false);
             CancelTransportOverride(leaderIdentityId, state);
 
             string failure;
@@ -448,10 +458,19 @@ namespace Si.UtilityAI
             var state = GetSquadOrder(leaderIdentityId);
             state.Formation = formation;
             state.Mode = SiSquadOrderMode.Follow;
+            SetRearmOverride(state, false);
             CancelTransportOverride(leaderIdentityId, state);
 
             string failure;
             ApplyFollowOrder(leaderIdentityId, state, true, out failure);
+        }
+
+        private void RearmSquad(ulong sender, long leaderIdentityId)
+        {
+            var state = GetSquadOrder(leaderIdentityId);
+            SetRearmOverride(state, true);
+            CancelTransportOverride(leaderIdentityId, state);
+            ClearLeaderWaypoints(leaderIdentityId);
         }
 
         private void SetEngagementStance(long leaderIdentityId, SiSquadEngagementStance engagementStance)
@@ -482,6 +501,14 @@ namespace Si.UtilityAI
                 case "spawn-enemy":
                 case "enemy":
                     return SpawnFromEnemyShortcut(sender, tokens);
+                case "rearm":
+                {
+                    var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(sender, 0));
+                    if (player?.Identity == null)
+                        return Respond(sender, "You must control a character to order a squad to rearm.");
+                    RearmSquad(sender, player.Identity.Id);
+                    return Respond(sender, "Rearm order issued.");
+                }
                 case "list":
                     return Respond(sender, $"Custom NPCs alive: {Npcs.Npcs.Count}.");
                 case "clear":
@@ -1182,7 +1209,7 @@ namespace Si.UtilityAI
         }
 
         private string BasicHelpText() =>
-            $"{Command} spawn <webbing> [paratrooper] [enemy] | squad <preset> [enemy|friendly] | squad list | spawn-enemy [webbing] | list | clear | utility-ai [toggle|on|off|status] | gamelog [toggle|on|off|status] | help";
+            $"{Command} spawn <webbing> [paratrooper] [enemy] | squad <preset> [enemy|friendly] | squad list | rearm | spawn-enemy [webbing] | list | clear | utility-ai [toggle|on|off|status] | gamelog [toggle|on|off|status] | help";
 
         private string ExpandedHelpText() =>
             $"{BasicHelpText()}.\nAvailable unit webbings:\n{KnownWebbingsText()}\nAvailable squad presets:\n{KnownSquadPresetsText()}";

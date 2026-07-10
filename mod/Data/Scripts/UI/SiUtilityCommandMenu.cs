@@ -32,6 +32,11 @@ namespace Si.UtilityAI
             _session?.CommandRootFollow();
         }
 
+        public void CommandRootRearm()
+        {
+            _session?.CommandRootRearm();
+        }
+
         public void CommandFormationColumn()
         {
             _session?.CommandFormationColumn();

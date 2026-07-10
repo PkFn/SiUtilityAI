@@ -111,6 +111,9 @@ namespace Si.UtilityAI
 
         float ISiUtilityBehavior.Evaluate(SiUtilityContext context)
         {
+            if (SiNpcSessionComponent.Instance?.IsRearming(context?.Agent) == true)
+                return 0;
+
             if (!CanEvaluate())
                 return 0;
 
@@ -145,6 +148,12 @@ namespace Si.UtilityAI
 
         void ISiUtilityBehavior.Begin(SiUtilityContext context)
         {
+            if (SiNpcSessionComponent.Instance?.IsRearming(context?.Agent) == true)
+            {
+                AbortThrow();
+                return;
+            }
+
             if (!CanEvaluate() || !TrySelectGrenade(out _selectedGrenade))
                 return;
 
@@ -167,6 +176,12 @@ namespace Si.UtilityAI
 
         void ISiUtilityBehavior.Tick(SiUtilityContext context, long elapsedMilliseconds)
         {
+            if (SiNpcSessionComponent.Instance?.IsRearming(context?.Agent) == true)
+            {
+                AbortThrow();
+                return;
+            }
+
             if (_phase == ThrowPhase.None)
                 return;
 

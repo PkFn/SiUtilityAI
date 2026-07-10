@@ -156,6 +156,9 @@ namespace Si.UtilityAI
 
             [XmlAttribute]
             public byte CombatStance;
+
+            [XmlAttribute]
+            public bool RearmOverride;
         }
 
         public class AiSquadMoveOrder
@@ -221,6 +224,7 @@ namespace Si.UtilityAI
         public SiSquadOrderMode Mode { get; set; }
         public SiSquadFormation Formation { get; set; }
         public SiSquadEngagementStance EngagementStance { get; set; }
+        public bool RearmOverride { get; set; }
         public SiSquadTransportMode TransportMode { get; set; }
         public long TransportVehicleEntityId { get; set; }
         public SiSquadTransportMode TransportCadenceMode { get; set; }

@@ -106,7 +106,7 @@ namespace Si.UtilityAI
             _chat?.RegisterChatCommand(
                 Command,
                 HandleCommand,
-                "Manage custom Si Utility AI NPCs. /si-npc spawn <webbing> [paratrooper] [enemy] | squad <preset> [enemy|friendly] | squad list | spawn-enemy [webbing] | list | clear | utility-ai [toggle|on|off|status] | gamelog [toggle|on|off|status] | help",
+                "Manage custom Si Utility AI NPCs. /si-npc spawn <webbing> [paratrooper] [enemy] | squad <preset> [enemy|friendly] | squad list | rearm | spawn-enemy [webbing] | list | clear | utility-ai [toggle|on|off|status] | gamelog [toggle|on|off|status] | help",
                 MyChatCommandType.Server);
             _chat?.RegisterChatCommand(
                 EnemyCommand,

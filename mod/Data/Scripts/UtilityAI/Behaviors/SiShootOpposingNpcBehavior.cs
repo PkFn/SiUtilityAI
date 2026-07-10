@@ -288,6 +288,14 @@ namespace Si.UtilityAI
 
         float ISiUtilityBehavior.Evaluate(SiUtilityContext context)
         {
+            var session = SiNpcSessionComponent.Instance;
+            if (session != null && session.IsRearming(context?.Agent))
+            {
+                _target = null;
+                _nextTargetEvaluationTime = -1;
+                return 0;
+            }
+
             var weapon = GetWeapon();
             if (weapon == null || !weapon.IsOperational)
             {
@@ -334,6 +342,13 @@ namespace Si.UtilityAI
         void ISiUtilityBehavior.Tick(SiUtilityContext context, long elapsedMilliseconds)
         {
             var session = SiNpcSessionComponent.Instance;
+            if (session != null && session.IsRearming(context?.Agent))
+            {
+                _combatState?.SetFiring(false);
+                GetWeapon()?.ClearFireIntent();
+                return;
+            }
+
             EnsureMainFirearmActive();
             var weapon = GetWeapon();
             var stance = session?.GetEngagementStance(context.Agent) ?? SiSquadEngagementStance.HoldFire;

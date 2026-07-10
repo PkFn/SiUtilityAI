@@ -379,6 +379,7 @@ namespace Si.UtilityAI
             }
 
             var state = GetSquadOrder(leaderIdentityId);
+            SetRearmOverride(state, false);
             state.TransportMode = SiSquadTransportMode.Mount;
             state.TransportVehicleEntityId = vehicle.EntityId;
             ResetTransportCadence(state);
@@ -413,6 +414,7 @@ namespace Si.UtilityAI
                 return;
             }
 
+            SetRearmOverride(state, false);
             state.TransportMode = SiSquadTransportMode.Disembark;
             ResetTransportCadence(state);
         }

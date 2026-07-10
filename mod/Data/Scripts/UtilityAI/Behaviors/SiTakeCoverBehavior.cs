@@ -150,6 +150,15 @@ namespace Si.UtilityAI
                 return 0;
             }
 
+            if (session.IsRearming(context.Agent))
+            {
+                ResetCombatState(session, context);
+                if (context.HasWaypoint)
+                    context.TryClearWaypoint();
+                context.TrySetCrouch(false);
+                return 0;
+            }
+
             if (session.GetCombatStance(context.Agent) != SiSquadCombatStance.Combat)
             {
                 ResetCombatState(session, context);
@@ -211,6 +220,15 @@ namespace Si.UtilityAI
             var session = SiNpcSessionComponent.Instance;
             if (context?.Agent == null || session == null)
                 return;
+
+            if (session.IsRearming(context.Agent))
+            {
+                ResetCombatState(session, context);
+                if (context.HasWaypoint)
+                    context.TryClearWaypoint();
+                context.TrySetCrouch(false);
+                return;
+            }
 
             if (session.GetCombatStance(context.Agent) != SiSquadCombatStance.Combat)
             {
