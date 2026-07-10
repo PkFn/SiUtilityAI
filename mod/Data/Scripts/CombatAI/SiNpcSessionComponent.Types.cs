@@ -65,6 +65,9 @@ namespace Si.UtilityAI
         [XmlElement("SquadOrder")]
         public List<SquadOrder> SquadOrders;
 
+        [XmlElement("AiSquadMoveOrder")]
+        public List<AiSquadMoveOrder> AiSquadMoveOrders;
+
         public class SavedNpc
         {
             [XmlAttribute]
@@ -153,6 +156,20 @@ namespace Si.UtilityAI
 
             [XmlAttribute]
             public byte CombatStance;
+        }
+
+        public class AiSquadMoveOrder
+        {
+            [XmlAttribute]
+            public long LeaderId;
+
+            [XmlAttribute]
+            public byte ArmyKind;
+
+            [XmlAttribute]
+            public long ArmyId;
+
+            public SerializableVector3D Target;
         }
     }
 

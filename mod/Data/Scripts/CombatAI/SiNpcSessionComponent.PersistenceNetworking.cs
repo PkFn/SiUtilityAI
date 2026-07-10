@@ -58,10 +58,30 @@ namespace Si.UtilityAI
             return saved;
         }
 
+        private List<MyObjectBuilder_SiNpcSessionComponent.AiSquadMoveOrder> CreateSavedAiSquadMoveOrders()
+        {
+            var saved = new List<MyObjectBuilder_SiNpcSessionComponent.AiSquadMoveOrder>();
+            foreach (var entry in _aiSquadMoveOrders)
+            {
+                if (entry.Value == null || entry.Key.Kind != SiSquadLeaderKind.Ai || entry.Key.Id == 0)
+                    continue;
+
+                saved.Add(new MyObjectBuilder_SiNpcSessionComponent.AiSquadMoveOrder
+                {
+                    LeaderId = entry.Key.Id,
+                    ArmyKind = (byte)entry.Key.Army.Kind,
+                    ArmyId = entry.Key.Army.Id,
+                    Target = (SerializableVector3D)entry.Value.Target,
+                });
+            }
+            return saved;
+        }
+
         private void RestoreSavedState()
         {
             RestoreSavedNpcs();
             RestoreSavedSquadOrders();
+            RestoreSavedAiSquadMoveOrders();
         }
 
         private void RestoreSavedNpcs()
@@ -234,6 +254,32 @@ namespace Si.UtilityAI
                     LastEnemySpottedTime = long.MinValue,
                     LastStanceChangeTime = long.MinValue,
                 };
+            }
+        }
+
+        private void RestoreSavedAiSquadMoveOrders()
+        {
+            var savedOrders = _savedAiSquadMoveOrders;
+            _savedAiSquadMoveOrders = null;
+            if (savedOrders == null || Npcs == null || Squads == null)
+                return;
+
+            _aiSquadMoveOrders.Clear();
+            foreach (var saved in savedOrders)
+            {
+                if (saved == null
+                    || saved.LeaderId == 0
+                    || !Enum.IsDefined(typeof(SiArmyKind), (int)saved.ArmyKind))
+                    continue;
+
+                var leader = new SiSquadLeaderKey(
+                    SiSquadLeaderKind.Ai,
+                    saved.LeaderId,
+                    new SiArmyKey((SiArmyKind)saved.ArmyKind, saved.ArmyId));
+                if (!HasSquadMembers(leader))
+                    continue;
+
+                _aiSquadMoveOrders[leader] = new SiAiSquadMoveOrderState(saved.Target);
             }
         }
 

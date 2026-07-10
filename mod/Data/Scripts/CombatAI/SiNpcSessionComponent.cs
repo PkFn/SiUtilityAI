@@ -69,6 +69,7 @@ namespace Si.UtilityAI
         private readonly List<long> _resolvedPendingNpcIds = new List<long>();
         private List<MyObjectBuilder_SiNpcSessionComponent.SavedNpc> _savedNpcs;
         private List<MyObjectBuilder_SiNpcSessionComponent.SquadOrder> _savedSquadOrders;
+        private List<MyObjectBuilder_SiNpcSessionComponent.AiSquadMoveOrder> _savedAiSquadMoveOrders;
 
         [Automatic]
         private readonly MyChatSystem _chat = null;
@@ -163,6 +164,7 @@ namespace Si.UtilityAI
             MarkerSettings = null;
             _savedNpcs = null;
             _savedSquadOrders = null;
+            _savedAiSquadMoveOrders = null;
             Squads?.ClearNpcs();
             Squads = null;
             if (!IsAuthoritative)
@@ -204,7 +206,9 @@ namespace Si.UtilityAI
             (Npcs != null && Npcs.Npcs.Count > 0)
             || (_savedNpcs != null && _savedNpcs.Count > 0)
             || _squadOrders.Count > 0
-            || (_savedSquadOrders != null && _savedSquadOrders.Count > 0);
+            || (_savedSquadOrders != null && _savedSquadOrders.Count > 0)
+            || _aiSquadMoveOrders.Count > 0
+            || (_savedAiSquadMoveOrders != null && _savedAiSquadMoveOrders.Count > 0);
 
         protected override VRage.Game.MyObjectBuilder_SessionComponent Serialize()
         {
@@ -215,6 +219,13 @@ namespace Si.UtilityAI
 
             var orders = _squadOrders.Count > 0 ? CreateSavedSquadOrders() : _savedSquadOrders;
             ob.SquadOrders = orders != null && orders.Count > 0 ? orders : null;
+
+            var aiMoveOrders = _aiSquadMoveOrders.Count > 0
+                ? CreateSavedAiSquadMoveOrders()
+                : _savedAiSquadMoveOrders;
+            ob.AiSquadMoveOrders = aiMoveOrders != null && aiMoveOrders.Count > 0
+                ? aiMoveOrders
+                : null;
             return ob;
         }
 
@@ -224,6 +235,7 @@ namespace Si.UtilityAI
             var ob = (MyObjectBuilder_SiNpcSessionComponent)objectBuilder;
             _savedNpcs = ob.Npcs;
             _savedSquadOrders = ob.SquadOrders;
+            _savedAiSquadMoveOrders = ob.AiSquadMoveOrders;
         }
 
         internal void RequestUtilityCommand(SiUtilityCommandMenuCommand command)
