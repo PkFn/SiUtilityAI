@@ -8,4 +8,5 @@
   <Dependency>1367411991</Dependency>
   <Dependency>3162631649</Dependency>
   <Dependency>2256089006</Dependency>
+  <EnableScriptCaching xsi:nil="true" />
 </ModMetadata>
