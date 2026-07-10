@@ -218,7 +218,9 @@ namespace Si.UtilityAI
 
             session.TryReserveCover(context.Agent, _reservedCoverPosition, _definition.CoverOccupancyRadius);
             session.CacheCombatPosition(context.Agent, SiCombatMovementRole.Covered, _reservedStandPosition);
-            context.TrySetCrouch(false);
+            // Cover posture is part of the cover behavior, including the approach.
+            // Do not stand up while following the reserved stand position.
+            context.TrySetCrouch(true);
             session.TryFollowCachedCombatPosition(
                 context.Agent,
                 SiCombatMovementRole.Covered,

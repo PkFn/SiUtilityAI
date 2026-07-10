@@ -186,14 +186,16 @@ namespace Si.UtilityAI
                 return;
             }
 
+            // Plain-view positioning is still a combat posture. Keep the NPC crouched
+            // while approaching and while holding the position.
+            context.TrySetCrouch(true);
+
             if (HasReachedDestination(context))
             {
                 context.TryClearWaypoint();
-                context.TrySetCrouch(true);
                 return;
             }
 
-            context.TrySetCrouch(false);
             session.CacheCombatPosition(context.Agent, SiCombatMovementRole.PlainView, _plainViewPosition);
             session.TryFollowCachedCombatPosition(
                 context.Agent,

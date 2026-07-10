@@ -323,7 +323,9 @@ namespace Si.UtilityAI
             {
                 session.TryReserveCover(context.Agent, _reservedCoverPosition, _definition.CoverOccupancyRadius);
                 session.CacheCombatPosition(context.Agent, SiCombatMovementRole.Covered, _reservedStandPosition);
-                context.TrySetCrouch(false);
+                // Advancing into a reserved cover position must keep the NPC crouched;
+                // otherwise the movement tick immediately before arrival leaves it standing.
+                context.TrySetCrouch(true);
                 session.TryFollowCachedCombatPosition(
                     context.Agent,
                     SiCombatMovementRole.Covered,
