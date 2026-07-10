@@ -190,6 +190,11 @@ namespace Si.UtilityAI
 
         void ISiUtilityBehavior.End(SiUtilityContext context)
         {
+            // This behavior stops scoring as soon as the destination is reached.
+            // Apply the hold posture here as well, so the final non-continuous
+            // behavior tick cannot leave the NPC standing at cover.
+            if (_hasReservedCover && !IsRunningToCover(context))
+                context.TrySetCrouch(true);
         }
 
         internal bool IsRunningToCover(SiUtilityContext context)
@@ -218,9 +223,7 @@ namespace Si.UtilityAI
 
             session.TryReserveCover(context.Agent, _reservedCoverPosition, _definition.CoverOccupancyRadius);
             session.CacheCombatPosition(context.Agent, SiCombatMovementRole.Covered, _reservedStandPosition);
-            // Cover posture is part of the cover behavior, including the approach.
-            // Do not stand up while following the reserved stand position.
-            context.TrySetCrouch(true);
+            context.TrySetCrouch(!IsRunningToCover(context));
             session.TryFollowCachedCombatPosition(
                 context.Agent,
                 SiCombatMovementRole.Covered,
@@ -328,7 +331,6 @@ namespace Si.UtilityAI
             ResetCoverSearchState();
             _hasLastThreatDirection = false;
             _lastThreatDirection = Vector3D.Zero;
-            context.TrySetCrouch(false);
             session.ClearCachedCombatPosition(context.Agent?.EntityId ?? 0, SiCombatMovementRole.Covered);
             context.Agent.ClearCombatMovementRole();
             _activeCombatToken = long.MinValue;

@@ -2,7 +2,6 @@ using System;
 using System.Xml.Serialization;
 using Sandbox.Game.EntityComponents.Character;
 using Sandbox.ModAPI;
-using SiCore.Core.Debug;
 using VRage.Components;
 using VRage.Game;
 using VRage.Game.Components;
@@ -11,7 +10,6 @@ using VRage.Game.ObjectBuilders.ComponentSystem;
 using VRage.Entities.Gravity;
 using VRage.ObjectBuilders;
 using VRageMath;
-using VRageRender.Animations;
 
 namespace Si.UtilityAI
 {
@@ -102,14 +100,6 @@ namespace Si.UtilityAI
         private MyCharacterMovementComponent _movement;
         private bool _movementHandlersRegistered;
         private bool _wantsCrouch;
-        private bool _hasLoggedMovementState;
-        private bool _lastLoggedRequestedCrouch;
-        private bool _lastLoggedWantsCrouch;
-        private bool _lastLoggedIsCrouching;
-        private bool _lastLoggedTryCrouchAccepted;
-        private bool _hasLoggedTryCrouchAccepted;
-        private string _lastLoggedMovementState;
-        private readonly SiGameLog _log = new SiGameLog(nameof(SiGroundedNpc), "[SiGroundedNpc]");
 
         protected SiGroundedNpc(long entityId, in MatrixD transform)
             : base(entityId, transform)
@@ -134,12 +124,8 @@ namespace Si.UtilityAI
 
         public void SetCrouch(bool wantsCrouch)
         {
-            if (_wantsCrouch == wantsCrouch)
-                return;
-
             _wantsCrouch = wantsCrouch;
-            var tryCrouchAccepted = _movement != null && _movement.TryCrouch(wantsCrouch);
-            _log.Info($"entityId={Entity?.EntityId ?? EntityId} name={Entity?.Name ?? "null"} definition={EntityDefinition.SubtypeName} branch=posture-request requestedCrouch={wantsCrouch} tryCrouchAccepted={tryCrouchAccepted}"); // AGENT-DEBUG-LOG
+            _movement?.TryCrouch(wantsCrouch);
         }
 
         protected sealed override void OnUpdate(long elapsedMilliseconds)
@@ -166,9 +152,6 @@ namespace Si.UtilityAI
             if (_movement == null)
                 throw new InvalidOperationException(
                     $"Grounded NPC '{EntityDefinition}' requires a {nameof(MyCharacterMovementComponent)}.");
-
-            var animation = Entity.Components.Get<MyCharacterAnimationControllerComponent>();
-            _log.Info($"entityId={Entity?.EntityId ?? EntityId} name={Entity?.Name ?? "null"} definition={EntityDefinition.SubtypeName} branch=activated movement={(_movement != null)} physics={(Entity?.Physics != null)} animation={(animation != null)} animationController={(animation?.Controller != null)} source={animation?.SourceId}"); // AGENT-DEBUG-LOG
 
             _movement.MovementIndicatorHandler += MovementIndicatorHandler;
             _movement.RotationIndicatorHandler += RotationIndicatorHandler;
@@ -236,9 +219,7 @@ namespace Si.UtilityAI
             // state calculation immediately after this callback.  Calling it
             // from post-process is too late for the current animation state,
             // especially when the NPC is stationary.
-            var tryCrouchAccepted = movement.TryCrouch(_wantsCrouch);
-            LogMovementState(movement, "movement-callback", tryCrouchAccepted);
-
+            movement.TryCrouch(_wantsCrouch);
             if (IsDead)
             {
                 moveIndicator = Vector3.Zero;
@@ -293,43 +274,6 @@ namespace Si.UtilityAI
             cmp.WantsWalk = definition.WantsWalk;
             cmp.WantsSprint = definition.WantsSprint;
             cmp.BlockMovement = IsDead;
-            LogMovementState(cmp, "post-process", null);
-        }
-
-        private void LogMovementState(
-            MyCharacterMovementComponent movement,
-            string branch,
-            bool? tryCrouchAccepted)
-        {
-            var state = movement.GetMovementState().ToString();
-            var wantsCrouch = movement.WantsCrouch;
-            var isCrouching = movement.IsCrouching;
-            var animation = Entity?.Components.Get<MyCharacterAnimationControllerComponent>();
-            var animationCrouch = 0f;
-            var hasAnimationCrouch = animation?.Variables?.GetValue(
-                MyAnimationVariableStorageHints.StrIdCrouch,
-                out animationCrouch) ?? false;
-            if (_hasLoggedMovementState
-                && _lastLoggedRequestedCrouch == _wantsCrouch
-                && _lastLoggedWantsCrouch == wantsCrouch
-                && _lastLoggedIsCrouching == isCrouching
-                && _lastLoggedMovementState == state
-                && (!tryCrouchAccepted.HasValue
-                    || (_hasLoggedTryCrouchAccepted
-                        && _lastLoggedTryCrouchAccepted == tryCrouchAccepted.Value)))
-                return;
-
-            _hasLoggedMovementState = true;
-            _lastLoggedRequestedCrouch = _wantsCrouch;
-            _lastLoggedWantsCrouch = wantsCrouch;
-            _lastLoggedIsCrouching = isCrouching;
-            _lastLoggedMovementState = state;
-            if (tryCrouchAccepted.HasValue)
-            {
-                _lastLoggedTryCrouchAccepted = tryCrouchAccepted.Value;
-                _hasLoggedTryCrouchAccepted = true;
-            }
-            _log.Warning($"entityId={Entity?.EntityId ?? EntityId} name={Entity?.Name ?? "null"} definition={EntityDefinition.SubtypeName} branch={branch} requestedCrouch={_wantsCrouch} tryCrouchAccepted={(tryCrouchAccepted.HasValue ? tryCrouchAccepted.Value.ToString() : "n/a")} wantsCrouch={wantsCrouch} isCrouching={isCrouching} state={state} falling={movement.IsFalling} physics={(Entity?.Physics != null)} animation={(animation != null)} animationController={(animation?.Controller != null)} animationCrouch={(hasAnimationCrouch ? animationCrouch.ToString() : "missing")}"); // AGENT-DEBUG-LOG
         }
 
         private static Vector3D NormalizedOrFallback(in Vector3D value, in Vector3D fallback)

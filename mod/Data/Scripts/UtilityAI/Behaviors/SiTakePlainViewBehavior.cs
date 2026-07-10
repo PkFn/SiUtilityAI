@@ -172,6 +172,11 @@ namespace Si.UtilityAI
 
         void ISiUtilityBehavior.End(SiUtilityContext context)
         {
+            // Plain-view movement also stops scoring on arrival, so the last
+            // movement tick may be followed immediately by End(). Preserve the
+            // crouched hold posture in that transition.
+            if (_hasPlainViewPosition && HasReachedDestination(context))
+                context.TrySetCrouch(true);
         }
 
         private void ApplyMovement(SiUtilityContext context)
@@ -186,16 +191,14 @@ namespace Si.UtilityAI
                 return;
             }
 
-            // Plain-view positioning is still a combat posture. Keep the NPC crouched
-            // while approaching and while holding the position.
-            context.TrySetCrouch(true);
-
             if (HasReachedDestination(context))
             {
                 context.TryClearWaypoint();
+                context.TrySetCrouch(true);
                 return;
             }
 
+            context.TrySetCrouch(false);
             session.CacheCombatPosition(context.Agent, SiCombatMovementRole.PlainView, _plainViewPosition);
             session.TryFollowCachedCombatPosition(
                 context.Agent,
@@ -353,7 +356,6 @@ namespace Si.UtilityAI
             _repositionIndex = 0;
             _hasLastThreatDirection = false;
             _lastThreatDirection = Vector3D.Zero;
-            context?.TrySetCrouch(false);
         }
 
         private static Vector3D ResolveUp(in Vector3D position, in Vector3D fallbackUp)
