@@ -79,6 +79,7 @@ namespace Si.UtilityAI
         private bool _utilityDecisionMakingEnabled = true;
         private readonly SiGameLog _log = new SiGameLog(nameof(SiNpcSessionComponent), "[SiCover]");
         private long _lastCoverCleanupLogTime = long.MinValue;
+        private bool _restoreSavedStatePending;
 
         public static SiNpcSessionComponent Instance => _instance;
         public SiNpcManager Npcs { get; private set; }
@@ -123,7 +124,7 @@ namespace Si.UtilityAI
         {
             base.OnSessionReady();
             if (IsAuthoritative)
-                RestoreSavedState();
+                _restoreSavedStatePending = true;
             else if (MyMultiplayerModApi.Static != null)
                 MyMultiplayerModApi.Static.RaiseStaticEvent(x => RequestNpcSnapshot);
         }
@@ -165,6 +166,7 @@ namespace Si.UtilityAI
             _savedNpcs = null;
             _savedSquadOrders = null;
             _savedAiSquadMoveOrders = null;
+            _restoreSavedStatePending = false;
             Squads?.ClearNpcs();
             Squads = null;
             if (!IsAuthoritative)
@@ -179,6 +181,7 @@ namespace Si.UtilityAI
         {
             if (IsAuthoritative)
             {
+                RestoreSavedStateIfPending();
                 UpdateTrackedMotionStates();
                 HandleInactivePlayerLedSquads();
                 UpdateSquadOrders();
@@ -200,6 +203,15 @@ namespace Si.UtilityAI
                 UpdateAiLeaderPersistence();
                 Spotting?.Update(elapsedMilliseconds);
             }
+        }
+
+        private void RestoreSavedStateIfPending()
+        {
+            if (!_restoreSavedStatePending)
+                return;
+
+            _restoreSavedStatePending = false;
+            RestoreSavedState();
         }
 
         protected override bool IsSerialized =>
