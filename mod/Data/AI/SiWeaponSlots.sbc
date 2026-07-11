@@ -97,6 +97,7 @@
     <AimExtraHeight>0.05</AimExtraHeight>
     <AimCloseRangeDistance>8</AimCloseRangeDistance>
     <AimCloseRangeHeightOffset>0</AimCloseRangeHeightOffset>
+    <ElevationAiming>96000</ElevationAiming>
     <MuzzleForwardOffset>1.0</MuzzleForwardOffset>
     <MuzzleUpOffset>1.0</MuzzleUpOffset>
   </Definition>
@@ -123,6 +124,7 @@
     <AimExtraHeight>0.4</AimExtraHeight>
     <AimCloseRangeDistance>25</AimCloseRangeDistance>
     <AimCloseRangeHeightOffset>-0.05</AimCloseRangeHeightOffset>
+    <ElevationAiming>96000</ElevationAiming>
     <MuzzleForwardOffset>1.5</MuzzleForwardOffset>
     <MuzzleUpOffset>0.7</MuzzleUpOffset>
   </Definition>

@@ -189,7 +189,7 @@ namespace Si.UtilityAI
             var targetWorld = targetEntity.WorldMatrix;
             var targetUp = SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(targetWorld.Up, shooterUp);
 
-            var initialMuzzle = shooterWorld.Translation + shooterUp * Definition.AimTargetHeight;
+            var initialMuzzle = GetNpcMuzzlePosition(shooterWorld, shooterUp);
             var aimPoint = targetWorld.Translation + targetUp * Definition.AimTargetHeight;
             var distance = (initialMuzzle - aimPoint).Length();
 
@@ -223,7 +223,7 @@ namespace Si.UtilityAI
             if (!TryCreateShotDirection(shooter, targetEntity, targetVelocity, aimSwayDegrees, out direction))
                 return false;
 
-            MyPAX_HandheldGun.ServerGunShootEvent(shooter.EntityId, direction);
+            FireFromNpcMuzzle(shooter, direction);
             _fireCooldown = EffectiveFireIntervalMilliseconds;
             SiNpcSessionComponent.Instance?.ReportNpcFiredShot(shooter.EntityId);
             SiNpcSessionComponent.Instance?.Spotting?.ReportShot(shooter.EntityId, shooter);
@@ -231,6 +231,46 @@ namespace Si.UtilityAI
                 BeginReloadMaintenance();
             UpdateAmmoSpeechState();
             return true;
+        }
+
+        private Vector3D GetNpcMuzzlePosition(MatrixD shooterWorld, Vector3D shooterUp)
+        {
+            return shooterWorld.Translation
+                   + shooterUp * Definition.MuzzleUpOffset
+                   + shooterWorld.Forward * Definition.MuzzleForwardOffset;
+        }
+
+        private void FireFromNpcMuzzle(MyEntity shooter, Quaternion direction)
+        {
+            var heldGun = GetHeldGunBehavior();
+            var heldItem = heldGun?.GetItemEntity();
+            if (heldItem == null
+                || (Definition.MuzzleForwardOffset == 0 && Definition.MuzzleUpOffset == 0))
+            {
+                MyPAX_HandheldGun.ServerGunShootEvent(shooter.EntityId, direction);
+                return;
+            }
+
+            var itemWorld = heldItem.WorldMatrix;
+            var shotWorld = MatrixD.CreateFromQuaternion(direction);
+            var shooterWorld = shooter.WorldMatrix;
+            var shooterUp = SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(
+                shooterWorld.Up,
+                Vector3D.Up);
+            var muzzleWorld = itemWorld;
+            muzzleWorld.Translation = shooterWorld.Translation
+                                       + shooterUp * Definition.MuzzleUpOffset
+                                       + shotWorld.Forward * Definition.MuzzleForwardOffset;
+
+            try
+            {
+                heldItem.WorldMatrix = muzzleWorld;
+                MyPAX_HandheldGun.ServerGunShootEvent(shooter.EntityId, direction);
+            }
+            finally
+            {
+                heldItem.WorldMatrix = itemWorld;
+            }
         }
 
         private void StartScheduledFiring()
