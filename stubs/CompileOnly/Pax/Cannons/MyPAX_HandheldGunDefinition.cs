@@ -61,6 +61,20 @@ namespace Pax.Cannons
         public float Mass { get; set; }
         public float DragMultiplier { get; set; }
         public float ProjectilePower { get; set; }
+        public float ExplosivePower { get; set; }
+        public string BombEntity { get; set; }
+    }
+
+    [MyObjectBuilderDefinition]
+    [XmlSerializerAssembly("MedievalEngineers.ObjectBuilders.XmlSerializers")]
+    public class MyObjectBuilder_PAX_MortarBombDefinition : MyObjectBuilder_EntityComponentDefinition
+    {
+    }
+
+    [MyDefinitionType(typeof(MyObjectBuilder_PAX_MortarBombDefinition))]
+    public class MyPAX_MortarBombDefinition : MyEntityComponentDefinition
+    {
+        public float ExplosivePower { get; set; }
     }
 
     public class MyPAX_HandheldGun : MyHandItemBehaviorBase

@@ -131,6 +131,8 @@
     <Id Type="MyObjectBuilder_SiThrowGrenadeBehavior" Subtype="SiTrooperThrowGrenade" />
     <MinimumDistance>8</MinimumDistance>
     <MaximumDistance>32</MaximumDistance>
+    <!-- PAX thrown explosives at or above this ExplosivePower are treated as anti-tank and reserved for vehicle grids. -->
+    <AntiTankMinimumExplosivePower>0.5</AntiTankMinimumExplosivePower>
     <BaseScore>0.5</BaseScore>
     <DistanceScore>0.85</DistanceScore>
     <DistanceExponent>2.4</DistanceExponent>

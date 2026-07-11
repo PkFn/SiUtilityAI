@@ -1,9 +1,12 @@
 using Pax.Cannons;
+using Sandbox.Game.EntityComponents.Character;
 using Sandbox.Game.Inventory;
 using Sandbox.ModAPI;
 using System;
+using System.Collections.Generic;
 using System.Xml.Serialization;
 using VRage.Components;
+using VRage.Components.Entity.CubeGrid;
 using VRage.Entities.Gravity;
 using VRage.Game;
 using VRage.Game.Components;
@@ -30,6 +33,7 @@ namespace Si.UtilityAI
     {
         public float MinimumDistance;
         public float MaximumDistance;
+        public float AntiTankMinimumExplosivePower;
         public float BaseScore;
         public float DistanceScore;
         public float DistanceExponent;
@@ -47,6 +51,7 @@ namespace Si.UtilityAI
     {
         public float MinimumDistance { get; private set; }
         public float MaximumDistance { get; private set; }
+        public float AntiTankMinimumExplosivePower { get; private set; }
         public float BaseScore { get; private set; }
         public float DistanceScore { get; private set; }
         public float DistanceExponent { get; private set; }
@@ -64,6 +69,7 @@ namespace Si.UtilityAI
             var ob = (MyObjectBuilder_SiThrowGrenadeBehaviorDefinition)builder;
             MinimumDistance = Math.Max(0, ob.MinimumDistance);
             MaximumDistance = Math.Max(MinimumDistance, ob.MaximumDistance);
+            AntiTankMinimumExplosivePower = Math.Max(0, ob.AntiTankMinimumExplosivePower);
             BaseScore = Math.Max(0, ob.BaseScore);
             DistanceScore = Math.Max(0, ob.DistanceScore);
             DistanceExponent = Math.Max(0.01f, ob.DistanceExponent);
@@ -91,6 +97,8 @@ namespace Si.UtilityAI
         private MyEntity _targetEntity;
         private Vector3D _targetPosition;
         private ThrowableInventoryItem _selectedGrenade;
+        private readonly Dictionary<string, GrenadeRoleResolution> _grenadeRoleCache =
+            new Dictionary<string, GrenadeRoleResolution>(StringComparer.OrdinalIgnoreCase);
 
         public string BehaviorName => DefinitionId.ToString();
         public override bool IsSerialized => false;
@@ -117,10 +125,10 @@ namespace Si.UtilityAI
             if (!CanEvaluate())
                 return 0;
 
-            if (!TrySelectGrenade(out _selectedGrenade))
+            if (!TryGetGrenadeThreat(context, out var targetEntity, out var targetPosition, out var distance, out var targetKind))
                 return 0;
 
-            if (!_shootBehavior.TryGetCurrentThreat(context, out var targetEntity, out var targetPosition, out var distance) || targetEntity == null)
+            if (!TrySelectGrenade(targetKind, out _selectedGrenade))
                 return 0;
 
             if (distance < _definition.MinimumDistance || distance > _definition.MaximumDistance)
@@ -154,10 +162,13 @@ namespace Si.UtilityAI
                 return;
             }
 
-            if (!CanEvaluate() || !TrySelectGrenade(out _selectedGrenade))
+            if (!CanEvaluate())
                 return;
 
-            if (!_shootBehavior.TryGetCurrentThreat(context, out _targetEntity, out _targetPosition, out _))
+            if (!TryGetGrenadeThreat(context, out _targetEntity, out _targetPosition, out _, out var targetKind))
+                return;
+
+            if (!TrySelectGrenade(targetKind, out _selectedGrenade))
                 return;
 
             if (IsUnsafeForSquadmates(context.Agent, _targetPosition))
@@ -224,7 +235,7 @@ namespace Si.UtilityAI
             return CurrentTimeMilliseconds() >= _nextThrowAllowedMilliseconds;
         }
 
-        private bool TrySelectGrenade(out ThrowableInventoryItem selected)
+        private bool TrySelectGrenade(GrenadeTargetKind targetKind, out ThrowableInventoryItem selected)
         {
             selected = default(ThrowableInventoryItem);
             if (!TryGetInventory(out var inventory))
@@ -243,6 +254,10 @@ namespace Si.UtilityAI
                     continue;
 
                 if (IsSmokeGrenade(subtype))
+                    continue;
+
+                if (!TryResolveGrenadeRole(subtype, throwableDefinition, out var role)
+                    || !IsGrenadeCompatibleWithTarget(role, targetKind))
                     continue;
 
                 selected = new ThrowableInventoryItem(item, subtype, throwableDefinition);
@@ -362,6 +377,148 @@ namespace Si.UtilityAI
             return false;
         }
 
+        private bool TryGetGrenadeThreat(
+            SiUtilityContext context,
+            out MyEntity targetEntity,
+            out Vector3D targetPosition,
+            out double distance,
+            out GrenadeTargetKind targetKind)
+        {
+            targetEntity = null;
+            targetPosition = Vector3D.Zero;
+            distance = 0;
+            targetKind = GrenadeTargetKind.None;
+
+            if (!_shootBehavior.TryGetCurrentThreat(context, out targetEntity, out targetPosition, out distance)
+                || targetEntity == null)
+                return false;
+
+            if (IsVehicleTarget(targetEntity))
+            {
+                targetKind = GrenadeTargetKind.Vehicle;
+                return true;
+            }
+
+            if (IsInfantryTarget(targetEntity))
+            {
+                targetKind = GrenadeTargetKind.Infantry;
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryResolveGrenadeRole(
+            string subtype,
+            MyPAX_ThrowableItemDefinition throwableDefinition,
+            out GrenadeRole role)
+        {
+            role = GrenadeRole.Unknown;
+            if (string.IsNullOrWhiteSpace(subtype) || throwableDefinition == null)
+                return false;
+
+            if (_grenadeRoleCache.TryGetValue(subtype, out var cached))
+            {
+                role = cached.Role;
+                return cached.IsResolved;
+            }
+
+            float explosivePower;
+            var resolved = TryResolveGrenadeExplosivePower(throwableDefinition, out explosivePower);
+            role = resolved
+                ? ClassifyGrenadeRole(explosivePower)
+                : GrenadeRole.Unknown;
+
+            _grenadeRoleCache[subtype] = new GrenadeRoleResolution(role, resolved, explosivePower);
+            return resolved;
+        }
+
+        private bool TryResolveGrenadeExplosivePower(
+            MyPAX_ThrowableItemDefinition throwableDefinition,
+            out float explosivePower)
+        {
+            explosivePower = 0;
+            if (throwableDefinition == null
+                || string.IsNullOrWhiteSpace(throwableDefinition.ThrowItemId))
+                return false;
+
+            if (!MyDefinitionManager.TryGet(
+                    new MyDefinitionId(typeof(MyObjectBuilder_EntityBase), throwableDefinition.ThrowItemId),
+                    out MyContainerDefinition throwEntityContainer)
+                || throwEntityContainer?.Components == null)
+                return false;
+
+            for (var i = 0; i < throwEntityContainer.Components.Count; i++)
+            {
+                var definition = throwEntityContainer.Components[i]?.Definition;
+                if (definition is MyPAX_MortarBombDefinition mortarBomb)
+                {
+                    explosivePower = Math.Max(0, mortarBomb.ExplosivePower);
+                    return explosivePower > 0;
+                }
+
+                if (definition is MyPAX_CustomProjectileDefinition customProjectile)
+                {
+                    explosivePower = Math.Max(0, customProjectile.ExplosivePower);
+                    if (explosivePower > 0)
+                        return true;
+
+                    if (TryResolveBombEntityExplosivePower(customProjectile.BombEntity, out explosivePower))
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryResolveBombEntityExplosivePower(string bombEntitySubtype, out float explosivePower)
+        {
+            explosivePower = 0;
+            if (string.IsNullOrWhiteSpace(bombEntitySubtype))
+                return false;
+
+            if (!MyDefinitionManager.TryGet(
+                    new MyDefinitionId(typeof(MyObjectBuilder_EntityBase), bombEntitySubtype),
+                    out MyContainerDefinition bombEntityContainer)
+                || bombEntityContainer?.Components == null)
+                return false;
+
+            for (var i = 0; i < bombEntityContainer.Components.Count; i++)
+                if (bombEntityContainer.Components[i]?.Definition is MyPAX_MortarBombDefinition mortarBomb)
+                {
+                    explosivePower = Math.Max(0, mortarBomb.ExplosivePower);
+                    return explosivePower > 0;
+                }
+
+            return false;
+        }
+
+        private GrenadeRole ClassifyGrenadeRole(float explosivePower)
+        {
+            return explosivePower < _definition.AntiTankMinimumExplosivePower
+                ? GrenadeRole.AntiPersonnel
+                : GrenadeRole.AntiTank;
+        }
+
+        private static bool IsGrenadeCompatibleWithTarget(GrenadeRole role, GrenadeTargetKind targetKind)
+        {
+            if (role == GrenadeRole.AntiPersonnel)
+                return targetKind == GrenadeTargetKind.Infantry;
+            if (role == GrenadeRole.AntiTank)
+                return targetKind == GrenadeTargetKind.Vehicle;
+            return false;
+        }
+
+        private static bool IsVehicleTarget(MyEntity targetEntity)
+        {
+            return targetEntity?.Components?.Get<MyGridDataComponent>() != null;
+        }
+
+        private static bool IsInfantryTarget(MyEntity targetEntity)
+        {
+            return targetEntity?.Components?.Get<MyCharacterDamageComponent>() != null;
+        }
+
         private float ResolveAimHeight() =>
             _weapon?.Definition?.AimTargetHeight ?? 0.9f;
 
@@ -475,6 +632,34 @@ namespace Si.UtilityAI
             public readonly MyInventoryItem Item;
             public readonly string Subtype;
             public readonly MyPAX_ThrowableItemDefinition Definition;
+        }
+
+        private readonly struct GrenadeRoleResolution
+        {
+            public GrenadeRoleResolution(GrenadeRole role, bool isResolved, float explosivePower)
+            {
+                Role = role;
+                IsResolved = isResolved;
+                ExplosivePower = explosivePower;
+            }
+
+            public GrenadeRole Role { get; }
+            public bool IsResolved { get; }
+            public float ExplosivePower { get; }
+        }
+
+        private enum GrenadeTargetKind
+        {
+            None,
+            Infantry,
+            Vehicle,
+        }
+
+        private enum GrenadeRole
+        {
+            Unknown,
+            AntiPersonnel,
+            AntiTank,
         }
     }
 }
