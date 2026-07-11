@@ -30,6 +30,7 @@ namespace Si.UtilityAI
         private ReloadMaintenanceState _reloadMaintenanceState;
         private AmmoSpeechState _lastAmmoSpeechState;
         private MyEntity _fireIntentTarget;
+        private Vector3D? _fireIntentTargetPosition;
         private Vector3D _fireIntentTargetVelocity;
         private float _fireIntentAimSwayDegrees;
         private bool _aimDownSightsActive;
@@ -109,6 +110,7 @@ namespace Si.UtilityAI
             _reloadMaintenanceState = ReloadMaintenanceState.None;
             _lastAmmoSpeechState = AmmoSpeechState.Unknown;
             _fireIntentTarget = null;
+            _fireIntentTargetPosition = null;
             _fireIntentTargetVelocity = Vector3D.Zero;
             _fireIntentAimSwayDegrees = 0;
         }
@@ -125,7 +127,8 @@ namespace Si.UtilityAI
             SiUtilityContext context,
             MyEntity targetEntity,
             Vector3D targetVelocity,
-            float aimSwayDegrees)
+            float aimSwayDegrees,
+            Vector3D? targetPosition = null)
         {
             if (!IsOperational || _fireCooldown > 0)
                 return false;
@@ -138,12 +141,13 @@ namespace Si.UtilityAI
 
             SetAimDownSights(true, heldGun);
             _fireIntentTarget = targetEntity;
+            _fireIntentTargetPosition = targetPosition;
             _fireIntentTargetVelocity = targetVelocity;
             _fireIntentAimSwayDegrees = Math.Max(0, aimSwayDegrees);
             _lastFireIntentTime = CurrentTimeMilliseconds();
             UpdateAmmoSpeechState();
 
-            if (!TryFireSingleShot(context.Entity, targetEntity, targetVelocity, _fireIntentAimSwayDegrees))
+            if (!TryFireSingleShot(context.Entity, targetEntity, targetVelocity, _fireIntentAimSwayDegrees, targetPosition))
                 return false;
 
             StartScheduledFiring();
@@ -156,6 +160,7 @@ namespace Si.UtilityAI
             _lastFireIntentTime = long.MinValue;
             _reloadMaintenanceState = ReloadMaintenanceState.None;
             _fireIntentTarget = null;
+            _fireIntentTargetPosition = null;
             _fireIntentTargetVelocity = Vector3D.Zero;
             _fireIntentAimSwayDegrees = 0;
         }
@@ -178,6 +183,7 @@ namespace Si.UtilityAI
             MyEntity targetEntity,
             Vector3D targetVelocity,
             float aimSwayDegrees,
+            Vector3D? targetPosition,
             out Quaternion direction)
         {
             direction = Quaternion.Identity;
@@ -190,7 +196,7 @@ namespace Si.UtilityAI
             var targetUp = SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(targetWorld.Up, shooterUp);
 
             var initialMuzzle = GetNpcMuzzlePosition(shooterWorld, shooterUp);
-            var aimPoint = targetWorld.Translation + targetUp * Definition.AimTargetHeight;
+            var aimPoint = targetPosition ?? (targetWorld.Translation + targetUp * Definition.AimTargetHeight);
             var distance = (initialMuzzle - aimPoint).Length();
 
             var closeRangeOffset = distance < Definition.AimCloseRangeDistance
@@ -217,10 +223,11 @@ namespace Si.UtilityAI
             MyEntity shooter,
             MyEntity targetEntity,
             Vector3D targetVelocity,
-            float aimSwayDegrees)
+            float aimSwayDegrees,
+            Vector3D? targetPosition)
         {
             Quaternion direction;
-            if (!TryCreateShotDirection(shooter, targetEntity, targetVelocity, aimSwayDegrees, out direction))
+            if (!TryCreateShotDirection(shooter, targetEntity, targetVelocity, aimSwayDegrees, targetPosition, out direction))
                 return false;
 
             FireFromNpcMuzzle(shooter, direction);
@@ -307,7 +314,7 @@ namespace Si.UtilityAI
             if (_fireCooldown > 0)
                 _fireCooldown = 0;
 
-            if (!TryFireSingleShot(Entity, target, _fireIntentTargetVelocity, _fireIntentAimSwayDegrees))
+            if (!TryFireSingleShot(Entity, target, _fireIntentTargetVelocity, _fireIntentAimSwayDegrees, _fireIntentTargetPosition))
                 return;
 
             StartScheduledFiring();

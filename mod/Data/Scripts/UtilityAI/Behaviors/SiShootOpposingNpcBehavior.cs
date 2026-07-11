@@ -325,7 +325,7 @@ namespace Si.UtilityAI
                         * (float)Math.Pow(normalizedDistance, Definition.DistanceExponent);
 
             score = Math.Min(score, Definition.MaxScore);
-            if (IsTargetSpottedForWeapon(target, observation) && observation.CanShootTarget)
+            if (IsTargetSpottedForWeapon(target, observation) && CanShootResolvedTarget(observation))
                 score = Math.Max(score, Definition.ConfirmedFireOpportunityScore);
 
             return score;
@@ -396,10 +396,13 @@ namespace Si.UtilityAI
                 return;
             }
 
-            if (Definition.RotateToTarget)
-                FaceTarget(context.Entity, targetEntity);
+            var targetPosition = ResolveFireTargetPosition(targetEntity, observation);
 
-            if (Definition.RequireLineOfSight && !HasLineOfSight(context.Entity, targetEntity, weapon.Definition.AimTargetHeight))
+            if (Definition.RotateToTarget)
+                FaceTarget(context.Entity, targetPosition);
+
+            if (ShouldRequireLineOfSight()
+                && !HasLineOfSight(context.Entity, targetEntity, weapon.Definition.AimTargetHeight))
             {
                 _combatState?.SetFiring(false);
                 weapon.ClearFireIntent();
@@ -422,7 +425,8 @@ namespace Si.UtilityAI
                 context,
                 targetEntity,
                 targetVelocity,
-                aimSwayDegrees))
+                aimSwayDegrees,
+                targetPosition))
                 _lastSuccessfulFireTime = CurrentTimeMilliseconds();
         }
 
@@ -648,10 +652,11 @@ namespace Si.UtilityAI
                 if (fireTarget == null)
                     continue;
 
+                var fireTargetPosition = ResolveFireTargetPosition(fireTarget, observation);
                 best = target;
                 bestDistanceSquared = Vector3D.DistanceSquared(
                     context.Position,
-                    fireTarget.WorldMatrix.Translation);
+                    fireTargetPosition);
             }
 
             var playerTotal = 0;
@@ -690,10 +695,11 @@ namespace Si.UtilityAI
                     if (fireTarget == null)
                         continue;
 
+                    var fireTargetPosition = ResolveFireTargetPosition(fireTarget, observation);
                     best = target;
                     bestDistanceSquared = Vector3D.DistanceSquared(
                         context.Position,
-                        fireTarget.WorldMatrix.Translation);
+                        fireTargetPosition);
                 }
             }
 
@@ -836,6 +842,13 @@ namespace Si.UtilityAI
                     context.Position,
                     current.Entity.WorldMatrix.Translation);
                 currentObservation = ObserveTarget(context, current, distance);
+                var currentFireTarget = ResolveFireTarget(current, currentObservation);
+                if (currentFireTarget != null)
+                {
+                    var currentTargetPosition = ResolveFireTargetPosition(currentFireTarget, currentObservation);
+                    if (currentTargetPosition != Vector3D.Zero)
+                        distance = Vector3D.Distance(context.Position, currentTargetPosition);
+                }
                 if (!IsObservationVisible(currentObservation))
                 {
                     currentIsValid = false;
@@ -884,6 +897,14 @@ namespace Si.UtilityAI
         private bool IsVehicleOnlyWeapon =>
             _weaponSet?.ActiveSlot == SiNpcWeaponSlot.AtFirearm;
 
+        private bool ShouldRequireLineOfSight() =>
+            Definition.RequireLineOfSight && !IsVehicleOnlyWeapon;
+
+        private bool CanShootResolvedTarget(SiSpottingObservation observation) =>
+            IsVehicleOnlyWeapon
+                ? observation.VehicleHasViableTarget
+                : observation.CanShootTarget;
+
         private bool IsTargetSpottedForWeapon(
             ShootTarget target,
             SiSpottingObservation observation)
@@ -895,6 +916,7 @@ namespace Si.UtilityAI
             // entries. The occupant's visual confirmation is enough to fire;
             // requiring a second vehicle confirmation makes AT gunners wait.
             return TryResolveVehicleTarget(target, observation, out _)
+                   && observation.VehicleHasViableTarget
                    && (observation.IsSpotted || observation.VehicleSpotted);
         }
 
@@ -903,11 +925,24 @@ namespace Si.UtilityAI
             SiSpottingObservation observation)
         {
             if (IsVehicleOnlyWeapon)
-                return TryResolveVehicleTarget(target, observation, out var vehicle)
+                return observation.VehicleHasViableTarget
+                       && TryResolveVehicleTarget(target, observation, out var vehicle)
                     ? vehicle
                     : null;
 
             return target?.Entity;
+        }
+
+        private Vector3D ResolveFireTargetPosition(
+            MyEntity fireTarget,
+            SiSpottingObservation observation)
+        {
+            if (IsVehicleOnlyWeapon
+                && observation.VehicleHasViableTarget
+                && observation.VehicleTargetPosition != Vector3D.Zero)
+                return observation.VehicleTargetPosition;
+
+            return fireTarget?.WorldMatrix.Translation ?? Vector3D.Zero;
         }
 
         private Vector3D ResolveTargetVelocity(ShootTarget target, MyEntity fireTarget)
@@ -1283,12 +1318,17 @@ namespace Si.UtilityAI
 
         private void FaceTarget(MyEntity shooter, MyEntity target)
         {
-            if (shooter == null || target == null)
+            FaceTarget(shooter, target?.WorldMatrix.Translation ?? Vector3D.Zero);
+        }
+
+        private void FaceTarget(MyEntity shooter, Vector3D targetPosition)
+        {
+            if (shooter == null || targetPosition == Vector3D.Zero)
                 return;
 
             var world = shooter.WorldMatrix;
             var up = NormalizedOrFallback(world.Up, Vector3D.Up);
-            var toTarget = Vector3D.Reject(target.WorldMatrix.Translation - world.Translation, up);
+            var toTarget = Vector3D.Reject(targetPosition - world.Translation, up);
             if (toTarget.LengthSquared() <= 0.0001)
                 return;
 

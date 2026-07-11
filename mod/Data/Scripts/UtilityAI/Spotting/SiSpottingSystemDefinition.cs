@@ -12,6 +12,7 @@ namespace Si.UtilityAI
     [XmlSerializerAssembly("MedievalEngineers.ObjectBuilders.XmlSerializers")]
     public class MyObjectBuilder_SiSpottingSystemDefinition : MyObjectBuilder_DefinitionBase
     {
+        public SerializableDefinitionId? VehicleTargeting;
         [DefaultValue(1f)]
         public float Constant = 1f;
         [DefaultValue(250)]
@@ -63,6 +64,7 @@ namespace Si.UtilityAI
     [MyDefinitionType(typeof(MyObjectBuilder_SiSpottingSystemDefinition))]
     public class SiSpottingSystemDefinition : MyDefinitionBase
     {
+        public MyDefinitionId? VehicleTargetingDefinitionId { get; private set; }
         public float Constant { get; private set; }
         public int SpottingReevaluationIntervalMilliseconds { get; private set; }
         public int SpottingTrackingTimeoutMilliseconds { get; private set; }
@@ -91,6 +93,9 @@ namespace Si.UtilityAI
         {
             base.Init(builder);
             var ob = (MyObjectBuilder_SiSpottingSystemDefinition)builder;
+            VehicleTargetingDefinitionId = ob.VehicleTargeting.HasValue
+                ? (MyDefinitionId?)ob.VehicleTargeting.Value
+                : null;
             Constant = Math.Max(0, ob.Constant);
             SpottingReevaluationIntervalMilliseconds = Math.Max(50, ob.SpottingReevaluationIntervalMilliseconds);
             SpottingTrackingTimeoutMilliseconds = Math.Max(SpottingReevaluationIntervalMilliseconds, ob.SpottingTrackingTimeoutMilliseconds);

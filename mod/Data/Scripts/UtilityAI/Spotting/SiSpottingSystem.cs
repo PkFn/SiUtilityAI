@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
 using Equinox76561198048419394.Core.Controller;
+using Medieval.Entities.Components.Blocks;
+using Medieval.Entities.Components.Grid;
 using Pax.Cannons;
 using Pax.RemoteRope;
 using Sandbox.Game.EntityComponents.Character;
+using Sandbox.Game.Entities.Entity.Stats;
+using Sandbox.Game.Entities.Entity.Stats.Extensions;
 using Sandbox.Game.Entities;
 using Sandbox.Game.Players;
 using Sandbox.Game.SessionComponents;
@@ -44,7 +48,8 @@ namespace Si.UtilityAI
             0,
             Vector3D.Zero,
             0,
-            1);
+            1,
+            false);
 
         public SiSpottingObservation(bool isSpotted, float spottingSum, float spottingThreshold)
             : this(
@@ -57,7 +62,8 @@ namespace Si.UtilityAI
                 0,
                 Vector3D.Zero,
                 0,
-                1)
+                1,
+                false)
         {
         }
 
@@ -71,7 +77,8 @@ namespace Si.UtilityAI
             long vehicleEntityId,
             Vector3D vehicleTargetPosition,
             float vehicleSpottingSum,
-            float vehicleSpottingThreshold)
+            float vehicleSpottingThreshold,
+            bool vehicleHasViableTarget)
         {
             IsSpotted = isSpotted;
             SpottingSum = spottingSum;
@@ -83,6 +90,7 @@ namespace Si.UtilityAI
             VehicleTargetPosition = vehicleTargetPosition;
             VehicleSpottingSum = vehicleSpottingSum;
             VehicleSpottingThreshold = vehicleSpottingThreshold;
+            VehicleHasViableTarget = vehicleHasViableTarget;
         }
 
         public bool IsSpotted { get; }
@@ -95,12 +103,15 @@ namespace Si.UtilityAI
         public Vector3D VehicleTargetPosition { get; }
         public float VehicleSpottingSum { get; }
         public float VehicleSpottingThreshold { get; }
+        public bool VehicleHasViableTarget { get; }
     }
 
     internal sealed class SiSpottingSystem
     {
         private static readonly MyDefinitionId DefaultDefinitionId =
             new MyDefinitionId(typeof(MyObjectBuilder_SiSpottingSystemDefinition), "SiDefaultSpottingSystem");
+        private static readonly MyDefinitionId DefaultVehicleTargetingDefinitionId =
+            new MyDefinitionId(typeof(MyObjectBuilder_SiVehicleTargetingSpotScoreDefinition), "SiDefaultVehicleTargetingSpotScore");
 
         private readonly Dictionary<SpottingKey, SpottingState> _observations =
             new Dictionary<SpottingKey, SpottingState>();
@@ -116,6 +127,8 @@ namespace Si.UtilityAI
         private readonly HashSet<long> _queuedObservers = new HashSet<long>();
         private readonly List<SpottingKey> _removals = new List<SpottingKey>();
         private readonly List<TargetBankKey> _targetBankRemovals = new List<TargetBankKey>();
+        private readonly Dictionary<string, VehicleEngineTargetMetadata> _vehicleEngineMetadataByBlockSubtype =
+            new Dictionary<string, VehicleEngineTargetMetadata>(StringComparer.OrdinalIgnoreCase);
         private readonly SiNpcSessionComponent _session;
         private readonly SiNearbyEnvironmentScanner _environmentScanner = new SiNearbyEnvironmentScanner();
 
@@ -128,9 +141,12 @@ namespace Si.UtilityAI
             MyEntities.OnEntityAdd += OnEntityAdded;
             MyEntities.OnEntityRemove += OnEntityRemoved;
             Definition = LoadDefinition();
+            VehicleTargetingDefinition = LoadVehicleTargetingDefinition(Definition);
+            LoadVehicleEngineMetadata();
         }
 
         public SiSpottingSystemDefinition Definition { get; }
+        public SiVehicleTargetingSpotScoreDefinition VehicleTargetingDefinition { get; }
 
         public void Clear()
         {
@@ -214,10 +230,12 @@ namespace Si.UtilityAI
             var vehicleSpottingThreshold = 1f;
             var vehicleEntityId = 0L;
             var vehicleTargetPosition = Vector3D.Zero;
+            var vehicleHasViableTarget = false;
             if (resolved.Vehicle != null)
             {
                 vehicleEntityId = resolved.Vehicle.EntityId;
-                vehicleTargetPosition = resolved.Vehicle.Position;
+                vehicleHasViableTarget = observer.Entity != null
+                                         && TryResolveVehicleAttackPoint(observer.Entity, resolved.Vehicle, out vehicleTargetPosition);
                 if (vehicleState != null)
                 {
                     vehicleSpottingSum = GetSharedSpottingSum(observer, resolved.Vehicle.Key, vehicleState.SpottingSum);
@@ -242,7 +260,8 @@ namespace Si.UtilityAI
                 vehicleEntityId,
                 vehicleTargetPosition,
                 vehicleSpottingSum,
-                vehicleSpottingThreshold);
+                vehicleSpottingThreshold,
+                vehicleHasViableTarget);
         }
 
         public void ReportShot(long shooterEntityId, MyEntity shooter)
@@ -858,6 +877,84 @@ namespace Si.UtilityAI
             return null;
         }
 
+        private static SiVehicleTargetingSpotScoreDefinition LoadVehicleTargetingDefinition(
+            SiSpottingSystemDefinition spottingDefinition)
+        {
+            if (spottingDefinition?.VehicleTargetingDefinitionId.HasValue ?? false)
+            {
+                SiVehicleTargetingSpotScoreDefinition configured;
+                if (MyDefinitionManager.TryGet(spottingDefinition.VehicleTargetingDefinitionId.Value, out configured))
+                    return configured;
+            }
+
+            SiVehicleTargetingSpotScoreDefinition definition;
+            if (MyDefinitionManager.TryGet(DefaultVehicleTargetingDefinitionId, out definition))
+                return definition;
+
+            foreach (var candidate in MyDefinitionManager.GetOfType<SiVehicleTargetingSpotScoreDefinition>())
+                return candidate;
+            return null;
+        }
+
+        private void LoadVehicleEngineMetadata()
+        {
+            _vehicleEngineMetadataByBlockSubtype.Clear();
+            if (VehicleTargetingDefinition == null)
+                return;
+
+            foreach (var container in MyDefinitionManager.GetOfType<MyContainerDefinition>())
+            {
+                if (container?.Components == null || string.IsNullOrWhiteSpace(container.Id.SubtypeName))
+                    continue;
+
+                for (var i = 0; i < container.Components.Count; i++)
+                {
+                    var component = container.Components[i];
+                    if (IsPaxSteamEngineComponent(component))
+                    {
+                        var scriptSubtype = component.DefinitionId.SubtypeName ?? string.Empty;
+                        var disabledIntegrityRatio = IsCombustionEngineName(scriptSubtype)
+                                                     || IsCombustionEngineName(container.Id.SubtypeName)
+                            ? VehicleTargetingDefinition.CombustionEngineDisabledIntegrityRatio
+                            : VehicleTargetingDefinition.SteamEngineDisabledIntegrityRatio;
+                        var metadata = new VehicleEngineTargetMetadata(
+                            VehicleTargetingDefinition.DefaultEnginePriority,
+                            disabledIntegrityRatio);
+
+                        _vehicleEngineMetadataByBlockSubtype[container.Id.SubtypeName] = metadata;
+                        break;
+                    }
+
+                    if (!IsPaxMechanicalEngineComponent(component))
+                        continue;
+
+                    _vehicleEngineMetadataByBlockSubtype[container.Id.SubtypeName] = new VehicleEngineTargetMetadata(
+                        VehicleTargetingDefinition.DefaultEnginePriority,
+                        VehicleTargetingDefinition.MechanicalEngineDisabledIntegrityRatio);
+                    break;
+                }
+            }
+
+            foreach (var entry in VehicleTargetingDefinition.EngineOverrides)
+            {
+                if (entry == null || string.IsNullOrWhiteSpace(entry.BlockSubtype))
+                    continue;
+
+                if (!_vehicleEngineMetadataByBlockSubtype.TryGetValue(entry.BlockSubtype, out var metadata))
+                {
+                    metadata = new VehicleEngineTargetMetadata(
+                        entry.Priority,
+                        entry.DisabledIntegrityRatio ?? 0f);
+                }
+                else
+                {
+                    metadata = metadata.WithOverride(entry);
+                }
+
+                _vehicleEngineMetadataByBlockSubtype[entry.BlockSubtype] = metadata;
+            }
+        }
+
         private SpottingState GetOrCreateState(long observerId, TargetBankEntry target, long now)
         {
             var key = new SpottingKey(observerId, target.Key);
@@ -1173,6 +1270,215 @@ namespace Si.UtilityAI
             return false;
         }
 
+        private bool TryResolveVehicleAttackPoint(
+            MyEntity observerEntity,
+            TargetBankEntry vehicle,
+            out Vector3D targetPosition)
+        {
+            targetPosition = Vector3D.Zero;
+            if (observerEntity == null || vehicle?.Entity == null || VehicleTargetingDefinition == null)
+                return false;
+
+            var vehicleGrid = FindGridData(vehicle.Entity);
+            if (vehicleGrid == null)
+                return false;
+
+            var selection = VehicleAttackPointSelection.None;
+            foreach (var grid in EnumerateVehicleGrids(vehicleGrid))
+            {
+                if (grid == null)
+                    continue;
+
+                ConsiderVehicleDriverAttackPoints(observerEntity, grid, ref selection);
+                ConsiderVehicleEngineAttackPoints(observerEntity, grid, ref selection);
+            }
+
+            if (!selection.IsValid)
+                return false;
+
+            targetPosition = selection.Position;
+            return true;
+        }
+
+        private void ConsiderVehicleDriverAttackPoints(
+            MyEntity observerEntity,
+            MyGridDataComponent gridData,
+            ref VehicleAttackPointSelection selection)
+        {
+            foreach (var slot in SiTransportSeatHelpers.EnumerateSeatSlotsOnGrid(gridData))
+            {
+                var occupant = slot?.AttachedCharacter;
+                if (!IsLiveCharacter(occupant))
+                    continue;
+
+                MyEntity seatBlockEntity;
+                MyGridDataComponent seatGrid;
+                if (!SiTransportSeatHelpers.TryGetSeatBlockGrid(slot, out seatBlockEntity, out seatGrid))
+                    continue;
+                if (seatGrid != gridData || !IsValidObservedEntity(seatBlockEntity))
+                    continue;
+
+                ConsiderVehicleAttackPoint(
+                    observerEntity,
+                    seatBlockEntity.WorldMatrix.Translation,
+                    VehicleTargetingDefinition.DriverPriority,
+                    ref selection);
+            }
+        }
+
+        private void ConsiderVehicleEngineAttackPoints(
+            MyEntity observerEntity,
+            MyGridDataComponent gridData,
+            ref VehicleAttackPointSelection selection)
+        {
+            var hierarchy = gridData.Container?.Get<MyGridHierarchyComponent>();
+            if (hierarchy == null)
+                return;
+
+            foreach (var block in gridData.Blocks)
+            {
+                var blockEntity = hierarchy.GetBlockEntity(block.Id);
+                if (!TryResolveVehicleEngineTarget(blockEntity, out var target))
+                    continue;
+
+                ConsiderVehicleAttackPoint(
+                    observerEntity,
+                    target.Position,
+                    target.Priority,
+                    ref selection);
+            }
+        }
+
+        private bool TryResolveVehicleEngineTarget(MyEntity blockEntity, out VehicleEngineTarget target)
+        {
+            target = default(VehicleEngineTarget);
+            if (!IsValidObservedEntity(blockEntity))
+                return false;
+
+            var block = blockEntity.Components?.Get<MyBuildableBlockComponent>();
+            var blockSubtype = block?.DefinitionId.SubtypeName;
+            if (string.IsNullOrWhiteSpace(blockSubtype)
+                || !_vehicleEngineMetadataByBlockSubtype.TryGetValue(blockSubtype, out var metadata))
+                return false;
+
+            var gridBuilding = block.ParentGridBuildingComponent ?? blockEntity.Parent?.Components?.Get<MyGridBuildingComponent>();
+            if (gridBuilding == null)
+                return false;
+
+            var blockState = gridBuilding.GetBlockState(block.BlockId);
+            if (blockState == null || blockState.MaxIntegrity == 0 || blockState.ActualIntegrity == 0)
+                return false;
+
+            var integrityRatio = (float)blockState.ActualIntegrity / blockState.MaxIntegrity;
+            if (integrityRatio < metadata.DisabledIntegrityRatio)
+                return false;
+
+            target = new VehicleEngineTarget(blockEntity.WorldMatrix.Translation, metadata.Priority);
+            return true;
+        }
+
+        private static void ConsiderVehicleAttackPoint(
+            MyEntity observerEntity,
+            Vector3D point,
+            int priority,
+            ref VehicleAttackPointSelection selection)
+        {
+            if (observerEntity == null || priority <= 0)
+                return;
+
+            var distanceSquared = Vector3D.DistanceSquared(observerEntity.WorldMatrix.Translation, point);
+            if (selection.IsValid)
+            {
+                if (priority > selection.Priority)
+                    return;
+                if (priority == selection.Priority && distanceSquared >= selection.DistanceSquared)
+                    return;
+            }
+
+            selection = new VehicleAttackPointSelection(priority, point, distanceSquared);
+        }
+
+        private static IEnumerable<MyGridDataComponent> EnumerateVehicleGrids(MyGridDataComponent originGrid)
+        {
+            if (originGrid == null)
+                yield break;
+
+            var yielded = new HashSet<long>();
+            var hierarchy = originGrid.Container?.Get<MyGridHierarchyComponent>();
+            if (hierarchy == null)
+            {
+                var entity = originGrid.Entity;
+                if (entity != null && yielded.Add(entity.EntityId))
+                    yield return originGrid;
+                yield break;
+            }
+
+            var top = hierarchy.GetTopMostParent() ?? hierarchy;
+            foreach (var grid in EnumerateHierarchyGridData(top?.Entity, yielded))
+                yield return grid;
+            if (top != null)
+                foreach (var child in top.GetAllChildren())
+                    foreach (var grid in EnumerateHierarchyGridData(child?.Entity, yielded))
+                        yield return grid;
+        }
+
+        private static IEnumerable<MyGridDataComponent> EnumerateHierarchyGridData(
+            MyEntity entity,
+            HashSet<long> yielded)
+        {
+            if (entity == null || !yielded.Add(entity.EntityId))
+                yield break;
+
+            if (entity.Components.TryGet(out MyGridDataComponent gridData))
+                yield return gridData;
+        }
+
+        private static bool IsLiveCharacter(MyEntity entity)
+        {
+            if (!IsValidObservedEntity(entity))
+                return false;
+
+            MyEntityStatComponent stats;
+            if (entity.Components.TryGet(out stats) && stats.IsDead())
+                return false;
+
+            return entity.Components.Contains<MyCharacterDamageComponent>();
+        }
+
+        private static bool IsPaxSteamEngineComponent(MyContainerDefinition.Component component)
+        {
+            if (component == null)
+                return false;
+
+            var typeName = component.Type.ToString() ?? string.Empty;
+            if (string.Equals(typeName, "PAX_SteamEngine", StringComparison.Ordinal)
+                || string.Equals(typeName, "MyObjectBuilder_PAX_SteamEngine", StringComparison.Ordinal))
+                return true;
+
+            var definitionTypeName = component.DefinitionId.TypeId.ToString() ?? string.Empty;
+            return string.Equals(definitionTypeName, "MyObjectBuilder_PAX_SteamEngine", StringComparison.Ordinal);
+        }
+
+        private static bool IsPaxMechanicalEngineComponent(MyContainerDefinition.Component component)
+        {
+            if (component == null)
+                return false;
+
+            var typeName = component.Type.ToString() ?? string.Empty;
+            if (string.Equals(typeName, "PAX_SteamEngineMechanical", StringComparison.Ordinal)
+                || string.Equals(typeName, "MyObjectBuilder_PAX_SteamEngineMechanical", StringComparison.Ordinal))
+                return true;
+
+            var definitionTypeName = component.DefinitionId.TypeId.ToString() ?? string.Empty;
+            return string.Equals(definitionTypeName, "MyObjectBuilder_PAX_SteamEngineMechanical", StringComparison.Ordinal);
+        }
+
+        private static bool IsCombustionEngineName(string value)
+        {
+            return !string.IsNullOrWhiteSpace(value)
+                   && value.IndexOf("Combustion", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         private static MyGridDataComponent FindGridData(MyEntity entity)
         {
             var current = entity;
@@ -1358,6 +1664,56 @@ namespace Si.UtilityAI
             public Vector3D Position;
             public Vector3 Velocity;
             public long LastReferencedTime;
+        }
+
+        private readonly struct VehicleEngineTarget
+        {
+            public VehicleEngineTarget(Vector3D position, int priority)
+            {
+                Position = position;
+                Priority = priority;
+            }
+
+            public Vector3D Position { get; }
+            public int Priority { get; }
+        }
+
+        private readonly struct VehicleAttackPointSelection
+        {
+            public static readonly VehicleAttackPointSelection None =
+                new VehicleAttackPointSelection(int.MaxValue, Vector3D.Zero, double.MaxValue);
+
+            public VehicleAttackPointSelection(int priority, Vector3D position, double distanceSquared)
+            {
+                Priority = priority;
+                Position = position;
+                DistanceSquared = distanceSquared;
+            }
+
+            public int Priority { get; }
+            public Vector3D Position { get; }
+            public double DistanceSquared { get; }
+            public bool IsValid => Priority != int.MaxValue;
+        }
+
+        private readonly struct VehicleEngineTargetMetadata
+        {
+            public VehicleEngineTargetMetadata(int priority, float disabledIntegrityRatio)
+            {
+                Priority = Math.Max(1, priority);
+                DisabledIntegrityRatio = MathHelper.Clamp(disabledIntegrityRatio, 0, 1);
+            }
+
+            public int Priority { get; }
+            public float DisabledIntegrityRatio { get; }
+
+            public VehicleEngineTargetMetadata WithOverride(
+                SiVehicleTargetingSpotScoreDefinition.EngineOverrideDefinition entry)
+            {
+                return new VehicleEngineTargetMetadata(
+                    entry?.Priority ?? Priority,
+                    entry?.DisabledIntegrityRatio ?? DisabledIntegrityRatio);
+            }
         }
 
         private struct SpottingKey : IEquatable<SpottingKey>

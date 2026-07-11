@@ -2,6 +2,7 @@
 <Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <Definition xsi:type="MyObjectBuilder_SiSpottingSystemDefinition">
     <Id Type="MyObjectBuilder_SiSpottingSystemDefinition" Subtype="SiDefaultSpottingSystem" />
+    <VehicleTargeting Type="MyObjectBuilder_SiVehicleTargetingSpotScoreDefinition" Subtype="SiDefaultVehicleTargetingSpotScore" />
     <Constant>1.0</Constant>
     <SpottingReevaluationIntervalMilliseconds>250</SpottingReevaluationIntervalMilliseconds>
     <SpottingTrackingTimeoutMilliseconds>2000</SpottingTrackingTimeoutMilliseconds>
@@ -26,4 +27,5 @@
     <VehicleSpottingMaxSpeed>18</VehicleSpottingMaxSpeed>
     <VehicleSpottingMovingGain>2</VehicleSpottingMovingGain>
   </Definition>
+
 </Definitions>
