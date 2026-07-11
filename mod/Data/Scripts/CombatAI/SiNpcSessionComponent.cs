@@ -84,6 +84,7 @@ namespace Si.UtilityAI
         public static SiNpcSessionComponent Instance => _instance;
         public SiNpcManager Npcs { get; private set; }
         internal SiSquadBook Squads { get; private set; }
+        internal SiStaticDefenderSystem StaticDefenders { get; private set; }
         internal SiSpottingSystem Spotting { get; private set; }
         internal SiMarkerSystemDefinition MarkerSettings { get; private set; }
         internal bool ShowSquadChatter => _showSquadChatter;
@@ -95,6 +96,7 @@ namespace Si.UtilityAI
             _instance = this;
             Npcs = new SiNpcManager();
             Squads = new SiSquadBook();
+            StaticDefenders = new SiStaticDefenderSystem(this);
             Spotting = new SiSpottingSystem(this);
             MarkerSettings = SiMarkerSystemDefinition.Load();
             Npcs.WaypointSet += OnWaypointSet;
@@ -160,6 +162,8 @@ namespace Si.UtilityAI
             _stalePlayerLeaderIds.Clear();
             _pendingTransportSeatRestoreNpcIds.Clear();
             _resolvedPendingNpcIds.Clear();
+            StaticDefenders?.Clear();
+            StaticDefenders = null;
             Spotting?.Clear();
             Spotting = null;
             MarkerSettings = null;
@@ -196,6 +200,8 @@ namespace Si.UtilityAI
             else
                 ApplyPendingNpcSnapshots();
 
+            if (IsAuthoritative)
+                StaticDefenders?.Update(elapsedMilliseconds);
             Npcs?.Update(elapsedMilliseconds);
             if (IsAuthoritative)
             {

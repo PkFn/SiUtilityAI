@@ -22,6 +22,7 @@ namespace Si.UtilityAI
         Infantry,
         Passenger,
         Vehicle,
+        StaticDefender,
     }
 
     internal struct SiSpottingObservation
@@ -758,6 +759,20 @@ namespace Si.UtilityAI
         {
             if (target == null)
                 return TargetBankResolution.None;
+
+            if (_session?.StaticDefenders != null
+                && _session.StaticDefenders.TryGetTarget(target.EntityId, out var staticDefender)
+                && staticDefender != null
+                && !staticDefender.IsKnockedOut)
+            {
+                return new TargetBankResolution(UpsertTargetEntry(
+                    new TargetBankKey(target.EntityId, SiSpottedTargetKind.StaticDefender),
+                    target,
+                    SiSpottedTargetKind.StaticDefender,
+                    target.WorldMatrix.Translation,
+                    Vector3.Zero,
+                    now));
+            }
 
             if (TryResolveVehicleForMountedCharacter(target, now, out var passenger, out var vehicle))
                 return new TargetBankResolution(passenger, vehicle);

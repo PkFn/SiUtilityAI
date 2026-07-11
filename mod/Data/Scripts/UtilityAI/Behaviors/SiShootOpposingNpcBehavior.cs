@@ -672,6 +672,33 @@ namespace Si.UtilityAI
                 }
             }
 
+            var staticDefenders = session?.StaticDefenders;
+            if (staticDefenders != null)
+            {
+                foreach (var defender in staticDefenders.ActiveTargets)
+                {
+                    var target = new ShootTarget(defender);
+                    if (!IsValidTarget(context.Agent, target))
+                        continue;
+                    if (!IsOpposingDefender(context.Agent, defender, session.Squads, stance))
+                        continue;
+
+                    var distanceSquared = Vector3D.DistanceSquared(
+                        context.Position,
+                        target.Entity.WorldMatrix.Translation);
+                    if (distanceSquared > bestDistanceSquared)
+                        continue;
+
+                    var distance = Math.Sqrt(distanceSquared);
+                    var observation = ObserveTarget(context, target, distance);
+                    if (!IsObservationVisible(observation))
+                        continue;
+
+                    best = target;
+                    bestDistanceSquared = distanceSquared;
+                }
+            }
+
             bestDistance = best != null ? Math.Sqrt(bestDistanceSquared) : 0;
             return best;
         }
@@ -970,6 +997,36 @@ namespace Si.UtilityAI
                        player);
         }
 
+        private bool IsOpposingDefender(
+            SiNpc self,
+            SiStaticDefenderSystem.SiStaticDefenderTarget target,
+            SiSquadBook squads,
+            SiSquadEngagementStance stance)
+        {
+            if (stance == SiSquadEngagementStance.HoldFire
+                || self == null
+                || target == null
+                || target.OwnerIdentityId == 0)
+                return false;
+
+            SiAssignedNpc selfAssignment = null;
+            var hasSelfAssignment = squads != null && squads.TryGetAssignment(self.EntityId, out selfAssignment);
+            if (!hasSelfAssignment && self.DiplomaticIdentityId == 0)
+                return false;
+
+            MyDiplomaticParty selfParty;
+            MyDiplomaticParty targetParty;
+            if (!TryCreateNpcDiplomaticParty(self, hasSelfAssignment ? selfAssignment : null, out selfParty)
+                || !TryCreateDefenderDiplomaticParty(target, out targetParty))
+                return false;
+
+            if (selfParty.Equals(targetParty))
+                return false;
+
+            return stance == SiSquadEngagementStance.EnemiesNeutrals
+                   || HasHostileRelationship(selfParty, targetParty);
+        }
+
         private static bool HasHostileRelationship(
             SiNpc self,
             SiAssignedNpc selfAssignment,
@@ -1026,6 +1083,22 @@ namespace Si.UtilityAI
             return SiSquadBook.TryCreateDiplomaticParty(
                 SiSquadBook.ArmyForPlayerIdentity(player.Identity.Id),
                 out party);
+        }
+
+        private static bool TryCreateDefenderDiplomaticParty(
+            SiStaticDefenderSystem.SiStaticDefenderTarget target,
+            out MyDiplomaticParty party)
+        {
+            party = default(MyDiplomaticParty);
+            var ownerIdentityId = target?.OwnerIdentityId ?? 0;
+            if (ownerIdentityId == 0)
+                return false;
+
+            var faction = PlayerFaction(ownerIdentityId);
+            party = faction != null
+                ? new MyDiplomaticParty(faction)
+                : new MyDiplomaticParty(DiplomaticPartyType.Player, ownerIdentityId);
+            return true;
         }
 
         private static MyFaction PlayerFaction(long identityId)
@@ -1087,6 +1160,8 @@ namespace Si.UtilityAI
                 return false;
             if (target.Npc?.IsDead ?? false)
                 return false;
+            if (target.Defender?.IsKnockedOut ?? false)
+                return false;
 
             var entity = target.Entity;
             return entity != self.Entity
@@ -1102,6 +1177,8 @@ namespace Si.UtilityAI
                 return Vector3D.Zero;
             if (target.Npc != null)
                 return TargetVelocity(target.Npc);
+            if (target.Defender != null)
+                return Vector3D.Zero;
             return target.Entity?.Physics != null
                 ? target.Entity.Physics.LinearVelocity
                 : Vector3D.Zero;
@@ -1175,8 +1252,16 @@ namespace Si.UtilityAI
                 EntityId = entity?.EntityId ?? 0;
             }
 
+            public ShootTarget(SiStaticDefenderSystem.SiStaticDefenderTarget defender)
+            {
+                Defender = defender;
+                Entity = defender?.Entity;
+                EntityId = defender?.EntityId ?? 0;
+            }
+
             public SiNpc Npc { get; }
             public MyPlayer Player { get; }
+            public SiStaticDefenderSystem.SiStaticDefenderTarget Defender { get; }
             public MyEntity Entity { get; }
             public long EntityId { get; }
             public Vector3D Velocity => TargetVelocity(this);
