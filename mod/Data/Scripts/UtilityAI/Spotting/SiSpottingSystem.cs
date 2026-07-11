@@ -470,7 +470,13 @@ namespace Si.UtilityAI
                 return;
             }
 
-            if (state.Definition.RequireLineOfSight && !canShootTarget)
+            // A mounted character is expected to be occluded by the vehicle that
+            // contains it. Keep the passenger awareness state alive in that case;
+            // canShootTarget remains false so callers can select the vehicle as
+            // the actual fire target.
+            if (state.Definition.RequireLineOfSight
+                && !canShootTarget
+                && state.TargetKind != SiSpottedTargetKind.Passenger)
             {
                 state.SpottingSum = 0;
                 state.SpottingThreshold = ComputeSpottingThreshold(Definition, distance);
@@ -1096,16 +1102,55 @@ namespace Si.UtilityAI
                 if (hit == null)
                     return true;
 
-                if (hit.HitEntity == null)
-                    return false;
-
-                return true;
+                return IsVehicleGridEntity(hit.HitEntity, target.Entity);
             }
 
             return hit == null
                    || hit.HitEntity == null
                    || hit.HitEntity == target.Entity
                    || hit.HitEntity == observer;
+        }
+
+        internal static bool IsVehicleGridEntity(MyEntity hitEntity, MyEntity vehicleEntity)
+        {
+            if (hitEntity == null || vehicleEntity == null)
+                return false;
+            if (hitEntity == vehicleEntity)
+                return true;
+
+            var vehicleGrid = FindGridData(vehicleEntity);
+            var hitGrid = FindGridData(hitEntity);
+            if (vehicleGrid == null || hitGrid == null)
+                return false;
+            if (vehicleGrid == hitGrid)
+                return true;
+
+            var hierarchy = vehicleGrid.Container?.Get<MyGridHierarchyComponent>();
+            if (hierarchy == null)
+                return false;
+
+            var top = hierarchy.GetTopMostParent() ?? hierarchy;
+            if (top.Entity == hitGrid.Entity)
+                return true;
+
+            foreach (var child in top.GetAllChildren())
+                if (child?.Entity == hitGrid.Entity)
+                    return true;
+
+            return false;
+        }
+
+        private static MyGridDataComponent FindGridData(MyEntity entity)
+        {
+            var current = entity;
+            while (current != null)
+            {
+                if (current.Components.TryGet(out MyGridDataComponent gridData))
+                    return gridData;
+                current = current.Parent;
+            }
+
+            return null;
         }
 
         private static Vector3D ComputePhysicsCenterWorld(MyEntity entity, VRage.Components.Physics.MyPhysicsComponentBase physics)

@@ -1313,7 +1313,8 @@ namespace Si.UtilityAI
             return hit == null
                    || hit.HitEntity == null
                    || hit.HitEntity == target
-                   || hit.HitEntity == shooter;
+                   || hit.HitEntity == shooter
+                   || SiSpottingSystem.IsVehicleGridEntity(hit.HitEntity, target);
         }
 
         internal static Vector3D NormalizedOrFallback(in Vector3D value, in Vector3D fallback)
