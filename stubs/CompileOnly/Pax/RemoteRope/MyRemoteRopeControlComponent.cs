@@ -8,5 +8,6 @@ namespace Pax.RemoteRope
     /// </summary>
     public class MyRemoteRopeControlComponent : MyEntityComponent
     {
+        public long AttachedPlayerId;
     }
 }

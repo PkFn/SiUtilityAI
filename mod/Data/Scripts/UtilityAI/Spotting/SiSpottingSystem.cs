@@ -9,6 +9,7 @@ using Sandbox.Game.Players;
 using Sandbox.Game.SessionComponents;
 using Sandbox.ModAPI;
 using SiCore.Core.Grid;
+using VRage.Components.Block;
 using VRage.Components;
 using VRage.Components.Entity.CubeGrid;
 using VRage.Game;
@@ -670,12 +671,13 @@ namespace Si.UtilityAI
             if (!entity.Components.Contains<MyRemoteRopeControlComponent>())
                 return;
 
+            var remoteRope = entity.Components.Get<MyRemoteRopeControlComponent>();
             var machineGun = entity.Components.Get<MyPAX_MachineGun>();
             var cannon = entity.Components.Get<MyPAX_Cannon>();
             if (machineGun == null && cannon == null)
                 return;
 
-            var subscription = new PaxVehicleWeaponSubscription(this, entity, machineGun, cannon);
+            var subscription = new PaxVehicleWeaponSubscription(this, entity, remoteRope, machineGun, cannon);
             if (!subscription.TrySubscribe())
             {
                 subscription.Dispose();
@@ -685,12 +687,41 @@ namespace Si.UtilityAI
             _paxVehicleWeapons.Add(entity.EntityId, subscription);
         }
 
-        private void OnPaxVehicleWeaponShot(MyEntity weapon)
+        private void OnPaxVehicleWeaponShot(
+            MyEntity weapon,
+            MyRemoteRopeControlComponent remoteRope)
         {
             if (weapon == null || weapon.Closed || weapon.MarkedForClose)
                 return;
 
-            ReportShot(weapon.EntityId, weapon);
+            var now = CurrentTimeMilliseconds();
+            RecordShotEvidence(weapon.EntityId, weapon.WorldMatrix.Translation, now);
+
+            var weaponVehicle = ResolveVehicleForShot(weapon, now);
+            if (weaponVehicle != null)
+                RecordShotEvidence(weaponVehicle.EntityId, weaponVehicle.Position, now);
+
+            // RemoteRope identifies the player operating camera-guided weapons.
+            // Keep the player evidence separate so an unseated operator is also
+            // revealed, while avoiding a second gain on the same vehicle state.
+            var attachedPlayer = ResolveEntity(remoteRope?.AttachedPlayerId ?? 0);
+            if (attachedPlayer == null || attachedPlayer.EntityId == weapon.EntityId)
+                return;
+
+            RecordShotEvidence(attachedPlayer.EntityId, attachedPlayer.WorldMatrix.Translation, now);
+            var playerVehicle = ResolveVehicleForShot(attachedPlayer, now);
+            if (playerVehicle != null
+                && (weaponVehicle == null || playerVehicle.EntityId != weaponVehicle.EntityId))
+                RecordShotEvidence(playerVehicle.EntityId, playerVehicle.Position, now);
+        }
+
+        private TargetBankEntry ResolveVehicleForShot(MyEntity shooter, long now)
+        {
+            var resolved = ResolveTargetBank(shooter, now);
+            var vehicle = resolved.Vehicle;
+            if (vehicle == null)
+                TryResolveVehicleForWeapon(shooter, now, out vehicle);
+            return vehicle;
         }
 
         private int PlayerEvidenceIntervalMilliseconds(long entityId)
@@ -930,7 +961,8 @@ namespace Si.UtilityAI
         private bool TryResolveVehicleFromGrid(MyEntity target, long now, out TargetBankEntry vehicle)
         {
             vehicle = null;
-            if (target == null || !target.Components.TryGet(out MyGridDataComponent gridData))
+            var gridData = FindGridData(target);
+            if (gridData == null)
                 return false;
 
             return TryBuildVehicleTarget(gridData, now, out vehicle);
@@ -942,7 +974,8 @@ namespace Si.UtilityAI
             var entity = weapon;
             while (entity != null)
             {
-                if (entity.Components.TryGet(out MyGridDataComponent gridData))
+                var gridData = FindGridData(entity);
+                if (gridData != null)
                     return TryBuildVehicleTarget(gridData, now, false, out vehicle);
 
                 entity = entity.Parent;
@@ -1147,6 +1180,11 @@ namespace Si.UtilityAI
             {
                 if (current.Components.TryGet(out MyGridDataComponent gridData))
                     return gridData;
+
+                var block = current.Get<MyBlockComponent>();
+                if (block?.GridData != null)
+                    return block.GridData;
+
                 current = current.Parent;
             }
 
@@ -1186,6 +1224,7 @@ namespace Si.UtilityAI
 
             private readonly SiSpottingSystem _owner;
             private readonly MyEntity _weapon;
+            private readonly MyRemoteRopeControlComponent _remoteRope;
             private readonly MyPAX_MachineGun _machineGun;
             private readonly MyPAX_Cannon _cannon;
             private readonly Action _machineGunShot;
@@ -1199,11 +1238,13 @@ namespace Si.UtilityAI
             public PaxVehicleWeaponSubscription(
                 SiSpottingSystem owner,
                 MyEntity weapon,
+                MyRemoteRopeControlComponent remoteRope,
                 MyPAX_MachineGun machineGun,
                 MyPAX_Cannon cannon)
             {
                 _owner = owner;
                 _weapon = weapon;
+                _remoteRope = remoteRope;
                 _machineGun = machineGun;
                 _cannon = cannon;
                 _machineGunShot = OnMachineGunShot;
@@ -1259,12 +1300,12 @@ namespace Si.UtilityAI
 
             private void OnMachineGunShot()
             {
-                _owner.OnPaxVehicleWeaponShot(_weapon);
+                _owner.OnPaxVehicleWeaponShot(_weapon, _remoteRope);
             }
 
             private void OnCannonShot(string _)
             {
-                _owner.OnPaxVehicleWeaponShot(_weapon);
+                _owner.OnPaxVehicleWeaponShot(_weapon, _remoteRope);
             }
         }
 
