@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Xml.Serialization;
 using Medieval.GameSystems.Factions;
 using Sandbox.Game.Players;
@@ -244,6 +245,8 @@ namespace Si.UtilityAI
         private SiShootOpposingNpcBehaviorDefinition _runtimeDefinition;
         private SiNpcCombatStateComponent _combatState;
         private SiNpcWeaponSetComponent _weaponSet;
+        private readonly Dictionary<long, long> _rememberedVehicleIds =
+            new Dictionary<long, long>();
 
         public string BehaviorName => DefinitionId.ToString();
         private SiShootOpposingNpcBehaviorDefinition Definition => _runtimeDefinition ?? _definition;
@@ -322,7 +325,7 @@ namespace Si.UtilityAI
                         * (float)Math.Pow(normalizedDistance, Definition.DistanceExponent);
 
             score = Math.Min(score, Definition.MaxScore);
-            if (observation.IsSpotted && observation.CanShootTarget)
+            if (IsTargetSpottedForWeapon(target, observation) && observation.CanShootTarget)
                 score = Math.Max(score, Definition.ConfirmedFireOpportunityScore);
 
             return score;
@@ -375,21 +378,28 @@ namespace Si.UtilityAI
                 return;
             }
 
-            var targetEntity = target.Entity;
-            if (Definition.RotateToTarget)
-                FaceTarget(context.Entity, targetEntity);
-
             weapon.Advance(elapsedMilliseconds);
 
-            if (Definition.RequireLineOfSight && !HasLineOfSight(context.Entity, targetEntity, weapon.Definition.AimTargetHeight))
+            var observation = TryReportSpotting(context, target, distance);
+            if (!IsTargetSpottedForWeapon(target, observation))
             {
                 _combatState?.SetFiring(false);
                 weapon.ClearFireIntent();
                 return;
             }
 
-            var observation = TryReportSpotting(context, target, distance);
-            if (!observation.IsSpotted || !observation.CanShootTarget)
+            var targetEntity = ResolveFireTarget(target, observation);
+            if (targetEntity == null || (!IsVehicleOnlyWeapon && !observation.CanShootTarget))
+            {
+                _combatState?.SetFiring(false);
+                weapon.ClearFireIntent();
+                return;
+            }
+
+            if (Definition.RotateToTarget)
+                FaceTarget(context.Entity, targetEntity);
+
+            if (Definition.RequireLineOfSight && !HasLineOfSight(context.Entity, targetEntity, weapon.Definition.AimTargetHeight))
             {
                 _combatState?.SetFiring(false);
                 weapon.ClearFireIntent();
@@ -407,10 +417,11 @@ namespace Si.UtilityAI
             _combatState?.SetFiring(true);
 
             var aimSwayDegrees = ComputeDetectionAimSwayDegrees(observation.SpottingSum);
+            var targetVelocity = ResolveTargetVelocity(target, targetEntity);
             if (weapon.TryFire(
                 context,
                 targetEntity,
-                target.Velocity,
+                targetVelocity,
                 aimSwayDegrees))
                 _lastSuccessfulFireTime = CurrentTimeMilliseconds();
         }
@@ -424,6 +435,7 @@ namespace Si.UtilityAI
             _lastVisibleThreatTime = long.MinValue;
             _lastVisibleThreatEntityId = 0;
             _lastVisibleThreatPosition = Vector3D.Zero;
+            _rememberedVehicleIds.Clear();
             _combatState?.SetFiring(false);
             GetWeapon()?.ClearFireIntent();
             GetWeapon()?.ResetState();
@@ -434,7 +446,8 @@ namespace Si.UtilityAI
             if (MyAPIGateway.Multiplayer != null && !MyAPIGateway.Multiplayer.IsServer)
                 return;
 
-            _weaponSet?.TryActivateMainFirearm();
+            if (_weaponSet?.ActiveSlot == SiNpcWeaponSlot.None)
+                _weaponSet.TryActivateMainFirearm();
         }
 
         private SiNpcRangedWeaponComponent GetWeapon()
@@ -627,12 +640,18 @@ namespace Si.UtilityAI
                 npcInRange++;
                 var distance = Math.Sqrt(distanceSquared);
                 var observation = ObserveTarget(context, target, distance);
-                if (!IsObservationVisible(observation))
+                if (!IsTargetSpottedForWeapon(target, observation))
                     continue;
                 npcSpotted++;
 
+                var fireTarget = ResolveFireTarget(target, observation);
+                if (fireTarget == null)
+                    continue;
+
                 best = target;
-                bestDistanceSquared = distanceSquared;
+                bestDistanceSquared = Vector3D.DistanceSquared(
+                    context.Position,
+                    fireTarget.WorldMatrix.Translation);
             }
 
             var playerTotal = 0;
@@ -663,12 +682,18 @@ namespace Si.UtilityAI
                     playerInRange++;
                     var distance = Math.Sqrt(distanceSquared);
                     var observation = ObserveTarget(context, target, distance);
-                    if (!IsObservationVisible(observation))
+                    if (!IsTargetSpottedForWeapon(target, observation))
                         continue;
                     playerSpotted++;
 
+                    var fireTarget = ResolveFireTarget(target, observation);
+                    if (fireTarget == null)
+                        continue;
+
                     best = target;
-                    bestDistanceSquared = distanceSquared;
+                    bestDistanceSquared = Vector3D.DistanceSquared(
+                        context.Position,
+                        fireTarget.WorldMatrix.Translation);
                 }
             }
 
@@ -855,6 +880,69 @@ namespace Si.UtilityAI
 
         private static bool IsObservationVisible(SiSpottingObservation observation) =>
             observation.IsSpotted || observation.VehicleSpotted;
+
+        private bool IsVehicleOnlyWeapon =>
+            _weaponSet?.ActiveSlot == SiNpcWeaponSlot.AtFirearm;
+
+        private bool IsTargetSpottedForWeapon(
+            ShootTarget target,
+            SiSpottingObservation observation)
+        {
+            if (!IsVehicleOnlyWeapon)
+                return IsObservationVisible(observation);
+
+            // The occupant and the vehicle are observed as separate spotting
+            // entries. The occupant's visual confirmation is enough to fire;
+            // requiring a second vehicle confirmation makes AT gunners wait.
+            return TryResolveVehicleTarget(target, observation, out _)
+                   && (observation.IsSpotted || observation.VehicleSpotted);
+        }
+
+        private MyEntity ResolveFireTarget(
+            ShootTarget target,
+            SiSpottingObservation observation)
+        {
+            if (IsVehicleOnlyWeapon)
+                return TryResolveVehicleTarget(target, observation, out var vehicle)
+                    ? vehicle
+                    : null;
+
+            return target?.Entity;
+        }
+
+        private Vector3D ResolveTargetVelocity(ShootTarget target, MyEntity fireTarget)
+        {
+            if (IsVehicleOnlyWeapon && fireTarget?.Physics != null)
+                return fireTarget.Physics.LinearVelocity;
+
+            return target?.Velocity ?? Vector3D.Zero;
+        }
+
+        private bool TryResolveVehicleTarget(
+            ShootTarget target,
+            SiSpottingObservation observation,
+            out MyEntity vehicle)
+        {
+            vehicle = null;
+            if (!IsVehicleOnlyWeapon || target?.Entity == null)
+                return false;
+
+            if (observation.VehicleEntityId != 0)
+                _rememberedVehicleIds[target.EntityId] = observation.VehicleEntityId;
+
+            if (!_rememberedVehicleIds.TryGetValue(target.EntityId, out var vehicleEntityId))
+                return false;
+
+            vehicle = MyAPIGateway.Entities?.GetEntityById(vehicleEntityId) as MyEntity;
+            if (vehicle == null || vehicle.Closed || vehicle.MarkedForClose || !vehicle.InScene)
+            {
+                _rememberedVehicleIds.Remove(target.EntityId);
+                vehicle = null;
+                return false;
+            }
+
+            return true;
+        }
 
         private static MyEntity ResolveThreatEntity(ShootTarget target, SiSpottingObservation observation)
         {
