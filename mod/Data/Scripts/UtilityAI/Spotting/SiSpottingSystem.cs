@@ -1,16 +1,22 @@
 using System;
 using System.Collections.Generic;
 using Equinox76561198048419394.Core.Controller;
+using Pax.Cannons;
+using Pax.RemoteRope;
 using Sandbox.Game.EntityComponents.Character;
+using Sandbox.Game.Entities;
 using Sandbox.Game.Players;
 using Sandbox.Game.SessionComponents;
 using Sandbox.ModAPI;
 using SiCore.Core.Grid;
+using VRage.Components;
 using VRage.Components.Entity.CubeGrid;
 using VRage.Game;
+using VRage.Game.Components;
 using VRage.Game.Definitions;
 using VRage.Game.Entity;
 using VRage.ModAPI;
+using VRage.Network;
 using VRage.ObjectBuilders;
 using VRage.Session;
 using VRageMath;
@@ -103,6 +109,8 @@ namespace Si.UtilityAI
             new Dictionary<long, long>();
         private readonly Dictionary<long, long> _recentPlayerEvidenceTimes =
             new Dictionary<long, long>();
+        private readonly Dictionary<long, PaxVehicleWeaponSubscription> _paxVehicleWeapons =
+            new Dictionary<long, PaxVehicleWeaponSubscription>();
         private readonly Queue<long> _pendingObservers = new Queue<long>();
         private readonly HashSet<long> _queuedObservers = new HashSet<long>();
         private readonly List<SpottingKey> _removals = new List<SpottingKey>();
@@ -111,10 +119,13 @@ namespace Si.UtilityAI
         private readonly SiNearbyEnvironmentScanner _environmentScanner = new SiNearbyEnvironmentScanner();
 
         private MySectorWeatherComponent _weather;
+        private long _nextPaxVehicleWeaponScanTime;
 
         public SiSpottingSystem(SiNpcSessionComponent session)
         {
             _session = session;
+            MyEntities.OnEntityAdd += OnEntityAdded;
+            MyEntities.OnEntityRemove += OnEntityRemoved;
             Definition = LoadDefinition();
         }
 
@@ -126,16 +137,22 @@ namespace Si.UtilityAI
             _targetBank.Clear();
             _recentShotTimes.Clear();
             _recentPlayerEvidenceTimes.Clear();
+            foreach (var subscription in _paxVehicleWeapons.Values)
+                subscription.Dispose();
+            _paxVehicleWeapons.Clear();
             _pendingObservers.Clear();
             _queuedObservers.Clear();
             _removals.Clear();
             _targetBankRemovals.Clear();
             _weather = null;
+            MyEntities.OnEntityAdd -= OnEntityAdded;
+            MyEntities.OnEntityRemove -= OnEntityRemoved;
         }
 
         public void Update(long elapsedMilliseconds)
         {
             TryResolveWeather();
+            UpdatePaxVehicleWeaponSubscriptions();
             UpdatePlayerFiringEvidence();
 
             if (_observations.Count == 0 && _targetBank.Count == 0)
@@ -237,6 +254,8 @@ namespace Si.UtilityAI
 
             var resolved = ResolveTargetBank(shooter, now);
             var vehicle = resolved.Vehicle;
+            if (vehicle == null)
+                TryResolveVehicleForWeapon(shooter, now, out vehicle);
             if (vehicle != null && vehicle.EntityId != shooterEntityId)
                 RecordShotEvidence(vehicle.EntityId, vehicle.Position, now);
         }
@@ -601,6 +620,73 @@ namespace Si.UtilityAI
             }
         }
 
+        private void UpdatePaxVehicleWeaponSubscriptions()
+        {
+            var now = CurrentTimeMilliseconds();
+            if (now < _nextPaxVehicleWeaponScanTime)
+                return;
+
+            _nextPaxVehicleWeaponScanTime = now + 1000;
+            foreach (var entity in MyEntities.GetEntities())
+                TrySubscribePaxVehicleWeapon(entity);
+        }
+
+        private void OnEntityAdded(MyEntity entity)
+        {
+            TrySubscribePaxVehicleWeapon(entity);
+        }
+
+        private void OnEntityRemoved(MyEntity entity)
+        {
+            if (entity == null)
+                return;
+
+            if (_paxVehicleWeapons.TryGetValue(entity.EntityId, out var subscription))
+            {
+                subscription.Dispose();
+                _paxVehicleWeapons.Remove(entity.EntityId);
+            }
+        }
+
+        private void TrySubscribePaxVehicleWeapon(MyEntity entity)
+        {
+            if (_session == null
+                || (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer))
+                return;
+            if (entity == null || !entity.InScene || entity.Closed || entity.MarkedForClose)
+                return;
+            if (_paxVehicleWeapons.ContainsKey(entity.EntityId))
+                return;
+
+            // PAX vehicle weapons expose their control through RemoteRope. Use that
+            // component as the compatibility boundary so unrelated grid weapons are
+            // not interpreted as PAX vehicle weapons.
+            if (!entity.Components.Contains<MyRemoteRopeControlComponent>())
+                return;
+
+            var machineGun = entity.Components.Get<MyPAX_MachineGun>();
+            var cannon = entity.Components.Get<MyPAX_Cannon>();
+            if (machineGun == null && cannon == null)
+                return;
+
+            var subscription = new PaxVehicleWeaponSubscription(this, entity, machineGun, cannon);
+            if (!subscription.TrySubscribe())
+            {
+                subscription.Dispose();
+                return;
+            }
+
+            _paxVehicleWeapons.Add(entity.EntityId, subscription);
+        }
+
+        private void OnPaxVehicleWeaponShot(MyEntity weapon)
+        {
+            if (weapon == null || weapon.Closed || weapon.MarkedForClose)
+                return;
+
+            ReportShot(weapon.EntityId, weapon);
+        }
+
         private int PlayerEvidenceIntervalMilliseconds(long entityId)
         {
             foreach (var pair in _observations)
@@ -844,7 +930,31 @@ namespace Si.UtilityAI
             return TryBuildVehicleTarget(gridData, now, out vehicle);
         }
 
+        private bool TryResolveVehicleForWeapon(MyEntity weapon, long now, out TargetBankEntry vehicle)
+        {
+            vehicle = null;
+            var entity = weapon;
+            while (entity != null)
+            {
+                if (entity.Components.TryGet(out MyGridDataComponent gridData))
+                    return TryBuildVehicleTarget(gridData, now, false, out vehicle);
+
+                entity = entity.Parent;
+            }
+
+            return false;
+        }
+
         private bool TryBuildVehicleTarget(MyGridDataComponent gridData, long now, out TargetBankEntry vehicle)
+        {
+            return TryBuildVehicleTarget(gridData, now, true, out vehicle);
+        }
+
+        private bool TryBuildVehicleTarget(
+            MyGridDataComponent gridData,
+            long now,
+            bool requireOccupied,
+            out TargetBankEntry vehicle)
         {
             vehicle = null;
             if (gridData == null)
@@ -857,7 +967,7 @@ namespace Si.UtilityAI
             var heaviestPosition = Vector3D.Zero;
 
             EnumerateVehicleGrids(gridData, ref occupied, ref heaviestGrid, ref heaviestMass, ref heaviestVelocity, ref heaviestPosition);
-            if (!occupied || heaviestGrid == null)
+            if ((requireOccupied && !occupied) || heaviestGrid == null)
                 return false;
 
             vehicle = UpsertTargetEntry(
@@ -1021,6 +1131,96 @@ namespace Si.UtilityAI
             return lengthSquared > 0.0001
                 ? value / Math.Sqrt(lengthSquared)
                 : fallback;
+        }
+
+        private sealed class PaxVehicleWeaponSubscription
+        {
+            private const string QuarterShotEvent = "shootquarter";
+            private const string HalfShotEvent = "shoothalf";
+            private const string FullShotEvent = "shootfull";
+
+            private readonly SiSpottingSystem _owner;
+            private readonly MyEntity _weapon;
+            private readonly MyPAX_MachineGun _machineGun;
+            private readonly MyPAX_Cannon _cannon;
+            private readonly Action _machineGunShot;
+            private readonly Action<string> _cannonShot;
+            private MyComponentEventBus _eventBus;
+            private bool _machineGunSubscribed;
+            private bool _quarterShotSubscribed;
+            private bool _halfShotSubscribed;
+            private bool _fullShotSubscribed;
+
+            public PaxVehicleWeaponSubscription(
+                SiSpottingSystem owner,
+                MyEntity weapon,
+                MyPAX_MachineGun machineGun,
+                MyPAX_Cannon cannon)
+            {
+                _owner = owner;
+                _weapon = weapon;
+                _machineGun = machineGun;
+                _cannon = cannon;
+                _machineGunShot = OnMachineGunShot;
+                _cannonShot = OnCannonShot;
+            }
+
+            public bool TrySubscribe()
+            {
+                if (_machineGun != null)
+                {
+                    _machineGun.FiredGun += _machineGunShot;
+                    _machineGunSubscribed = true;
+                }
+
+                if (_cannon != null)
+                {
+                    _eventBus = _weapon.Components.Get<MyComponentEventBus>();
+                    if (_eventBus != null)
+                    {
+                        _quarterShotSubscribed = _eventBus.TryAddListener(QuarterShotEvent, _cannonShot);
+                        _halfShotSubscribed = _eventBus.TryAddListener(HalfShotEvent, _cannonShot);
+                        _fullShotSubscribed = _eventBus.TryAddListener(FullShotEvent, _cannonShot);
+                    }
+                }
+
+                return _machineGunSubscribed
+                       || _quarterShotSubscribed
+                       || _halfShotSubscribed
+                       || _fullShotSubscribed;
+            }
+
+            public void Dispose()
+            {
+                if (_machineGunSubscribed && _machineGun != null)
+                    _machineGun.FiredGun -= _machineGunShot;
+
+                if (_eventBus != null)
+                {
+                    if (_quarterShotSubscribed)
+                        _eventBus.RemoveListener(QuarterShotEvent, _cannonShot);
+                    if (_halfShotSubscribed)
+                        _eventBus.RemoveListener(HalfShotEvent, _cannonShot);
+                    if (_fullShotSubscribed)
+                        _eventBus.RemoveListener(FullShotEvent, _cannonShot);
+                }
+
+                _machineGunSubscribed = false;
+                _quarterShotSubscribed = false;
+                _halfShotSubscribed = false;
+                _fullShotSubscribed = false;
+                _eventBus = null;
+            }
+
+            private void OnMachineGunShot()
+            {
+                _owner.OnPaxVehicleWeaponShot(_weapon);
+            }
+
+            private void OnCannonShot(string _)
+            {
+                _owner.OnPaxVehicleWeaponShot(_weapon);
+            }
         }
 
         private struct TargetBankResolution
