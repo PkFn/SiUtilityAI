@@ -117,7 +117,7 @@
     <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
         <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityCommandMenuFormationButtons" />
         <Columns>4</Columns>
-        <Rows>1</Rows>
+        <Rows>2</Rows>
         <ButtonStyleId>ButtonListWide</ButtonStyleId>
         <Buttons>
             <Button StyleName="ContextButtonSliced">
@@ -139,6 +139,26 @@
                 <Text>Vee</Text>
                 <Tooltip>Arrange units in a vee formation.</Tooltip>
                 <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandFormationVee" />
+            </Button>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Long box</Text>
+                <Tooltip>Fill a long rectangular formation sized to the squad.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandFormationLongBox" />
+            </Button>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Wide box</Text>
+                <Tooltip>Fill a wide rectangular formation sized to the squad.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandFormationWideBox" />
+            </Button>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Square</Text>
+                <Tooltip>Fill a square formation sized to the squad.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandFormationSquare" />
+            </Button>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Staggered column</Text>
+                <Tooltip>Follow the preceding unit with alternating offset for terrain-aware movement.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandFormationStaggeredColumn" />
             </Button>
         </Buttons>
     </Definition>

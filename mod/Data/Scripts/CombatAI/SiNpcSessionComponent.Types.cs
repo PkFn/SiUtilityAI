@@ -195,6 +195,10 @@ namespace Si.UtilityAI
         File,
         Line,
         Vee,
+        LongBox,
+        WideBox,
+        Square,
+        StaggeredColumn,
     }
 
     internal enum SiSquadEngagementStance

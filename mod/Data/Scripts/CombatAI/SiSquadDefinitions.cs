@@ -24,6 +24,11 @@ namespace Si.UtilityAI
         public double FileSpacing { get; private set; }
         public double LineSpacing { get; private set; }
         public double VeeSpacing { get; private set; }
+        public double FormationBoxSpacing { get; private set; }
+        public double LongBoxAspectRatio { get; private set; }
+        public double WideBoxAspectRatio { get; private set; }
+        public double SquareBoxAspectRatio { get; private set; }
+        public double StaggeredColumnOffset { get; private set; }
         public double WaypointRefreshDistance { get; private set; }
         public double EnemyJoinRadius { get; private set; }
 
@@ -64,6 +69,11 @@ namespace Si.UtilityAI
             FileSpacing = Math.Max(0, ob.FileSpacing);
             LineSpacing = Math.Max(0, ob.LineSpacing);
             VeeSpacing = Math.Max(0, ob.VeeSpacing);
+            FormationBoxSpacing = Math.Max(0, ob.FormationBoxSpacing);
+            LongBoxAspectRatio = Math.Max(0, ob.LongBoxAspectRatio);
+            WideBoxAspectRatio = Math.Max(0, ob.WideBoxAspectRatio);
+            SquareBoxAspectRatio = Math.Max(0, ob.SquareBoxAspectRatio);
+            StaggeredColumnOffset = Math.Max(0, ob.StaggeredColumnOffset);
             WaypointRefreshDistance = Math.Max(0, ob.WaypointRefreshDistance);
             EnemyJoinRadius = Math.Max(0, ob.EnemyJoinRadius);
         }
@@ -154,6 +164,21 @@ namespace Si.UtilityAI
 
         [XmlElement]
         public double VeeSpacing;
+
+        [XmlElement]
+        public double FormationBoxSpacing;
+
+        [XmlElement]
+        public double LongBoxAspectRatio;
+
+        [XmlElement]
+        public double WideBoxAspectRatio;
+
+        [XmlElement]
+        public double SquareBoxAspectRatio;
+
+        [XmlElement]
+        public double StaggeredColumnOffset;
 
         [XmlElement]
         public double WaypointRefreshDistance;

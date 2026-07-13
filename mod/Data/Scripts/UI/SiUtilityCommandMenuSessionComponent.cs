@@ -91,6 +91,26 @@ namespace Si.UtilityAI
             RequestCommand(SiUtilityCommandMenuCommand.FormationVee);
         }
 
+        internal void CommandFormationLongBox()
+        {
+            RequestCommand(SiUtilityCommandMenuCommand.FormationLongBox);
+        }
+
+        internal void CommandFormationWideBox()
+        {
+            RequestCommand(SiUtilityCommandMenuCommand.FormationWideBox);
+        }
+
+        internal void CommandFormationSquare()
+        {
+            RequestCommand(SiUtilityCommandMenuCommand.FormationSquare);
+        }
+
+        internal void CommandFormationStaggeredColumn()
+        {
+            RequestCommand(SiUtilityCommandMenuCommand.FormationStaggeredColumn);
+        }
+
         internal void CommandEngagementEnemiesNeutrals()
         {
             RequestCommand(SiUtilityCommandMenuCommand.EngagementEnemiesNeutrals);
@@ -152,6 +172,10 @@ namespace Si.UtilityAI
         FormationFile,
         FormationLine,
         FormationVee,
+        FormationLongBox,
+        FormationWideBox,
+        FormationSquare,
+        FormationStaggeredColumn,
         EngagementEnemiesNeutrals,
         EngagementEnemies,
         EngagementHoldFire,

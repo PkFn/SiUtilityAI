@@ -322,6 +322,14 @@ namespace Si.UtilityAI
                     return "Form line";
                 case SiUtilityCommandMenuCommand.FormationVee:
                     return "Form vee";
+                case SiUtilityCommandMenuCommand.FormationLongBox:
+                    return "Form long box";
+                case SiUtilityCommandMenuCommand.FormationWideBox:
+                    return "Form wide box";
+                case SiUtilityCommandMenuCommand.FormationSquare:
+                    return "Form square";
+                case SiUtilityCommandMenuCommand.FormationStaggeredColumn:
+                    return "Form staggered column";
                 case SiUtilityCommandMenuCommand.EngagementEnemiesNeutrals:
                     return "Weapons free";
                 case SiUtilityCommandMenuCommand.EngagementEnemies:
@@ -374,6 +382,18 @@ namespace Si.UtilityAI
                     return;
                 case SiUtilityCommandMenuCommand.FormationVee:
                     SetFormation(sender, leaderIdentityId, SiSquadFormation.Vee);
+                    return;
+                case SiUtilityCommandMenuCommand.FormationLongBox:
+                    SetFormation(sender, leaderIdentityId, SiSquadFormation.LongBox);
+                    return;
+                case SiUtilityCommandMenuCommand.FormationWideBox:
+                    SetFormation(sender, leaderIdentityId, SiSquadFormation.WideBox);
+                    return;
+                case SiUtilityCommandMenuCommand.FormationSquare:
+                    SetFormation(sender, leaderIdentityId, SiSquadFormation.Square);
+                    return;
+                case SiUtilityCommandMenuCommand.FormationStaggeredColumn:
+                    SetFormation(sender, leaderIdentityId, SiSquadFormation.StaggeredColumn);
                     return;
                 case SiUtilityCommandMenuCommand.EngagementEnemiesNeutrals:
                     SetEngagementStance(leaderIdentityId, SiSquadEngagementStance.EnemiesNeutrals);

@@ -57,6 +57,26 @@ namespace Si.UtilityAI
             _session?.CommandFormationVee();
         }
 
+        public void CommandFormationLongBox()
+        {
+            _session?.CommandFormationLongBox();
+        }
+
+        public void CommandFormationWideBox()
+        {
+            _session?.CommandFormationWideBox();
+        }
+
+        public void CommandFormationSquare()
+        {
+            _session?.CommandFormationSquare();
+        }
+
+        public void CommandFormationStaggeredColumn()
+        {
+            _session?.CommandFormationStaggeredColumn();
+        }
+
         public void CommandEngagementEnemiesNeutrals()
         {
             _session?.CommandEngagementEnemiesNeutrals();

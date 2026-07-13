@@ -574,7 +574,9 @@ namespace Si.UtilityAI
             var definition = Squads.Definition;
             var refreshDistanceSquared = definition.WaypointRefreshDistance * definition.WaypointRefreshDistance;
             var issued = 0;
-            if (state.Formation == SiSquadFormation.File || state.Formation == SiSquadFormation.Column)
+            if (state.Formation == SiSquadFormation.File
+                || state.Formation == SiSquadFormation.Column
+                || state.Formation == SiSquadFormation.StaggeredColumn)
             {
                 issued = ApplyChainedFollowOrder(
                     troops,
@@ -624,6 +626,15 @@ namespace Si.UtilityAI
             {
                 var gap = i == 0 ? definition.FollowDistance : followerGap;
                 var target = anchorPosition - anchorForward * gap;
+                if (formation == SiSquadFormation.StaggeredColumn && definition.StaggeredColumnOffset > 0)
+                {
+                    var up = SurfaceUp(anchorPosition);
+                    var right = NormalizedOrFallback(
+                        Vector3D.Cross(anchorForward, up),
+                        Vector3D.CalculatePerpendicularVector(anchorForward));
+                    var side = i % 2 == 0 ? -1 : 1;
+                    target += right * (side * definition.StaggeredColumnOffset);
+                }
                 if (TryCacheAndIssueFollowWaypoint(troops[i], target, refreshDistanceSquared))
                     issued++;
 
@@ -962,10 +973,59 @@ namespace Si.UtilityAI
                     var side = index % 2 == 0 ? -1 : 1;
                     return -forward * (definition.FollowDistance + row * definition.VeeSpacing)
                            + right * (side * row * definition.VeeSpacing);
+                case SiSquadFormation.LongBox:
+                    return FilledBoxFormationOffset(
+                        index,
+                        count,
+                        definition.LongBoxAspectRatio,
+                        forward,
+                        right,
+                        definition);
+                case SiSquadFormation.WideBox:
+                    return FilledBoxFormationOffset(
+                        index,
+                        count,
+                        definition.WideBoxAspectRatio,
+                        forward,
+                        right,
+                        definition);
+                case SiSquadFormation.Square:
+                    return FilledBoxFormationOffset(
+                        index,
+                        count,
+                        definition.SquareBoxAspectRatio,
+                        forward,
+                        right,
+                        definition);
                 case SiSquadFormation.Column:
                 default:
                     return -forward * definition.FollowDistance;
             }
+        }
+
+        private static Vector3D FilledBoxFormationOffset(
+            int index,
+            int count,
+            double aspectRatio,
+            in Vector3D forward,
+            in Vector3D right,
+            SiSquadSystemDefinition definition)
+        {
+            var spacing = definition.FormationBoxSpacing > 0
+                ? definition.FormationBoxSpacing
+                : definition.FollowDistance;
+            var safeCount = Math.Max(1, count);
+            var safeRatio = aspectRatio > 0 ? aspectRatio : 1;
+            var lengthSlots = Math.Max(1, (int)Math.Ceiling(Math.Sqrt(safeCount * safeRatio)));
+            var widthSlots = Math.Max(1, (int)Math.Ceiling(safeCount / (double)lengthSlots));
+            var slotIndex = Math.Max(0, index);
+            // Fill each depth row before opening the next lateral column so the
+            // calculated box dimensions remain occupied for partial final columns.
+            var row = slotIndex % lengthSlots;
+            var column = slotIndex / lengthSlots;
+            var lateralOffset = (column - (widthSlots - 1) * 0.5) * spacing;
+            var depthOffset = definition.FollowDistance + row * spacing;
+            return -forward * depthOffset + right * lateralOffset;
         }
 
         private static bool TryGetLeaderTransform(long leaderIdentityId, out MatrixD transform)
@@ -1143,6 +1203,14 @@ namespace Si.UtilityAI
                     return "Line";
                 case SiSquadFormation.Vee:
                     return "Vee";
+                case SiSquadFormation.LongBox:
+                    return "Long box";
+                case SiSquadFormation.WideBox:
+                    return "Wide box";
+                case SiSquadFormation.Square:
+                    return "Square";
+                case SiSquadFormation.StaggeredColumn:
+                    return "Staggered column";
                 case SiSquadFormation.Column:
                 default:
                     return "Column";
