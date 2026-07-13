@@ -1019,10 +1019,10 @@ namespace Si.UtilityAI
             var lengthSlots = Math.Max(1, (int)Math.Ceiling(Math.Sqrt(safeCount * safeRatio)));
             var widthSlots = Math.Max(1, (int)Math.Ceiling(safeCount / (double)lengthSlots));
             var slotIndex = Math.Max(0, index);
-            // Fill each depth row before opening the next lateral column so the
-            // calculated box dimensions remain occupied for partial final columns.
-            var row = slotIndex % lengthSlots;
-            var column = slotIndex / lengthSlots;
+            // Fill each lateral row before opening the next depth row. This keeps
+            // the box rectangular instead of leaving a partially populated side.
+            var row = slotIndex / widthSlots;
+            var column = slotIndex % widthSlots;
             var lateralOffset = (column - (widthSlots - 1) * 0.5) * spacing;
             var depthOffset = definition.FollowDistance + row * spacing;
             return -forward * depthOffset + right * lateralOffset;

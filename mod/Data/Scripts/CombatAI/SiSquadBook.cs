@@ -410,12 +410,17 @@ namespace Si.UtilityAI
                 if (!TryGetLeaderPosition(npcManager, squad.Leader, out position))
                     continue;
 
+                Vector3D waypoint;
+                var hasWaypoint = TryGetLeaderWaypoint(npcManager, squad.Leader, out waypoint);
+
                 markers.Add(new SiSquadMapMarker(
                     squad.Leader,
                     position,
                     FormatMapMarkerName(squad),
                     FormatMapMarkerDescription(squad),
                     false,
+                    hasWaypoint,
+                    waypoint,
                     ResolveMapMarkerStyle(
                         observerArmy,
                         hasObserverParty,
@@ -752,6 +757,27 @@ namespace Si.UtilityAI
                 return false;
 
             position = npc.Entity.WorldMatrix.Translation;
+            return true;
+        }
+
+        private static bool TryGetLeaderWaypoint(
+            SiNpcManager npcManager,
+            SiSquadLeaderKey leader,
+            out Vector3D waypoint)
+        {
+            waypoint = Vector3D.Zero;
+            if (leader.Kind != SiSquadLeaderKind.Ai)
+                return false;
+
+            SiNpc npc;
+            if (!TryGetNpc(npcManager, leader.Id, out npc))
+                return false;
+
+            var mover = npc as ISiWaypointMover;
+            if (mover == null || !mover.HasWaypoint)
+                return false;
+
+            waypoint = mover.Waypoint;
             return true;
         }
 
@@ -1238,6 +1264,8 @@ namespace Si.UtilityAI
             string name,
             string description,
             bool showOnHud,
+            bool hasWaypoint,
+            in Vector3D waypoint,
             string styleId)
         {
             Leader = leader;
@@ -1245,6 +1273,8 @@ namespace Si.UtilityAI
             Name = name;
             Description = description;
             ShowOnHud = showOnHud;
+            HasWaypoint = hasWaypoint;
+            Waypoint = waypoint;
             StyleId = styleId;
         }
 
@@ -1253,6 +1283,8 @@ namespace Si.UtilityAI
         public string Name { get; }
         public string Description { get; }
         public bool ShowOnHud { get; }
+        public bool HasWaypoint { get; }
+        public Vector3D Waypoint { get; }
         public string StyleId { get; }
     }
 

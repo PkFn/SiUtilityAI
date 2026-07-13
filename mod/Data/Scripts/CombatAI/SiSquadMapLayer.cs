@@ -28,6 +28,8 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
         public string FriendlyMarkerImage;
         public string EnemyMarkerImage;
         public string IndependentMarkerImage;
+        public string WaypointImage;
+        public string WaypointLineImage;
     }
 
     [MyMapRenderLayer(typeof(MyObjectBuilder_SiSquadMapLayer), true)]
@@ -36,10 +38,14 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
         private static readonly Vector2 IdleMarkerSize = new Vector2(0.0105f, 0.0105f);
         private static readonly Vector2 HoveredMarkerSize = new Vector2(0.015f, 0.015f);
         private static readonly Vector2 SelectedMarkerSize = new Vector2(0.018f, 0.018f);
+        private static readonly Vector2 WaypointMarkerSize = new Vector2(0.012f, 0.012f);
+        private static readonly Vector2 HoveredWaypointMarkerSize = new Vector2(0.016f, 0.016f);
         private static readonly char[] PopupLineBreaks = { '\n' };
         private static readonly Vector2 CommandOverlayAnchor = new Vector2(-0.98f, -0.86f);
         private readonly Dictionary<string, string> _markerImages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly MyTooltip _tooltip = new MyTooltip();
+        private string _waypointImage;
+        private string _waypointLineImage;
         private MyPlanetAreasComponent _planetAreas;
         private SiSquadMapMarker _hoveredMarker;
         private bool _markerTooltipVisible;
@@ -82,6 +88,12 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 ob?.IndependentMarkerImage,
                 ob?.DefaultMarkerImage,
                 ob?.FriendlyMarkerImage);
+            _waypointImage = FirstNonEmpty(
+                ob?.WaypointImage,
+                "Textures/GUI/Map/SiUtilityAI_SquadWaypoint.png");
+            _waypointLineImage = FirstNonEmpty(
+                ob?.WaypointLineImage,
+                "Textures/GUI/Map/SiUtilityAI_SquadWaypointLine.dds");
 
             _planetAreas = map?.Planet?.Components.Get<MyPlanetAreasComponent>();
             ResetMiddleMousePollingState(true);
@@ -113,17 +125,39 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             var layout = BuildMarkerLayout(snapshot);
             var mouseNormalizedPosition = MyGuiManager.MouseCursorPosition;
             var hoveredMarker = FindMarkerAtCursor(layout, mouseNormalizedPosition, out var hoveredMarkerPosition);
+            FindWaypointAtCursor(
+                layout,
+                mouseNormalizedPosition,
+                out var hoveredWaypointMarker,
+                out var hoveredWaypointPosition);
+
+            DrawWaypointConnections(layout, transitionAlpha);
 
             for (var i = 0; i < layout.Count; i++)
             {
                 var marker = layout[i].Marker;
 
-                DrawMarkerIcon(
-                    layout[i].MapPosition,
-                    marker.StyleId,
-                    transitionAlpha,
-                    false,
-                    session.IsMapCommandLeaderSelected(marker.Leader));
+                if (layout[i].HasLeaderPosition)
+                {
+                    DrawMarkerIcon(
+                        layout[i].MapPosition,
+                        marker.StyleId,
+                        transitionAlpha,
+                        false,
+                        session.IsMapCommandLeaderSelected(marker.Leader));
+                }
+
+                if (layout[i].HasWaypointPosition)
+                    DrawWaypointMarker(layout[i].WaypointMapPosition, transitionAlpha, false);
+            }
+
+            if (hoveredWaypointMarker != null)
+            {
+                _hoveredMarker = null;
+                DrawWaypointMarker(hoveredWaypointPosition, transitionAlpha, true);
+                ShowWaypointTooltip(hoveredWaypointMarker);
+                DrawMapCommandOverlay(session, null);
+                return;
             }
 
             if (hoveredMarker == null)
@@ -210,12 +244,88 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 SpriteBatchMode.Default);
         }
 
+        private void DrawWaypointConnections(IReadOnlyList<SiMarkerLayout> layout, float transitionAlpha)
+        {
+            if (string.IsNullOrWhiteSpace(_waypointLineImage))
+                return;
+
+            for (var i = 0; i < layout.Count; i++)
+            {
+                if (!layout[i].HasLeaderPosition || !layout[i].HasWaypointPosition)
+                    continue;
+
+                var direction = layout[i].WaypointMapPosition - layout[i].MapPosition;
+                var distance = direction.Length();
+                if (distance <= 0.0001f)
+                    continue;
+
+                direction /= distance;
+                var rightVector = new Vector2(direction.Y, -direction.X);
+                var color = new Color(0.35f, 0.85f, 1f, 0.9f * transitionAlpha);
+                MyRenderProxy.DrawSprite(
+                    _waypointLineImage,
+                    layout[i].MapPosition + direction * (distance * 0.5f),
+                    new Vector2(0.004f, distance),
+                    color,
+                    MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER,
+                    0f,
+                    rightVector,
+                    1f,
+                    null,
+                    0f,
+                    true,
+                    null,
+                    SpriteBatchMode.Default);
+            }
+        }
+
+        private void DrawWaypointMarker(Vector2 mapPosition, float transitionAlpha, bool hovered)
+        {
+            if (string.IsNullOrWhiteSpace(_waypointImage))
+                return;
+
+            var color = hovered
+                ? new Color(1f, 1f, 1f, transitionAlpha)
+                : new Color(0.35f, 0.85f, 1f, 0.95f * transitionAlpha);
+            MyRenderProxy.DrawSprite(
+                _waypointImage,
+                mapPosition,
+                hovered ? HoveredWaypointMarkerSize : WaypointMarkerSize,
+                color,
+                MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER,
+                0f,
+                Vector2.UnitX,
+                1f,
+                null,
+                0f,
+                true,
+                null,
+                SpriteBatchMode.Default);
+        }
+
         private void ShowMarkerTooltip(SiNpcSessionComponent session, SiSquadMapMarker marker)
         {
             if (marker == null)
                 return;
 
             BuildTooltip(session, marker);
+            Map.SetTooltip(_tooltip);
+            Map.ShowToolTip();
+            _markerTooltipVisible = true;
+        }
+
+        private void ShowWaypointTooltip(SiSquadMapMarker marker)
+        {
+            if (marker == null)
+                return;
+
+            using (_tooltip.OpenBatch(true))
+            {
+                _tooltip.AddTitle("Squad waypoint");
+                if (!string.IsNullOrWhiteSpace(marker.Name))
+                    _tooltip.AddLine(marker.Name);
+            }
+
             Map.SetTooltip(_tooltip);
             Map.ShowToolTip();
             _markerTooltipVisible = true;
@@ -386,33 +496,38 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
         private List<SiMarkerLayout> BuildMarkerLayout(IReadOnlyList<SiSquadMapMarker> snapshot)
         {
             var layout = new List<SiMarkerLayout>();
-            if (snapshot == null || Map?.CurrentView == null || _planetAreas == null)
+            if (snapshot == null || Map?.CurrentView == null)
                 return layout;
 
-            var environmentViewport = GetEnvironmentMapViewport(out var currentFace);
             var screenViewport = GetScreenViewport();
-            if (environmentViewport.Size.X <= 0 || environmentViewport.Size.Y <= 0
-                || screenViewport.Size.X <= 0 || screenViewport.Size.Y <= 0)
+            if (screenViewport.Size.X <= 0 || screenViewport.Size.Y <= 0)
                 return layout;
 
-            var envToScreenScale = screenViewport.Size / environmentViewport.Size;
-            var envToScreenTranslate = screenViewport.Position - envToScreenScale * environmentViewport.Position;
             for (var i = 0; i < snapshot.Count; i++)
             {
                 var marker = snapshot[i];
-                if (marker == null
-                    || !TryProjectMarker(
-                        marker,
-                        currentFace,
-                        environmentViewport,
-                        envToScreenScale,
-                        envToScreenTranslate,
-                        out var mapPosition))
+                if (marker == null)
+                    continue;
+
+                var hasLeaderPosition = TryGetMapPosition(
+                    marker.Position,
+                    screenViewport,
+                    out var mapPosition);
+                var waypointMapPosition = default(Vector2);
+                var hasWaypointPosition = marker.HasWaypoint
+                    && TryGetMapPosition(
+                        marker.Waypoint,
+                        screenViewport,
+                        out waypointMapPosition);
+                if (!hasLeaderPosition && !hasWaypointPosition)
                     continue;
 
                 layout.Add(new SiMarkerLayout(
                     marker,
-                    mapPosition));
+                    mapPosition,
+                    hasLeaderPosition,
+                    waypointMapPosition,
+                    hasWaypointPosition));
             }
 
             return layout;
@@ -436,7 +551,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             {
                 var markerEntry = layout[i];
                 var marker = markerEntry.Marker;
-                if (marker == null)
+                if (marker == null || !markerEntry.HasLeaderPosition)
                     continue;
 
                 var markerPixelPosition = MyGuiManager.GetScreenCoordinateFromNormalizedCoordinate(markerEntry.MapPosition, false);
@@ -451,6 +566,39 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             }
 
             return hoveredMarker;
+        }
+
+        private void FindWaypointAtCursor(
+            IReadOnlyList<SiMarkerLayout> layout,
+            Vector2 mouseNormalizedPosition,
+            out SiSquadMapMarker hoveredMarker,
+            out Vector2 hoveredWaypointPosition)
+        {
+            hoveredMarker = null;
+            hoveredWaypointPosition = default(Vector2);
+            if (layout == null || Map?.CurrentView == null)
+                return;
+
+            var mousePixelPosition = MyGuiManager.GetScreenCoordinateFromNormalizedCoordinate(mouseNormalizedPosition, false);
+            var hoveredDistanceSquared = float.MaxValue;
+            var maxDistanceSquared = WaypointHitRadiusSquared();
+            for (var i = 0; i < layout.Count; i++)
+            {
+                var markerEntry = layout[i];
+                if (markerEntry.Marker == null || !markerEntry.HasWaypointPosition)
+                    continue;
+
+                var waypointPixelPosition = MyGuiManager.GetScreenCoordinateFromNormalizedCoordinate(
+                    markerEntry.WaypointMapPosition,
+                    false);
+                var distanceSquared = Vector2.DistanceSquared(waypointPixelPosition, mousePixelPosition);
+                if (distanceSquared > maxDistanceSquared || distanceSquared >= hoveredDistanceSquared)
+                    continue;
+
+                hoveredMarker = markerEntry.Marker;
+                hoveredWaypointPosition = markerEntry.WaypointMapPosition;
+                hoveredDistanceSquared = distanceSquared;
+            }
         }
 
         private bool IsActiveInteractiveLayer()
@@ -488,43 +636,25 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             return null;
         }
 
-        private bool TryProjectMarker(
-            SiSquadMapMarker marker,
-            int currentFace,
-            RectangleF environmentViewport,
-            Vector2 envToScreenScale,
-            Vector2 envToScreenTranslate,
+        private bool TryGetMapPosition(
+            Vector3D position,
+            RectangleF screenViewport,
             out Vector2 mapPosition)
         {
             mapPosition = default(Vector2);
-            if (marker == null || _planetAreas == null || Map?.CurrentView == null)
+            if (Map?.CurrentView == null)
                 return false;
 
-            var markerPosition = marker.Position;
-            var localPosition = Vector3D.Transform(in markerPosition, in _planetAreas.Entity.PositionComp.WorldMatrixInvScaledRef);
-            int projectedFace;
-            Vector2D projectedTexcoords;
             try
             {
-                Sandbox.Game.Entities.Planet.MyEnvironmentCubemapHelper.ProjectToCube(
-                    ref localPosition,
-                    out projectedFace,
-                    out projectedTexcoords);
+                mapPosition = Map.GetMapPosition(position);
             }
             catch
             {
                 return false;
             }
 
-            if (projectedFace != currentFace)
-                return false;
-
-            var environmentPosition = new Vector2((float)projectedTexcoords.X, (float)projectedTexcoords.Y);
-            if (!environmentViewport.Contains(environmentPosition))
-                return false;
-
-            mapPosition = environmentPosition * envToScreenScale + envToScreenTranslate;
-            return true;
+            return screenViewport.Contains(mapPosition);
         }
 
         private static float MarkerHitRadiusSquared()
@@ -534,54 +664,39 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             return radius * radius;
         }
 
+        private static float WaypointHitRadiusSquared()
+        {
+            var markerPixelSize = MyGuiManager.GetScreenSizeFromNormalizedSize(HoveredWaypointMarkerSize, false);
+            var radius = Math.Max(markerPixelSize.X, markerPixelSize.Y) * 0.75f + 4f;
+            return radius * radius;
+        }
+
         private struct SiMarkerLayout
         {
             public SiMarkerLayout(
                 SiSquadMapMarker marker,
-                Vector2 mapPosition)
+                Vector2 mapPosition,
+                bool hasLeaderPosition,
+                Vector2 waypointMapPosition,
+                bool hasWaypointPosition)
             {
                 Marker = marker;
                 MapPosition = mapPosition;
+                HasLeaderPosition = hasLeaderPosition;
+                WaypointMapPosition = waypointMapPosition;
+                HasWaypointPosition = hasWaypointPosition;
             }
 
             public SiSquadMapMarker Marker;
             public Vector2 MapPosition;
-        }
-
-        private RectangleF GetEnvironmentMapViewport(out int face)
-        {
-            var view = Map.CurrentView;
-            var scalingCount = CurrentViewScalingCount();
-            var counts = view.Size;
-            int minCellX;
-            int minCellY;
-            int maxCellX;
-            int maxCellY;
-            MyPlanetAreasComponent.UnpackAreaId(view[0, 0], out face, out minCellX, out minCellY);
-            int ignoredFace;
-            MyPlanetAreasComponent.UnpackAreaId(view[counts.X - 1, counts.Y - 1], out ignoredFace, out maxCellX, out maxCellY);
-
-            var minTexCoord = (2f * new Vector2(minCellX, minCellY) - scalingCount) / scalingCount;
-            var maxTexCoord = (2f * new Vector2(maxCellX + 1, maxCellY + 1) - scalingCount) / scalingCount;
-            return new RectangleF(minTexCoord, maxTexCoord - minTexCoord);
+            public bool HasLeaderPosition;
+            public Vector2 WaypointMapPosition;
+            public bool HasWaypointPosition;
         }
 
         private RectangleF GetScreenViewport()
         {
             return new RectangleF(Map.GetPositionAbsoluteTopLeft() + Map.MapOffset, Map.MapSize);
-        }
-
-        private int CurrentViewScalingCount()
-        {
-            switch (Map.CurrentZoomLevel)
-            {
-                case MyPlanetMapZoomLevel.Kingdom:
-                    return _planetAreas.RegionCount;
-                case MyPlanetMapZoomLevel.Region:
-                    return _planetAreas.AreaCount;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
         }
     }
 }

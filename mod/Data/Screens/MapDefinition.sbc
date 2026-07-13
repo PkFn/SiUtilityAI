@@ -37,6 +37,8 @@
           <FriendlyMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Friendly.png</FriendlyMarkerImage>
           <EnemyMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Enemy.png</EnemyMarkerImage>
           <IndependentMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Independent.png</IndependentMarkerImage>
+          <WaypointImage>Textures\GUI\Map\SiUtilityAI_SquadWaypoint.png</WaypointImage>
+          <WaypointLineImage>Textures\GUI\Map\SiUtilityAI_SquadWaypointLine.dds</WaypointLineImage>
         </Layer>
         <Layer xsi:type="MyObjectBuilder_ActionTrackingLayer">
           <ActionImage>Textures\GUI\Map\Action.png</ActionImage>
@@ -83,6 +85,8 @@
           <FriendlyMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Friendly.png</FriendlyMarkerImage>
           <EnemyMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Enemy.png</EnemyMarkerImage>
           <IndependentMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Independent.png</IndependentMarkerImage>
+          <WaypointImage>Textures\GUI\Map\SiUtilityAI_SquadWaypoint.png</WaypointImage>
+          <WaypointLineImage>Textures\GUI\Map\SiUtilityAI_SquadWaypointLine.dds</WaypointLineImage>
         </Layer>
         <Layer xsi:type="MyObjectBuilder_ActionTrackingLayer">
           <ActionImage>Textures\GUI\Map\Action.png</ActionImage>
