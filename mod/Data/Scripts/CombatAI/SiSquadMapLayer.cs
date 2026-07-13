@@ -40,6 +40,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
         private static readonly Vector2 SelectedMarkerSize = new Vector2(0.018f, 0.018f);
         private static readonly Vector2 WaypointMarkerSize = new Vector2(0.012f, 0.012f);
         private static readonly Vector2 HoveredWaypointMarkerSize = new Vector2(0.016f, 0.016f);
+        private const float WaypointLineNativeLength = 0.04f;
         private static readonly char[] PopupLineBreaks = { '\n' };
         private static readonly Vector2 CommandOverlayAnchor = new Vector2(-0.98f, -0.86f);
         private readonly Dictionary<string, string> _markerImages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -265,12 +266,12 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 MyRenderProxy.DrawSprite(
                     _waypointLineImage,
                     layout[i].MapPosition + direction * (distance * 0.5f),
-                    new Vector2(0.004f, distance),
+                    Vector2.Zero,
                     color,
                     MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER,
                     0f,
                     rightVector,
-                    1f,
+                    distance / WaypointLineNativeLength,
                     null,
                     0f,
                     true,
