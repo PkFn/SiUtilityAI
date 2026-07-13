@@ -93,7 +93,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 "Textures/GUI/Map/SiUtilityAI_SquadWaypoint.png");
             _waypointLineImage = FirstNonEmpty(
                 ob?.WaypointLineImage,
-                "Textures/GUI/Map/SiUtilityAI_SquadWaypointLine.dds");
+                "Textures/GUI/Map/SiUtilityAI_SquadWaypointLine.png");
 
             _planetAreas = map?.Planet?.Components.Get<MyPlanetAreasComponent>();
             ResetMiddleMousePollingState(true);
@@ -295,7 +295,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER,
                 0f,
                 Vector2.UnitX,
-                1f,
+                0.5f,
                 null,
                 0f,
                 true,
