@@ -71,12 +71,13 @@ namespace Si.UtilityAI
                 objectBuilder.PositionAndOrientation = new MyPositionAndOrientation(Transform);
                 objectBuilder.PersistentFlags |= MyPersistentEntityFlags2.InScene;
 
-                entity = Sandbox.Game.Entities.MyEntities.CreateFromObjectBuilderAndAdd(objectBuilder);
+                entity = Sandbox.Game.Entities.MyEntities.CreateFromObjectBuilder(objectBuilder);
                 if (entity == null)
                     throw new InvalidOperationException(
                         $"Failed to create character '{EntityDefinition.SubtypeName}'.");
 
                 PrepareActivatedEntity(entity);
+                Sandbox.Game.Entities.MyEntities.Add(entity, true);
                 return TryAttachEntityCore(entity, closeOnFailure: true);
             }
             catch (Exception exception)
