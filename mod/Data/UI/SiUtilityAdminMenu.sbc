@@ -1,5 +1,21 @@
 <?xml version="1.0"?>
 <Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://storage.googleapis.com/unofficial-keen-schemas/latest/medieval-modded.xsd">
+    <Definition xsi:type="MyObjectBuilder_GuiSkinDefinition" Merge="Append" Copy="Append">
+        <Id Type="MyObjectBuilder_GuiSkinDefinition" Subtype="Default" />
+        <Listbox StyleName="SiUtilityAdminListboxWide" Texture="ListboxBackground">
+            <Item TextScale="1.0" TextOffset="16">
+                <Size x="720" y="40" />
+                <Offset x="0" y="0" />
+                <Normal Font="VollkornRegularPlain" TextColor="#3C2000" />
+                <Highlight Font="VollkornRegularPlain" TextColor="#3C2000" />
+                <ActiveTexture>Textures\GUI\Controls\item_highlight_light.dds</ActiveTexture>
+                <HighlightTexture>Textures\GUI\Controls\item_highlight_dark.dds</HighlightTexture>
+            </Item>
+            <VariableWidth>false</VariableWidth>
+            <DrawScrollbar>true</DrawScrollbar>
+        </Listbox>
+    </Definition>
+
     <Definition xsi:type="MyObjectBuilder_ContextMenuDefinition">
         <Id Type="MyObjectBuilder_ContextMenu" Subtype="SiUtilityAdminMenu" />
         <StyleName>ContextMenuDefault</StyleName>
@@ -38,7 +54,7 @@
     <Definition xsi:type="MyObjectBuilder_ListboxControllerDefinition">
         <Id Type="MyObjectBuilder_ListboxController" Subtype="SiUtilityAdminMenuWebbingList" />
         <Title>Available Webbings</Title><DataId>AdminWebbings</DataId>
-        <Listbox StyleName="ContextMenuListboxWide" MinSize="6" MaxSize="10"><AutoCommit>true</AutoCommit></Listbox>
+        <Listbox StyleName="SiUtilityAdminListboxWide" MinSize="6" MaxSize="10"><AutoCommit>true</AutoCommit></Listbox>
     </Definition>
 
     <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
@@ -51,7 +67,10 @@
         <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuSquad" />
         <Title>Spawn Squad</Title><Width>800</Width><AutoCommit>true</AutoCommit>
         <Embedded><Id Type="MyObjectBuilder_ListboxController" Subtype="SiUtilityAdminMenuSquadList" /></Embedded>
-        <Embedded><Id Type="MyObjectBuilder_ListboxController" Subtype="SiUtilityAdminMenuSquadMembersList" /></Embedded>
+        <Embedded>
+            <Id Type="MyObjectBuilder_ListboxController" Subtype="SiUtilityAdminMenuSquadMembersList" />
+            <RebuildReference Id="AdminSelectedSquadMembersVersion" />
+        </Embedded>
         <Checkbox DataId="AdminSquadEnemy"><Text>Enemy</Text><Tooltip>Spawn this squad as hostile.</Tooltip></Checkbox>
         <Embedded><Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityAdminMenuSquadButton" /></Embedded>
     </Definition>
@@ -59,13 +78,13 @@
     <Definition xsi:type="MyObjectBuilder_ListboxControllerDefinition">
         <Id Type="MyObjectBuilder_ListboxController" Subtype="SiUtilityAdminMenuSquadList" />
         <Title>Available Squad Presets</Title><DataId>AdminSquads</DataId>
-        <Listbox StyleName="ContextMenuListboxWide" MinSize="6" MaxSize="10"><AutoCommit>true</AutoCommit></Listbox>
+        <Listbox StyleName="SiUtilityAdminListboxWide" MinSize="6" MaxSize="10"><AutoCommit>true</AutoCommit></Listbox>
     </Definition>
 
     <Definition xsi:type="MyObjectBuilder_ListboxControllerDefinition">
         <Id Type="MyObjectBuilder_ListboxController" Subtype="SiUtilityAdminMenuSquadMembersList" />
         <Title>Squad Members</Title><DataId>AdminSelectedSquadMembers</DataId>
-        <Listbox StyleName="ContextMenuListboxWide" MinSize="4" MaxSize="8"><AutoCommit>true</AutoCommit></Listbox>
+        <Listbox StyleName="SiUtilityAdminListboxWide" MinSize="4" MaxSize="8"><AutoCommit>true</AutoCommit></Listbox>
     </Definition>
 
     <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">

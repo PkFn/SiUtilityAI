@@ -20,6 +20,7 @@ namespace Si.UtilityAI
         private static readonly MyStringId Squads = MyStringId.GetOrCompute("AdminSquads");
         private static readonly MyStringId SquadEnemy = MyStringId.GetOrCompute("AdminSquadEnemy");
         private static readonly MyStringId SelectedSquadMembers = MyStringId.GetOrCompute("AdminSelectedSquadMembers");
+        private static readonly MyStringId SelectedSquadMembersVersion = MyStringId.GetOrCompute("AdminSelectedSquadMembersVersion");
         private static readonly MyStringId NpcCount = MyStringId.GetOrCompute("AdminNpcCount");
         private static readonly MyStringId SquadRoster = MyStringId.GetOrCompute("AdminSquadRoster");
         private static readonly MyStringId UtilityDecisionMaking = MyStringId.GetOrCompute("AdminUtilityDecisionMaking");
@@ -32,6 +33,7 @@ namespace Si.UtilityAI
         private bool _squadEnemy;
         private bool _utilityDecisionMakingEnabled;
         private bool _gameLogEnabled;
+        private long _selectedSquadMembersVersion;
 
         public override void Init(object[] contextParams)
         {
@@ -56,7 +58,7 @@ namespace Si.UtilityAI
                 preset => preset.Id.SubtypeName,
                 preset => preset.Id.SubtypeName,
                 () => SelectedSquad,
-                value => _selectedSquad = value));
+                SetSelectedSquad));
             m_dataSources.Add(SquadEnemy, SimpleDataSources.Simple(
                 () => _squadEnemy,
                 value => _squadEnemy = value));
@@ -66,6 +68,8 @@ namespace Si.UtilityAI
                 item => item,
                 () => null,
                 value => { }));
+            m_dataSources.Add(SelectedSquadMembersVersion, SimpleDataSources.SimpleReadOnly(
+                () => _selectedSquadMembersVersion));
             m_dataSources.Add(NpcCount, SimpleDataSources.SimpleReadOnly(
                 () => SiNpcSessionComponent.Instance?.AdminNpcCountText() ?? "Custom NPC system is not available."));
             m_dataSources.Add(SquadRoster, SimpleDataSources.SimpleReadOnly(
@@ -108,6 +112,15 @@ namespace Si.UtilityAI
         {
             _gameLogEnabled = enabled;
             SiNpcSessionComponent.Instance?.RequestAdminSetGameLog(enabled);
+        }
+
+        private void SetSelectedSquad(string squadSubtype)
+        {
+            if (string.Equals(_selectedSquad, squadSubtype, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            _selectedSquad = squadSubtype;
+            _selectedSquadMembersVersion++;
         }
 
         private string SelectedWebbing
@@ -203,8 +216,8 @@ namespace Si.UtilityAI
                 var items = _getItems();
                 for (var i = 0; i < items.Count; i++)
                     output.Add(new MyTuple<MyStringId, string>(
-                        MyStringId.GetOrCompute(_title(items[i])),
-                        string.Empty));
+                        MyStringId.NullOrEmpty,
+                        _title(items[i])));
             }
 
             public void GetItemSelection(List<bool> output)
