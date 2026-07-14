@@ -258,7 +258,16 @@ namespace Si.UtilityAI
                 if (GetCombatStance(npc) == SiSquadCombatStance.Combat)
                     controller.SetCombatMovementSpeed(SiNpcMovementSpeed.Sprint);
                 else
+                {
                     controller.ClearCombatMovementSpeed();
+
+                    // Combat cover and plain-view behaviors own the crouch
+                    // request while the squad is in combat.  Release it at
+                    // the stance boundary so formation waypoints use normal
+                    // movement as soon as the squad disengages.
+                    var posture = npc as ISiPostureController;
+                    posture?.SetCrouch(false);
+                }
             }
         }
 

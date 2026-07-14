@@ -125,6 +125,7 @@ namespace Si.UtilityAI
             {
                 ResetState(context);
                 context.Agent.ClearCombatMovementRole();
+                context.TrySetCrouch(false);
                 return 0;
             }
 

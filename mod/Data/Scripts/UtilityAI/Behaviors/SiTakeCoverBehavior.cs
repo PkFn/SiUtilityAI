@@ -162,6 +162,7 @@ namespace Si.UtilityAI
             if (session.GetCombatStance(context.Agent) != SiSquadCombatStance.Combat)
             {
                 ResetCombatState(session, context);
+                context.TrySetCrouch(false);
                 return 0;
             }
 
@@ -233,6 +234,7 @@ namespace Si.UtilityAI
             if (session.GetCombatStance(context.Agent) != SiSquadCombatStance.Combat)
             {
                 ResetCombatState(session, context);
+                context.TrySetCrouch(false);
                 return;
             }
 
