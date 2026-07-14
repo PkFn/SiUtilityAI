@@ -106,13 +106,13 @@
 
     <!-- Formation checkpoint speed / fall-behind table. DistanceLessThan=0 is the final row. -->
     <FallBehindSpeedOverrides>
-      <Override CheckpointSpeed="Walk" DistanceLessThan="1" ResultSpeed="Walk" />
+      <Override CheckpointSpeed="Walk" DistanceLessThan="2" ResultSpeed="Walk" />
       <Override CheckpointSpeed="Walk" DistanceLessThan="5" ResultSpeed="Run" />
       <Override CheckpointSpeed="Walk" ResultSpeed="Sprint" />
-      <Override CheckpointSpeed="Run" DistanceLessThan="1" ResultSpeed="Run" />
+      <Override CheckpointSpeed="Run" DistanceLessThan="2" ResultSpeed="Run" />
       <Override CheckpointSpeed="Run" DistanceLessThan="5" ResultSpeed="Sprint" />
       <Override CheckpointSpeed="Run" ResultSpeed="Sprint" />
-      <Override CheckpointSpeed="Sprint" DistanceLessThan="1" ResultSpeed="Sprint" />
+      <Override CheckpointSpeed="Sprint" DistanceLessThan="2" ResultSpeed="Sprint" />
       <Override CheckpointSpeed="Sprint" DistanceLessThan="5" ResultSpeed="Sprint" />
       <Override CheckpointSpeed="Sprint" ResultSpeed="Sprint" />
     </FallBehindSpeedOverrides>

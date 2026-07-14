@@ -296,7 +296,10 @@ namespace Si.UtilityAI
             var localDirection = Vector3D.TransformNormal(
                 direction,
                 Entity.PositionComp.WorldMatrixNormalizedInv);
-            moveIndicator = (Vector3)localDirection;
+            // Formation bots rotate toward the checkpoint instead of using
+            // lateral input. This prevents small heading errors from turning
+            // into visible strafing.
+            moveIndicator = new Vector3(0f, (float)localDirection.Y, (float)localDirection.Z);
             if (_wantsCrouch)
                 moveIndicator.Y = -1f;
 
