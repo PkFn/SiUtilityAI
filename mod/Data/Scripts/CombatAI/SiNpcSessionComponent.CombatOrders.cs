@@ -244,6 +244,13 @@ namespace Si.UtilityAI
                 if (npc == null)
                     continue;
 
+                // Death processing runs in Npcs.Update after this session
+                // update.  A dead character can therefore still be present
+                // in the manager while its entity components are being torn
+                // down; do not apply movement settings during that window.
+                if (npc.IsDead)
+                    continue;
+
                 var controller = npc as ISiMovementSpeedController;
                 if (controller == null)
                     continue;
