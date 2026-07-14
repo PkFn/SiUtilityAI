@@ -222,14 +222,6 @@ namespace Si.UtilityAI
         internal string AdminNpcCountText() =>
             Npcs == null ? "Custom NPC system is not available." : $"Custom NPCs alive: {Npcs.Npcs.Count}.";
 
-        internal string AdminSquadRosterText()
-        {
-            var lines = Squads?.CreateRosterLines(Npcs);
-            return lines == null || lines.Count == 0
-                ? "No squad roster is available."
-                : string.Join("\n", lines);
-        }
-
         internal bool AdminUtilityDecisionMakingEnabled => _utilityDecisionMakingEnabled;
         internal bool AdminGameLogEnabled => SiGameLog.Enabled;
 

@@ -114,7 +114,13 @@
     <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
         <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuRoster" />
         <Title>Squad Roster</Title><Width>800</Width><AutoCommit>true</AutoCommit>
-        <Label><Line>{AdminSquadRoster}</Line><WordWrapping>true</WordWrapping></Label>
+        <Embedded><Id Type="MyObjectBuilder_ListboxController" Subtype="SiUtilityAdminMenuRosterList" /></Embedded>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_ListboxControllerDefinition">
+        <Id Type="MyObjectBuilder_ListboxController" Subtype="SiUtilityAdminMenuRosterList" />
+        <Title>Active Squads</Title><DataId>AdminSquadRoster</DataId>
+        <Listbox StyleName="SiUtilityAdminListboxWide" MinSize="6" MaxSize="12"><AutoCommit>true</AutoCommit></Listbox>
     </Definition>
 
     <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">

@@ -72,8 +72,12 @@ namespace Si.UtilityAI
                 () => _selectedSquadMembersVersion));
             m_dataSources.Add(NpcCount, SimpleDataSources.SimpleReadOnly(
                 () => SiNpcSessionComponent.Instance?.AdminNpcCountText() ?? "Custom NPC system is not available."));
-            m_dataSources.Add(SquadRoster, SimpleDataSources.SimpleReadOnly(
-                () => SiNpcSessionComponent.Instance?.AdminSquadRosterText() ?? "No squad roster is available."));
+            m_dataSources.Add(SquadRoster, new DynamicListDataSource<string>(
+                SquadRosterLines,
+                item => item,
+                item => item,
+                () => null,
+                value => { }));
             m_dataSources.Add(UtilityDecisionMaking, SimpleDataSources.Simple(
                 () => _utilityDecisionMakingEnabled,
                 SetUtilityDecisionMaking));
@@ -163,6 +167,13 @@ namespace Si.UtilityAI
                     return SquadMemberIds(presets[i]);
 
             return new List<string>();
+        }
+
+        private static List<string> SquadRosterLines()
+        {
+            var session = SiNpcSessionComponent.Instance;
+            var lines = session?.Squads?.CreateRosterLines(session.Npcs);
+            return lines ?? new List<string> { "No squad roster is available." };
         }
 
         private static List<string> SquadMemberIds(SiNpcSquadPresetDefinition preset)
