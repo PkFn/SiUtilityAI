@@ -234,6 +234,27 @@ namespace Si.UtilityAI
             UpdateAiSquadOrders();
         }
 
+        private void UpdateCombatMovementSpeeds()
+        {
+            if (Npcs == null)
+                return;
+
+            foreach (var npc in Npcs.Npcs.Values)
+            {
+                if (npc == null)
+                    continue;
+
+                var controller = npc as ISiMovementSpeedController;
+                if (controller == null)
+                    continue;
+
+                if (GetCombatStance(npc) == SiSquadCombatStance.Combat)
+                    controller.SetCombatMovementSpeed(SiNpcMovementSpeed.Sprint);
+                else
+                    controller.ClearCombatMovementSpeed();
+            }
+        }
+
         private void UpdateAiSquadOrders()
         {
             if (Npcs == null || Squads?.Definition == null)

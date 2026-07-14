@@ -193,6 +193,7 @@ namespace Si.UtilityAI
                 HandleInactivePlayerLedSquads();
                 UpdateSquadOrders();
                 UpdateCombatStances();
+                UpdateCombatMovementSpeeds();
                 CleanupTransportStates();
                 CleanupPositionCache();
                 CleanupExpiredCoverScanCache();

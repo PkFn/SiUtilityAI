@@ -103,6 +103,8 @@ namespace Si.UtilityAI
 
         void SetSquadMovementSpeed(SiNpcMovementSpeed speed);
         void ClearSquadMovementSpeed();
+        void SetCombatMovementSpeed(SiNpcMovementSpeed speed);
+        void ClearCombatMovementSpeed();
     }
 
     /// <summary>
@@ -118,6 +120,7 @@ namespace Si.UtilityAI
         private bool _movementHandlersRegistered;
         private bool _wantsCrouch;
         private SiNpcMovementSpeed? _squadMovementSpeed;
+        private SiNpcMovementSpeed? _combatMovementSpeed;
         private bool _hasLoggedMovementState;
         private string _lastLoggedMovementState;
         private readonly SiGameLog _log = new SiGameLog(nameof(SiGroundedNpc), "[SiGroundedNpc]");
@@ -177,6 +180,20 @@ namespace Si.UtilityAI
                 ApplyMovementSpeed(_movement, GetControllerDefinition());
         }
 
+        public void SetCombatMovementSpeed(SiNpcMovementSpeed speed)
+        {
+            _combatMovementSpeed = speed;
+            if (_movement != null)
+                ApplyMovementSpeed(_movement, GetControllerDefinition());
+        }
+
+        public void ClearCombatMovementSpeed()
+        {
+            _combatMovementSpeed = null;
+            if (_movement != null)
+                ApplyMovementSpeed(_movement, GetControllerDefinition());
+        }
+
         protected sealed override void OnUpdate(long elapsedMilliseconds)
         {
             UpdateBehavior(elapsedMilliseconds);
@@ -200,6 +217,7 @@ namespace Si.UtilityAI
             _hasLoggedMovementState = false;
             _lastLoggedMovementState = null;
             _squadMovementSpeed = null;
+            _combatMovementSpeed = null;
             _movement = Entity?.Components.Get<MyCharacterMovementComponent>();
             if (_movement == null)
                 throw new InvalidOperationException(
@@ -236,6 +254,7 @@ namespace Si.UtilityAI
             _movementHandlersRegistered = false;
             _wantsCrouch = false;
             _squadMovementSpeed = null;
+            _combatMovementSpeed = null;
             _hasLoggedMovementState = false;
             _lastLoggedMovementState = null;
         }
@@ -345,7 +364,9 @@ namespace Si.UtilityAI
             MyCharacterMovementComponent movement,
             SiGroundedNpcControllerComponentDefinition definition)
         {
-            var speed = _squadMovementSpeed ?? MovementSpeedFromDefinition(definition);
+            var speed = _combatMovementSpeed
+                        ?? _squadMovementSpeed
+                        ?? MovementSpeedFromDefinition(definition);
             movement.WantsWalk = speed == SiNpcMovementSpeed.Walk;
             movement.WantsSprint = speed == SiNpcMovementSpeed.Sprint;
         }
