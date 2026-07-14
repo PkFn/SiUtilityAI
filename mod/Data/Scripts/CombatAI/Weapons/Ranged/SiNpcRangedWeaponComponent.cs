@@ -299,7 +299,7 @@ namespace Si.UtilityAI
                 return;
 
             var now = CurrentTimeMilliseconds();
-            if (now - _lastFireIntentTime > FireIntentGraceMilliseconds)
+            if (Definition.SemiAuto && now - _lastFireIntentTime > FireIntentGraceMilliseconds)
                 return;
 
             var target = _fireIntentTarget;

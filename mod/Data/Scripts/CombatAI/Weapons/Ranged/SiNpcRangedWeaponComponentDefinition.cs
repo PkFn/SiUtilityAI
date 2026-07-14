@@ -24,6 +24,7 @@ namespace Si.UtilityAI
         public bool NewMagazineMethod { get; private set; }
         public bool InternallyLoaded { get; private set; }
         public bool LoadSingleRounds { get; private set; }
+        public bool SemiAuto { get; private set; }
         public string[] AcceptedCartridges { get; private set; }
         public string[] AcceptedMagazines { get; private set; }
         public string ShootEffectName { get; private set; }
@@ -169,6 +170,7 @@ namespace Si.UtilityAI
             NewMagazineMethod = false;
             InternallyLoaded = false;
             LoadSingleRounds = false;
+            SemiAuto = false;
             AcceptedCartridges = EmptyStrings;
             AcceptedMagazines = EmptyStrings;
             ShootEffectName = null;
@@ -211,6 +213,7 @@ namespace Si.UtilityAI
             NewMagazineMethod = behavior.NewMagazineMethod;
             InternallyLoaded = behavior.InternallyLoaded;
             LoadSingleRounds = behavior.LoadSingleRounds;
+            SemiAuto = behavior.SemiAuto;
             AcceptedCartridges = behavior.AcceptedCartridges ?? EmptyStrings;
             AcceptedMagazines = behavior.AcceptedMagazines ?? EmptyStrings;
             ShootEffectName = string.IsNullOrWhiteSpace(behavior.ShootEffect) ? null : behavior.ShootEffect;
