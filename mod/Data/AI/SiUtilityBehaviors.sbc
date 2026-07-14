@@ -176,6 +176,13 @@
     <MuzzleUpOffset>0.65</MuzzleUpOffset>
   </Definition>
 
+  <!-- Fallback burst profile for automatic PAX weapons whose external component balance is single-shot. -->
+  <Definition xsi:type="MyObjectBuilder_SiNpcAutomaticWeaponBalanceDefinition">
+    <Id Type="MyObjectBuilder_SiNpcAutomaticWeaponBalanceDefinition" Subtype="SiPaxAutomaticWeaponBalance" />
+    <BurstCount>5</BurstCount>
+    <BurstCooldownMilliseconds>450</BurstCooldownMilliseconds>
+  </Definition>
+
   <!-- Shared SMG burst profile; magazine size differences are balanced through reload time. -->
   <Definition xsi:type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition">
     <Id Type="MyObjectBuilder_SiNpcRangedWeaponBalanceDefinition" Subtype="SiSmgTrooperSharedWeaponBalance" />

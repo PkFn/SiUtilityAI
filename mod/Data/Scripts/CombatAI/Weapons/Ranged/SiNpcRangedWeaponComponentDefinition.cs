@@ -15,8 +15,10 @@ namespace Si.UtilityAI
         private static readonly string[] EmptyStrings = new string[0];
         private SerializableDefinitionId? _balanceId;
         private SerializableDefinitionId? _weaponBehaviorId;
+        private SerializableDefinitionId? _automaticBalanceId;
         private bool _balanceResolved;
         private bool _weaponBehaviorResolved;
+        private bool _automaticBalanceResolved;
 
         public SerializableDefinitionId? HeldItem { get; private set; }
         public SerializableDefinitionId? WeaponBehavior { get; private set; }
@@ -72,8 +74,10 @@ namespace Si.UtilityAI
 
             _balanceId = ob.Balance;
             _weaponBehaviorId = ob.WeaponBehavior;
+            _automaticBalanceId = ob.AutomaticBalance;
             _balanceResolved = false;
             _weaponBehaviorResolved = false;
+            _automaticBalanceResolved = false;
             HeldItem = ob.HeldItem;
             WeaponBehavior = ob.WeaponBehavior;
             InitFromBuilder(ob);
@@ -126,7 +130,24 @@ namespace Si.UtilityAI
             }
 
             if (_weaponBehaviorResolved)
+            {
+                ResolveAutomaticBalance();
                 ApplyProjectileEstimates();
+            }
+        }
+
+        private void ResolveAutomaticBalance()
+        {
+            if (_automaticBalanceResolved || SemiAuto || BurstCount > 1)
+                return;
+
+            var balance = LoadAutomaticBalance(_automaticBalanceId);
+            if (balance == null)
+                return;
+
+            BurstCount = balance.BurstCount;
+            BurstCooldownMilliseconds = balance.BurstCooldownMilliseconds;
+            _automaticBalanceResolved = true;
         }
 
         private void InitFromBuilder(MyObjectBuilder_SiNpcRangedWeaponComponentDefinition ob)
@@ -309,6 +330,28 @@ namespace Si.UtilityAI
                 return null;
 
             foreach (var candidate in MyDefinitionManager.GetOfType<MyPAX_HandheldGunDefinition>())
+                if (string.Equals(candidate.Id.SubtypeName, subtype, StringComparison.OrdinalIgnoreCase))
+                    return candidate;
+            return null;
+        }
+
+        private static SiNpcAutomaticWeaponBalanceDefinition LoadAutomaticBalance(
+            SerializableDefinitionId? automaticBalanceId)
+        {
+            if (!automaticBalanceId.HasValue)
+                automaticBalanceId = new SerializableDefinitionId(
+                    typeof(MyObjectBuilder_SiNpcAutomaticWeaponBalanceDefinition),
+                    "SiPaxAutomaticWeaponBalance");
+
+            SiNpcAutomaticWeaponBalanceDefinition balance;
+            if (MyDefinitionManager.TryGet(automaticBalanceId.Value, out balance))
+                return balance;
+
+            var subtype = automaticBalanceId.Value.SubtypeId;
+            if (string.IsNullOrWhiteSpace(subtype))
+                return null;
+
+            foreach (var candidate in MyDefinitionManager.GetOfType<SiNpcAutomaticWeaponBalanceDefinition>())
                 if (string.Equals(candidate.Id.SubtypeName, subtype, StringComparison.OrdinalIgnoreCase))
                     return candidate;
             return null;

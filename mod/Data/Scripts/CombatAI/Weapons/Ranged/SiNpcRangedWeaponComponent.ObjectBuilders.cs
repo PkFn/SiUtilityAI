@@ -19,6 +19,7 @@ namespace Si.UtilityAI
         public SerializableDefinitionId? Balance;
         public SerializableDefinitionId? HeldItem;
         public SerializableDefinitionId? WeaponBehavior;
+        public SerializableDefinitionId? AutomaticBalance;
 
         public int FireCooldownMilliseconds;
         public int BurstCount;

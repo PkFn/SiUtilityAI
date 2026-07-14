@@ -24,6 +24,8 @@ namespace Si.UtilityAI
         private SiNpcRangedWeaponComponentDefinition _definition;
         private SiNpcRangedWeaponComponentDefinition _runtimeDefinition;
         private long _fireCooldown;
+        private long _burstCooldown;
+        private int _burstShotsRemaining;
         private long _lastFireIntentTime = long.MinValue;
         private bool _scheduledFireQueued;
         private bool _maintenanceQueued;
@@ -106,6 +108,8 @@ namespace Si.UtilityAI
         {
             SetAimDownSights(false);
             _fireCooldown = 0;
+            _burstCooldown = 0;
+            _burstShotsRemaining = 0;
             _lastFireIntentTime = long.MinValue;
             _reloadMaintenanceState = ReloadMaintenanceState.None;
             _lastAmmoSpeechState = AmmoSpeechState.Unknown;
@@ -121,6 +125,7 @@ namespace Si.UtilityAI
                 return;
 
             _fireCooldown = Math.Max(0, _fireCooldown - elapsedMilliseconds);
+            _burstCooldown = Math.Max(0, _burstCooldown - elapsedMilliseconds);
         }
 
         internal bool TryFire(
@@ -130,7 +135,7 @@ namespace Si.UtilityAI
             float aimSwayDegrees,
             Vector3D? targetPosition = null)
         {
-            if (!IsOperational || _fireCooldown > 0)
+            if (!IsOperational || _fireCooldown > 0 || _burstCooldown > 0)
                 return false;
             if (context?.Entity == null || targetEntity == null)
                 return false;
@@ -231,6 +236,7 @@ namespace Si.UtilityAI
                 return false;
 
             FireFromNpcMuzzle(shooter, direction);
+            ConsumeBurstShot();
             _fireCooldown = EffectiveFireIntervalMilliseconds;
             SiNpcSessionComponent.Instance?.ReportNpcFiredShot(shooter.EntityId);
             SiNpcSessionComponent.Instance?.Spotting?.ReportShot(shooter.EntityId, shooter);
@@ -286,7 +292,25 @@ namespace Si.UtilityAI
                 return;
 
             _scheduledFireQueued = true;
-            AddScheduledCallback(ContinueScheduledFiring, Math.Max(1L, EffectiveFireIntervalMilliseconds));
+            AddScheduledCallback(ContinueScheduledFiring, GetNextFireDelayMilliseconds());
+        }
+
+        private long GetNextFireDelayMilliseconds()
+        {
+            if (_burstCooldown > 0)
+                return _burstCooldown;
+
+            return Math.Max(1L, EffectiveFireIntervalMilliseconds);
+        }
+
+        private void ConsumeBurstShot()
+        {
+            if (_burstShotsRemaining <= 0)
+                _burstShotsRemaining = Math.Max(1, Definition.BurstCount);
+
+            _burstShotsRemaining--;
+            if (_burstShotsRemaining <= 0)
+                _burstCooldown = Math.Max(0, Definition.BurstCooldownMilliseconds);
         }
 
         [Update(false)]
@@ -301,6 +325,12 @@ namespace Si.UtilityAI
             var now = CurrentTimeMilliseconds();
             if (Definition.SemiAuto && now - _lastFireIntentTime > FireIntentGraceMilliseconds)
                 return;
+
+            if (_burstCooldown > 0)
+            {
+                _burstCooldown = 0;
+                _fireCooldown = 0;
+            }
 
             var target = _fireIntentTarget;
             if (target == null || target.Closed || target.MarkedForClose)
