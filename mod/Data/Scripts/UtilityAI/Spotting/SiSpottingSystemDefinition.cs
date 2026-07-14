@@ -15,6 +15,8 @@ namespace Si.UtilityAI
         public SerializableDefinitionId? VehicleTargeting;
         [DefaultValue(1f)]
         public float Constant = 1f;
+        public float CombatThreatDirectionThresholdMultiplier;
+        public float CombatThreatDirectionAngleDegrees;
         [DefaultValue(250)]
         public int SpottingReevaluationIntervalMilliseconds = 250;
         [DefaultValue(2000)]
@@ -66,6 +68,8 @@ namespace Si.UtilityAI
     {
         public MyDefinitionId? VehicleTargetingDefinitionId { get; private set; }
         public float Constant { get; private set; }
+        public float CombatThreatDirectionThresholdMultiplier { get; private set; }
+        public float CombatThreatDirectionAngleDegrees { get; private set; }
         public int SpottingReevaluationIntervalMilliseconds { get; private set; }
         public int SpottingTrackingTimeoutMilliseconds { get; private set; }
         public float HearingGuaranteedRadius { get; private set; }
@@ -97,6 +101,14 @@ namespace Si.UtilityAI
                 ? (MyDefinitionId?)ob.VehicleTargeting.Value
                 : null;
             Constant = Math.Max(0, ob.Constant);
+            CombatThreatDirectionThresholdMultiplier = MathHelper.Clamp(
+                ob.CombatThreatDirectionThresholdMultiplier,
+                0,
+                1);
+            CombatThreatDirectionAngleDegrees = MathHelper.Clamp(
+                ob.CombatThreatDirectionAngleDegrees,
+                0,
+                180);
             SpottingReevaluationIntervalMilliseconds = Math.Max(50, ob.SpottingReevaluationIntervalMilliseconds);
             SpottingTrackingTimeoutMilliseconds = Math.Max(SpottingReevaluationIntervalMilliseconds, ob.SpottingTrackingTimeoutMilliseconds);
             HearingGuaranteedRadius = Math.Max(0, ob.HearingGuaranteedRadius);

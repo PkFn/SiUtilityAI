@@ -499,7 +499,11 @@ namespace Si.UtilityAI
                 && state.TargetKind != SiSpottedTargetKind.Passenger)
             {
                 state.SpottingSum = 0;
-                state.SpottingThreshold = ComputeSpottingThreshold(Definition, distance);
+                state.SpottingThreshold = ComputeSpottingThreshold(
+                    Definition,
+                    observer,
+                    target,
+                    distance);
                 state.IsSpotted = false;
                 state.NextEvaluationTime = now + EvaluationInterval(state);
                 return;
@@ -510,7 +514,11 @@ namespace Si.UtilityAI
             spottingSum = MathHelper.Clamp(spottingSum, 0, 1);
 
             state.SpottingSum = spottingSum;
-            state.SpottingThreshold = ComputeSpottingThreshold(Definition, distance);
+            state.SpottingThreshold = ComputeSpottingThreshold(
+                Definition,
+                observer,
+                target,
+                distance);
             var wasSpotted = state.IsSpotted;
             state.IsSpotted = spottingSum >= state.SpottingThreshold;
             if (!wasSpotted && state.IsSpotted)
@@ -520,6 +528,8 @@ namespace Si.UtilityAI
 
         private static float ComputeSpottingThreshold(
             SiSpottingSystemDefinition definition,
+            SiNpc observer,
+            TargetBankEntry target,
             double distance)
         {
             if (definition == null)
@@ -528,7 +538,46 @@ namespace Si.UtilityAI
             var normalizedDistance = (float)Math.Max(0, distance) / 500f;
             var threshold = definition.Constant
                             * (float)Math.Pow(normalizedDistance, 0.5f);
+            if (IsCombatThreatDirectionMatch(definition, observer, target))
+                threshold *= definition.CombatThreatDirectionThresholdMultiplier;
+
             return MathHelper.Clamp(threshold, 0, 1);
+        }
+
+        private static bool IsCombatThreatDirectionMatch(
+            SiSpottingSystemDefinition definition,
+            SiNpc observer,
+            TargetBankEntry target)
+        {
+            if (definition == null
+                || observer?.Entity == null
+                || target?.Entity == null
+                || (target.Kind != SiSpottedTargetKind.Infantry
+                    && target.Kind != SiSpottedTargetKind.Passenger)
+                || definition.CombatThreatDirectionThresholdMultiplier <= 0
+                || definition.CombatThreatDirectionAngleDegrees <= 0
+                || SiNpcSessionComponent.Instance?.GetCombatStance(observer) != SiSquadCombatStance.Combat)
+                return false;
+
+            var targetWorld = target.Entity.WorldMatrix;
+            var up = NormalizedOrFallback(targetWorld.Up, Vector3D.Up);
+            Vector3D threatDirection;
+            if (!SiThreatSectorHelper.TryGetPlanarDirection(
+                    targetWorld.Translation,
+                    observer.Entity.WorldMatrix.Translation,
+                    up,
+                    out threatDirection))
+                return false;
+
+            var targetDirection = Vector3D.Reject(targetWorld.Forward, up);
+            var targetDirectionLengthSquared = targetDirection.LengthSquared();
+            if (targetDirectionLengthSquared <= 0.0001)
+                return false;
+
+            targetDirection /= Math.Sqrt(targetDirectionLengthSquared);
+            var cosineThreshold = Math.Cos(
+                MathHelper.ToRadians(definition.CombatThreatDirectionAngleDegrees));
+            return Vector3D.Dot(targetDirection, threatDirection) >= cosineThreshold;
         }
 
         private float ComputeVisualChance(TargetBankEntry target, long now)
