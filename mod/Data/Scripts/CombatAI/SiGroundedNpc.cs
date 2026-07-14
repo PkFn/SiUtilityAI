@@ -169,33 +169,32 @@ namespace Si.UtilityAI
         public void SetSquadMovementSpeed(SiNpcMovementSpeed speed)
         {
             _squadMovementSpeed = speed;
-            if (_movement != null)
-                ApplyMovementSpeed(_movement, GetControllerDefinition());
+            ApplyCurrentMovementSpeed();
         }
 
         public void ClearSquadMovementSpeed()
         {
             _squadMovementSpeed = null;
-            if (_movement != null)
-                ApplyMovementSpeed(_movement, GetControllerDefinition());
+            ApplyCurrentMovementSpeed();
         }
 
         public void SetCombatMovementSpeed(SiNpcMovementSpeed speed)
         {
             _combatMovementSpeed = speed;
-            if (_movement != null)
-                ApplyMovementSpeed(_movement, GetControllerDefinition());
+            ApplyCurrentMovementSpeed();
         }
 
         public void ClearCombatMovementSpeed()
         {
             _combatMovementSpeed = null;
-            if (_movement != null)
-                ApplyMovementSpeed(_movement, GetControllerDefinition());
+            ApplyCurrentMovementSpeed();
         }
 
         protected sealed override void OnUpdate(long elapsedMilliseconds)
         {
+            if (!TryGetControllerDefinition(out _))
+                return;
+
             UpdateBehavior(elapsedMilliseconds);
         }
 
@@ -222,6 +221,10 @@ namespace Si.UtilityAI
             if (_movement == null)
                 throw new InvalidOperationException(
                     $"Grounded NPC '{EntityDefinition}' requires a {nameof(MyCharacterMovementComponent)}.");
+
+            if (!TryGetControllerDefinition(out _))
+                throw new InvalidOperationException(
+                    $"Grounded NPC '{EntityDefinition}' requires a {nameof(SiGroundedNpcControllerComponent)}.");
 
             LogAnimationState("activated", _movement, Vector3.Zero, null);
 
@@ -295,8 +298,15 @@ namespace Si.UtilityAI
             // state calculation immediately after this callback.  Calling it
             // from post-process is too late for the current animation state,
             // especially when the NPC is stationary.
+            if (!TryGetControllerDefinition(out var definition))
+            {
+                moveIndicator = Vector3.Zero;
+                movement.BlockMovement = true;
+                return;
+            }
+
             var tryCrouchAccepted = movement.TryCrouch(_wantsCrouch);
-            ApplyMovementSpeed(movement, GetControllerDefinition());
+            ApplyMovementSpeed(movement, definition);
             if (IsDead)
             {
                 moveIndicator = Vector3.Zero;
@@ -304,7 +314,6 @@ namespace Si.UtilityAI
                 return;
             }
 
-            var definition = GetControllerDefinition();
             if (!TryGetMoveDirection(out var direction, definition))
             {
                 moveIndicator = Vector3.Zero;
@@ -330,7 +339,9 @@ namespace Si.UtilityAI
             ref Vector2 rotationIndicator,
             ref Vector3? forcedForward)
         {
-            var definition = GetControllerDefinition();
+            if (!TryGetControllerDefinition(out var definition))
+                return;
+
             if (!TryGetMoveDirection(out var direction, definition))
                 return;
 
@@ -354,10 +365,23 @@ namespace Si.UtilityAI
             MyCharacterMovementComponent cmp,
             ref MatrixD transform)
         {
-            var definition = GetControllerDefinition();
+            if (!TryGetControllerDefinition(out var definition))
+            {
+                cmp.BlockMovement = true;
+                return;
+            }
+
             ApplyMovementSpeed(cmp, definition);
             cmp.BlockMovement = IsDead;
             LogAnimationState("post-process", cmp, cmp.MoveIndicator, null);
+        }
+
+        private void ApplyCurrentMovementSpeed()
+        {
+            if (_movement == null || !TryGetControllerDefinition(out var definition))
+                return;
+
+            ApplyMovementSpeed(_movement, definition);
         }
 
         private void ApplyMovementSpeed(
@@ -485,13 +509,17 @@ namespace Si.UtilityAI
                 : fallback;
         }
 
-        private SiGroundedNpcControllerComponentDefinition GetControllerDefinition()
+        private bool TryGetControllerDefinition(
+            out SiGroundedNpcControllerComponentDefinition definition)
         {
-            var controller = Entity.Components.Get<SiGroundedNpcControllerComponent>();
-            if (controller?.Definition == null)
-                throw new InvalidOperationException(
-                    $"Grounded NPC '{EntityDefinition}' requires a {nameof(SiGroundedNpcControllerComponent)}.");
-            return controller.Definition;
+            definition = null;
+            var entity = Entity;
+            if (entity == null || entity.Closed || entity.MarkedForClose)
+                return false;
+
+            var controller = entity.Components.Get<SiGroundedNpcControllerComponent>();
+            definition = controller?.Definition;
+            return definition != null;
         }
     }
 }
