@@ -1,0 +1,118 @@
+<?xml version="1.0"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://storage.googleapis.com/unofficial-keen-schemas/latest/medieval-modded.xsd">
+    <Definition xsi:type="MyObjectBuilder_ContextMenuDefinition">
+        <Id Type="MyObjectBuilder_ContextMenu" Subtype="SiUtilityAdminMenu" />
+        <StyleName>ContextMenuDefault</StyleName>
+        <Position x="0.35" y="0.32" />
+        <MainController Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityAdminMenuRoot" />
+        <ContextType>MyObjectBuilder_SiUtilityAdminMenuContext</ContextType>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
+        <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityAdminMenuRoot" />
+        <Title>Si Utility AI Admin</Title>
+        <Columns>4</Columns>
+        <Rows>2</Rows>
+        <ButtonStyleId>ButtonListWide</ButtonStyleId>
+        <Buttons>
+            <Button StyleName="ContextButtonSliced"><Text>Spawn Trooper</Text><Tooltip>Choose a loaded webbing and spawn one NPC.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuSpawn" /></Action></Button>
+            <Button StyleName="ContextButtonSliced"><Text>Spawn Squad</Text><Tooltip>Choose a loaded squad preset and spawn it.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuSquad" /></Action></Button>
+            <Button StyleName="ContextButtonSliced"><Text>Rearm</Text><Tooltip>Order your squad to rearm.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuRearm" /></Action></Button>
+            <Button StyleName="ContextButtonSliced"><Text>List NPCs</Text><Tooltip>Show the current custom NPC count.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuList" /></Action></Button>
+            <Button StyleName="ContextButtonSliced"><Text>Squad Roster</Text><Tooltip>Show every known squad member.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuRoster" /></Action></Button>
+            <Button StyleName="ContextButtonSliced"><Text>Clear NPCs</Text><Tooltip>Remove every custom NPC and squad assignment.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuClear" /></Action></Button>
+            <Button StyleName="ContextButtonSliced"><Text>Utility AI</Text><Tooltip>Enable or disable UtilityAI decision making.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuUtilityAi" /></Action></Button>
+            <Button StyleName="ContextButtonSliced"><Text>Game Log</Text><Tooltip>Enable or disable Si Utility AI game logging.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuGameLog" /></Action></Button>
+        </Buttons>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+        <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuSpawn" />
+        <Title>Spawn Trooper</Title><Width>800</Width><AutoCommit>true</AutoCommit>
+        <Embedded><Id Type="MyObjectBuilder_ListboxController" Subtype="SiUtilityAdminMenuWebbingList" /></Embedded>
+        <Checkbox DataId="AdminSpawnParatrooper"><Text>Paratrooper</Text><Tooltip>Prefer the selected webbing's paratrooper variant.</Tooltip></Checkbox>
+        <Checkbox DataId="AdminSpawnEnemy"><Text>Enemy</Text><Tooltip>Spawn the trooper as hostile.</Tooltip></Checkbox>
+        <Embedded><Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityAdminMenuSpawnButton" /></Embedded>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_ListboxControllerDefinition">
+        <Id Type="MyObjectBuilder_ListboxController" Subtype="SiUtilityAdminMenuWebbingList" />
+        <Title>Available Webbings</Title><DataId>AdminWebbings</DataId>
+        <Listbox StyleName="ContextMenuListboxWide" MinSize="6" MaxSize="10"><AutoCommit>true</AutoCommit></Listbox>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
+        <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityAdminMenuSpawnButton" />
+        <Columns>1</Columns><Rows>1</Rows><ButtonStyleId>ButtonListWide</ButtonStyleId>
+        <Buttons><Button StyleName="ContextButtonSliced"><Text>Spawn</Text><Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="AdminSpawn" /></Button></Buttons>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+        <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuSquad" />
+        <Title>Spawn Squad</Title><Width>800</Width><AutoCommit>true</AutoCommit>
+        <Embedded><Id Type="MyObjectBuilder_ListboxController" Subtype="SiUtilityAdminMenuSquadList" /></Embedded>
+        <Label><Line>{AdminSelectedSquadMembers}</Line><WordWrapping>true</WordWrapping></Label>
+        <Checkbox DataId="AdminSquadEnemy"><Text>Enemy</Text><Tooltip>Spawn this squad as hostile.</Tooltip></Checkbox>
+        <Embedded><Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityAdminMenuSquadButton" /></Embedded>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_ListboxControllerDefinition">
+        <Id Type="MyObjectBuilder_ListboxController" Subtype="SiUtilityAdminMenuSquadList" />
+        <Title>Available Squad Presets</Title><DataId>AdminSquads</DataId>
+        <Listbox StyleName="ContextMenuListboxWide" MinSize="6" MaxSize="10"><AutoCommit>true</AutoCommit></Listbox>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
+        <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityAdminMenuSquadButton" />
+        <Columns>1</Columns><Rows>1</Rows><ButtonStyleId>ButtonListWide</ButtonStyleId>
+        <Buttons><Button StyleName="ContextButtonSliced"><Text>Spawn Squad</Text><Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="AdminSpawnSquad" /></Button></Buttons>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+        <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuRearm" />
+        <Title>Rearm Squad</Title><Width>650</Width><AutoCommit>true</AutoCommit>
+        <Label><Line>Orders your currently commanded squad to search for ammunition.</Line></Label>
+        <Embedded><Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityAdminMenuRearmButton" /></Embedded>
+    </Definition>
+    <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
+        <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityAdminMenuRearmButton" />
+        <Columns>1</Columns><Rows>1</Rows><ButtonStyleId>ButtonListWide</ButtonStyleId>
+        <Buttons><Button StyleName="ContextButtonSliced"><Text>Issue Rearm Order</Text><Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="AdminRearm" /></Button></Buttons>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+        <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuList" />
+        <Title>Custom NPCs</Title><Width>650</Width><AutoCommit>true</AutoCommit>
+        <Label><Line>{AdminNpcCount}</Line></Label>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+        <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuRoster" />
+        <Title>Squad Roster</Title><Width>800</Width><AutoCommit>true</AutoCommit>
+        <Label><Line>{AdminSquadRoster}</Line><WordWrapping>true</WordWrapping></Label>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+        <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuClear" />
+        <Title>Clear Custom NPCs</Title><Width>650</Width><AutoCommit>true</AutoCommit>
+        <Label><Line>Removes every custom NPC, squad assignment, and active order. This cannot be undone.</Line><WordWrapping>true</WordWrapping></Label>
+        <Embedded><Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityAdminMenuClearButton" /></Embedded>
+    </Definition>
+    <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
+        <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityAdminMenuClearButton" />
+        <Columns>1</Columns><Rows>1</Rows><ButtonStyleId>ButtonListWide</ButtonStyleId>
+        <Buttons><Button StyleName="ContextButtonSliced"><Text>Clear All NPCs</Text><Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="AdminClear" /></Button></Buttons>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+        <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuUtilityAi" />
+        <Title>Utility AI Decision Making</Title><Width>650</Width><AutoCommit>true</AutoCommit>
+        <Checkbox DataId="AdminUtilityDecisionMaking"><Text>Enabled</Text><Tooltip>Allow NPC UtilityAI decision making.</Tooltip></Checkbox>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+        <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuGameLog" />
+        <Title>Si Utility AI Game Log</Title><Width>650</Width><AutoCommit>true</AutoCommit>
+        <Checkbox DataId="AdminGameLog"><Text>Enabled</Text><Tooltip>Write Si Utility AI diagnostics to the game log.</Tooltip></Checkbox>
+    </Definition>
+</Definitions>

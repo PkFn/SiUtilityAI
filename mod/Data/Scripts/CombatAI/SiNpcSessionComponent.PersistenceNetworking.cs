@@ -796,6 +796,48 @@ namespace Si.UtilityAI
         }
 
         [Event, Reliable, Server]
+        private static void RequestAdminSpawnServer(string webbingSubtype, bool isParatrooper, bool isEnemy)
+        {
+            var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(MyEventContext.Current.Sender.Value, 0));
+            _instance?.ExecuteAdminSpawn(player, webbingSubtype, isParatrooper, isEnemy);
+        }
+
+        [Event, Reliable, Server]
+        private static void RequestAdminSpawnSquadServer(string presetSubtype, bool isEnemy)
+        {
+            var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(MyEventContext.Current.Sender.Value, 0));
+            _instance?.ExecuteAdminSpawnSquad(player, presetSubtype, isEnemy);
+        }
+
+        [Event, Reliable, Server]
+        private static void RequestAdminRearmServer()
+        {
+            var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(MyEventContext.Current.Sender.Value, 0));
+            _instance?.ExecuteAdminRearm(player);
+        }
+
+        [Event, Reliable, Server]
+        private static void RequestAdminClearServer()
+        {
+            var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(MyEventContext.Current.Sender.Value, 0));
+            _instance?.ExecuteAdminClear(player);
+        }
+
+        [Event, Reliable, Server]
+        private static void RequestAdminSetUtilityDecisionMakingServer(bool enabled)
+        {
+            var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(MyEventContext.Current.Sender.Value, 0));
+            _instance?.ExecuteAdminSetUtilityDecisionMaking(player, enabled);
+        }
+
+        [Event, Reliable, Server]
+        private static void RequestAdminSetGameLogServer(bool enabled)
+        {
+            var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(MyEventContext.Current.Sender.Value, 0));
+            _instance?.ExecuteAdminSetGameLog(player, enabled);
+        }
+
+        [Event, Reliable, Server]
         private static void RequestAiSquadMoveOrderServer(
             byte leaderKind,
             long leaderId,

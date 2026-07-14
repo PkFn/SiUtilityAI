@@ -17,8 +17,14 @@ namespace Si.UtilityAI
         private static readonly MyStringHash CommandMenuControl =
             MyStringHash.GetOrCompute("SiUtilityCommandMenu");
 
+        private static readonly MyStringHash AdminMenuControl =
+            MyStringHash.GetOrCompute("SiUtilityAdminMenu");
+
         private static readonly MyDefinitionId CommandMenu =
             new MyDefinitionId(typeof(MyObjectBuilder_ContextMenu), "SiUtilityCommandMenu");
+
+        private static readonly MyDefinitionId AdminMenu =
+            new MyDefinitionId(typeof(MyObjectBuilder_ContextMenu), "SiUtilityAdminMenu");
 
         private MyInputContext _commandMenuContext;
 
@@ -28,6 +34,7 @@ namespace Si.UtilityAI
 
             _commandMenuContext = new MyInputContext("Si Utility AI command menu");
             _commandMenuContext.RegisterAction(CommandMenuControl, MyInputStateFlags.Pressed, OpenCommandMenu);
+            _commandMenuContext.RegisterAction(AdminMenuControl, MyInputStateFlags.Pressed, OpenAdminMenu);
             if (!_commandMenuContext.InStack)
                 _commandMenuContext.Push();
         }
@@ -49,6 +56,27 @@ namespace Si.UtilityAI
             }
 
             MyContextMenuScreen.OpenMenu(controlled, CommandMenu.SubtypeName, this);
+        }
+
+        private void OpenAdminMenu(ref MyInputContext.ActionEvent action)
+        {
+            if (SiNpcSessionComponent.Instance?.CanLocalPlayerManageNpcs() != true)
+            {
+                MyAPIGateway.Utilities?.ShowNotification(
+                    "Enable Medieval Master to manage custom NPCs in survival.",
+                    1500);
+                action.Captured = false;
+                return;
+            }
+
+            var controlled = MyAPIGateway.Session?.ControlledObject;
+            if (controlled == null)
+            {
+                action.Captured = false;
+                return;
+            }
+
+            MyContextMenuScreen.OpenMenu(controlled, AdminMenu.SubtypeName, this);
         }
 
         internal void CommandRootInfo()

@@ -213,6 +213,173 @@ namespace Si.UtilityAI
             }
         }
 
+        internal bool CanLocalPlayerManageNpcs()
+        {
+            var player = LocalPlayer();
+            return player != null && CanManageNpcs(player.Id.SteamId);
+        }
+
+        internal string AdminNpcCountText() =>
+            Npcs == null ? "Custom NPC system is not available." : $"Custom NPCs alive: {Npcs.Npcs.Count}.";
+
+        internal string AdminSquadRosterText()
+        {
+            var lines = Squads?.CreateRosterLines(Npcs);
+            return lines == null || lines.Count == 0
+                ? "No squad roster is available."
+                : string.Join("\n", lines);
+        }
+
+        internal bool AdminUtilityDecisionMakingEnabled => _utilityDecisionMakingEnabled;
+        internal bool AdminGameLogEnabled => SiGameLog.Enabled;
+
+        internal void RequestAdminSpawn(string webbingSubtype, bool isParatrooper, bool isEnemy)
+        {
+            if (string.IsNullOrWhiteSpace(webbingSubtype))
+                return;
+
+            if (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer)
+            {
+                MyMultiplayerModApi.Static.RaiseStaticEvent(
+                    x => RequestAdminSpawnServer,
+                    webbingSubtype,
+                    isParatrooper,
+                    isEnemy);
+                return;
+            }
+
+            ExecuteAdminSpawn(LocalPlayer(), webbingSubtype, isParatrooper, isEnemy);
+        }
+
+        internal void RequestAdminSpawnSquad(string presetSubtype, bool isEnemy)
+        {
+            if (string.IsNullOrWhiteSpace(presetSubtype))
+                return;
+
+            if (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer)
+            {
+                MyMultiplayerModApi.Static.RaiseStaticEvent(
+                    x => RequestAdminSpawnSquadServer,
+                    presetSubtype,
+                    isEnemy);
+                return;
+            }
+
+            ExecuteAdminSpawnSquad(LocalPlayer(), presetSubtype, isEnemy);
+        }
+
+        internal void RequestAdminRearm()
+        {
+            if (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer)
+            {
+                MyMultiplayerModApi.Static.RaiseStaticEvent(x => RequestAdminRearmServer);
+                return;
+            }
+
+            ExecuteAdminRearm(LocalPlayer());
+        }
+
+        internal void RequestAdminClear()
+        {
+            if (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer)
+            {
+                MyMultiplayerModApi.Static.RaiseStaticEvent(x => RequestAdminClearServer);
+                return;
+            }
+
+            ExecuteAdminClear(LocalPlayer());
+        }
+
+        internal void RequestAdminSetUtilityDecisionMaking(bool enabled)
+        {
+            if (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer)
+            {
+                MyMultiplayerModApi.Static.RaiseStaticEvent(
+                    x => RequestAdminSetUtilityDecisionMakingServer,
+                    enabled);
+                return;
+            }
+
+            ExecuteAdminSetUtilityDecisionMaking(LocalPlayer(), enabled);
+        }
+
+        internal void RequestAdminSetGameLog(bool enabled)
+        {
+            if (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer)
+            {
+                MyMultiplayerModApi.Static.RaiseStaticEvent(
+                    x => RequestAdminSetGameLogServer,
+                    enabled);
+                return;
+            }
+
+            ExecuteAdminSetGameLog(LocalPlayer(), enabled);
+        }
+
+        private void ExecuteAdminSpawn(MyPlayer player, string webbingSubtype, bool isParatrooper, bool isEnemy)
+        {
+            if (player == null
+                || string.IsNullOrWhiteSpace(webbingSubtype)
+                || webbingSubtype.Length > 128
+                || !CanManageNpcs(player.Id.SteamId))
+                return;
+
+            SpawnFromCommand(player.Id.SteamId, new SiNpcSpawnRequest(webbingSubtype, isParatrooper, isEnemy));
+        }
+
+        private void ExecuteAdminSpawnSquad(MyPlayer player, string presetSubtype, bool isEnemy)
+        {
+            if (player == null
+                || string.IsNullOrWhiteSpace(presetSubtype)
+                || presetSubtype.Length > 128
+                || !CanManageNpcs(player.Id.SteamId))
+                return;
+
+            SpawnSquadFromCommand(player.Id.SteamId, presetSubtype, isEnemy);
+        }
+
+        private void ExecuteAdminRearm(MyPlayer player)
+        {
+            if (player?.Identity == null || !CanManageNpcs(player.Id.SteamId))
+                return;
+
+            RearmSquad(player.Id.SteamId, player.Identity.Id);
+            Respond(player.Id.SteamId, "Rearm order issued.");
+        }
+
+        private void ExecuteAdminClear(MyPlayer player)
+        {
+            if (player == null || !CanManageNpcs(player.Id.SteamId) || Npcs == null)
+                return;
+
+            var removed = Npcs.Npcs.Count;
+            Npcs.CloseAll();
+            _squadOrders.Clear();
+            _squadCombatStates.Clear();
+            _playerLeaderStates.Clear();
+            Squads?.ClearNpcs();
+            BroadcastClear();
+            Respond(player.Id.SteamId, $"Removed {removed} custom NPC(s).");
+        }
+
+        private void ExecuteAdminSetUtilityDecisionMaking(MyPlayer player, bool enabled)
+        {
+            if (player == null || !CanManageNpcs(player.Id.SteamId))
+                return;
+
+            _utilityDecisionMakingEnabled = enabled;
+            Respond(player.Id.SteamId, UtilityAiDecisionMakingStatusText());
+        }
+
+        private void ExecuteAdminSetGameLog(MyPlayer player, bool enabled)
+        {
+            if (player == null || !CanManageNpcs(player.Id.SteamId))
+                return;
+
+            SiGameLog.SetEnabled(enabled);
+            Respond(player.Id.SteamId, SiGameLog.StatusText());
+        }
+
         private void SpeakPlayerCommand(MyPlayer player, SiUtilityCommandMenuCommand command)
         {
             var message = UtilityCommandSpeech(command);

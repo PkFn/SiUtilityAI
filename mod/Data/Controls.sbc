@@ -14,4 +14,12 @@
         <Category>SiUtilityAICategory</Category>
         <Primary Key="L" />
     </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_ControlDefinition">
+        <Id Type="MyObjectBuilder_ControlDefinition" Subtype="SiUtilityAdminMenu" />
+        <DisplayName>Open Si Utility AI Admin Menu</DisplayName>
+        <Description>Opens the admin-only Si Utility AI NPC management menu.</Description>
+        <Category>SiUtilityAICategory</Category>
+        <Primary Key="K" />
+    </Definition>
 </Definitions>
