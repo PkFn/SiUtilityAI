@@ -90,11 +90,26 @@ namespace Si.UtilityAI
         void SetCrouch(bool wantsCrouch);
     }
 
+    public enum SiNpcMovementSpeed
+    {
+        Walk,
+        Run,
+        Sprint,
+    }
+
+    public interface ISiMovementSpeedController
+    {
+        SiNpcMovementSpeed CurrentMovementSpeed { get; }
+
+        void SetSquadMovementSpeed(SiNpcMovementSpeed speed);
+        void ClearSquadMovementSpeed();
+    }
+
     /// <summary>
     /// Reusable waypoint locomotion for NPCs driven by the stock
     /// character movement component.
     /// </summary>
-    public abstract class SiGroundedNpc : SiNpc, ISiWaypointMover, ISiPostureController
+    public abstract class SiGroundedNpc : SiNpc, ISiWaypointMover, ISiPostureController, ISiMovementSpeedController
     {
         private const double MinimumDirectionLengthSquared = 0.0001;
 
@@ -102,6 +117,7 @@ namespace Si.UtilityAI
         private MyCharacterMovementComponent _movement;
         private bool _movementHandlersRegistered;
         private bool _wantsCrouch;
+        private SiNpcMovementSpeed? _squadMovementSpeed;
         private bool _hasLoggedMovementState;
         private string _lastLoggedMovementState;
         private readonly SiGameLog _log = new SiGameLog(nameof(SiGroundedNpc), "[SiGroundedNpc]");
@@ -115,6 +131,19 @@ namespace Si.UtilityAI
         public Vector3D Waypoint => _waypoint;
         public Vector3D Velocity => Entity?.Physics?.LinearVelocity ?? Vector3.Zero;
         public bool WantsCrouch => _wantsCrouch;
+        public SiNpcMovementSpeed CurrentMovementSpeed
+        {
+            get
+            {
+                if (_movement != null)
+                    return MovementSpeedFromMovement(_movement);
+
+                var controller = Entity?.Components.Get<SiGroundedNpcControllerComponent>();
+                return controller?.Definition != null
+                    ? MovementSpeedFromDefinition(controller.Definition)
+                    : SiNpcMovementSpeed.Run;
+            }
+        }
 
         public void SetWaypoint(in Vector3D waypoint)
         {
@@ -132,6 +161,20 @@ namespace Si.UtilityAI
             _wantsCrouch = wantsCrouch;
             var tryCrouchAccepted = _movement != null && _movement.TryCrouch(wantsCrouch);
             LogAnimationState("posture-request", _movement, _movement?.MoveIndicator ?? Vector3.Zero, tryCrouchAccepted);
+        }
+
+        public void SetSquadMovementSpeed(SiNpcMovementSpeed speed)
+        {
+            _squadMovementSpeed = speed;
+            if (_movement != null)
+                ApplyMovementSpeed(_movement, GetControllerDefinition());
+        }
+
+        public void ClearSquadMovementSpeed()
+        {
+            _squadMovementSpeed = null;
+            if (_movement != null)
+                ApplyMovementSpeed(_movement, GetControllerDefinition());
         }
 
         protected sealed override void OnUpdate(long elapsedMilliseconds)
@@ -156,6 +199,7 @@ namespace Si.UtilityAI
             base.OnActivated();
             _hasLoggedMovementState = false;
             _lastLoggedMovementState = null;
+            _squadMovementSpeed = null;
             _movement = Entity?.Components.Get<MyCharacterMovementComponent>();
             if (_movement == null)
                 throw new InvalidOperationException(
@@ -191,6 +235,7 @@ namespace Si.UtilityAI
             _movement = null;
             _movementHandlersRegistered = false;
             _wantsCrouch = false;
+            _squadMovementSpeed = null;
             _hasLoggedMovementState = false;
             _lastLoggedMovementState = null;
         }
@@ -232,6 +277,7 @@ namespace Si.UtilityAI
             // from post-process is too late for the current animation state,
             // especially when the NPC is stationary.
             var tryCrouchAccepted = movement.TryCrouch(_wantsCrouch);
+            ApplyMovementSpeed(movement, GetControllerDefinition());
             if (IsDead)
             {
                 moveIndicator = Vector3.Zero;
@@ -287,10 +333,37 @@ namespace Si.UtilityAI
             ref MatrixD transform)
         {
             var definition = GetControllerDefinition();
-            cmp.WantsWalk = definition.WantsWalk;
-            cmp.WantsSprint = definition.WantsSprint;
+            ApplyMovementSpeed(cmp, definition);
             cmp.BlockMovement = IsDead;
             LogAnimationState("post-process", cmp, cmp.MoveIndicator, null);
+        }
+
+        private void ApplyMovementSpeed(
+            MyCharacterMovementComponent movement,
+            SiGroundedNpcControllerComponentDefinition definition)
+        {
+            var speed = _squadMovementSpeed ?? MovementSpeedFromDefinition(definition);
+            movement.WantsWalk = speed == SiNpcMovementSpeed.Walk;
+            movement.WantsSprint = speed == SiNpcMovementSpeed.Sprint;
+        }
+
+        private static SiNpcMovementSpeed MovementSpeedFromMovement(MyCharacterMovementComponent movement)
+        {
+            if (movement.IsSprinting)
+                return SiNpcMovementSpeed.Sprint;
+            if (movement.IsWalking)
+                return SiNpcMovementSpeed.Walk;
+            return SiNpcMovementSpeed.Run;
+        }
+
+        private static SiNpcMovementSpeed MovementSpeedFromDefinition(
+            SiGroundedNpcControllerComponentDefinition definition)
+        {
+            if (definition.WantsSprint)
+                return SiNpcMovementSpeed.Sprint;
+            if (definition.WantsWalk)
+                return SiNpcMovementSpeed.Walk;
+            return SiNpcMovementSpeed.Run;
         }
 
         private void LogAnimationState(

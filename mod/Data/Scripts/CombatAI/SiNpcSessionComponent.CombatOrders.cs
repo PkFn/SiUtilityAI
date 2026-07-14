@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Sandbox.Game.Entities;
+using Sandbox.Game.EntityComponents.Character;
 using Sandbox.Game.Players;
 using Sandbox.ModAPI;
 using VRage.Entities.Gravity;
@@ -288,6 +289,7 @@ namespace Si.UtilityAI
 
             var leaderTransform = leaderNpc.Entity.WorldMatrix;
             var leaderMotion = UpdateLeaderMotionState(leader.Id, leaderTransform);
+            var checkpointSpeed = GetNpcCheckpointSpeed(leaderNpc);
             Vector3D origin;
             Vector3D forward;
             Vector3D right;
@@ -301,7 +303,8 @@ namespace Si.UtilityAI
                 origin,
                 forward,
                 definition,
-                refreshDistanceSquared);
+                refreshDistanceSquared,
+                checkpointSpeed);
         }
 
         private void HandleInactivePlayerLedSquads()
@@ -568,6 +571,7 @@ namespace Si.UtilityAI
             }
 
             var leaderMotion = UpdateLeaderMotionState(leaderIdentityId, leaderTransform);
+            var checkpointSpeed = GetPlayerCheckpointSpeed(leaderIdentityId);
             Vector3D origin;
             Vector3D forward;
             Vector3D right;
@@ -586,7 +590,8 @@ namespace Si.UtilityAI
                     origin,
                     forward,
                     definition,
-                    refreshDistanceSquared);
+                    refreshDistanceSquared,
+                    checkpointSpeed);
             }
             else
             {
@@ -599,7 +604,11 @@ namespace Si.UtilityAI
                         forward,
                         right,
                         definition);
-                    if (TryCacheAndIssueFollowWaypoint(troops[i], target, refreshDistanceSquared))
+                    if (TryCacheAndIssueFollowWaypoint(
+                            troops[i],
+                            target,
+                            refreshDistanceSquared,
+                            checkpointSpeed))
                         issued++;
                 }
             }
@@ -613,7 +622,8 @@ namespace Si.UtilityAI
             in Vector3D leaderPosition,
             in Vector3D leaderForward,
             SiSquadSystemDefinition definition,
-            double refreshDistanceSquared)
+            double refreshDistanceSquared,
+            SiNpcMovementSpeed checkpointSpeed)
         {
             var issued = 0;
             var anchorPosition = leaderPosition;
@@ -637,7 +647,11 @@ namespace Si.UtilityAI
                     var side = i % 2 == 0 ? -1 : 1;
                     target += right * (side * definition.StaggeredColumnOffset);
                 }
-                if (TryCacheAndIssueFollowWaypoint(troops[i], target, refreshDistanceSquared))
+                if (TryCacheAndIssueFollowWaypoint(
+                        troops[i],
+                        target,
+                        refreshDistanceSquared,
+                        checkpointSpeed))
                     issued++;
 
                 var anchor = TryGetNpcFollowAnchor(troops[i], anchorForward);
@@ -750,6 +764,7 @@ namespace Si.UtilityAI
             var cleared = 0;
             foreach (var npc in Squads.GetLeaderNpcs(Npcs, leaderIdentityId))
             {
+                ClearSquadMovementSpeed(npc);
                 var mover = npc as ISiWaypointMover;
                 if (mover != null && !mover.HasWaypoint)
                 {
@@ -780,6 +795,7 @@ namespace Si.UtilityAI
                     || !assignment.Leader.Equals(leader))
                     continue;
 
+                ClearSquadMovementSpeed(npc);
                 var mover = npc as ISiWaypointMover;
                 if (mover != null && !mover.HasWaypoint)
                 {
@@ -802,13 +818,90 @@ namespace Si.UtilityAI
             return state;
         }
 
-        private bool TryCacheAndIssueFollowWaypoint(SiNpc npc, in Vector3D target, double refreshDistanceSquared)
+        private bool TryCacheAndIssueFollowWaypoint(
+            SiNpc npc,
+            in Vector3D target,
+            double refreshDistanceSquared,
+            SiNpcMovementSpeed checkpointSpeed)
         {
-            if (npc == null || IsRearming(npc))
+            if (npc == null)
                 return false;
+
+            if (IsRearming(npc))
+            {
+                ClearSquadMovementSpeed(npc);
+                return false;
+            }
+
+            var definition = Squads?.Definition;
+            if (definition == null)
+                return false;
+
+            SetSquadMovementSpeed(
+                npc,
+                definition.ResolveFormationSpeed(
+                    checkpointSpeed,
+                    CheckpointDistance(npc, target)));
 
             CacheFormationPosition(npc, target);
             return TryFollowCachedFormationPosition(npc, refreshDistanceSquared);
+        }
+
+        private static double CheckpointDistance(SiNpc npc, in Vector3D checkpoint)
+        {
+            var entity = npc?.Entity;
+            if (entity == null)
+                return 0;
+
+            var position = entity.WorldMatrix.Translation;
+            return Vector3D.Reject(checkpoint - position, SurfaceUp(position)).Length();
+        }
+
+        private static void SetSquadMovementSpeed(SiNpc npc, SiNpcMovementSpeed speed)
+        {
+            var controller = npc as ISiMovementSpeedController;
+            controller?.SetSquadMovementSpeed(speed);
+        }
+
+        private static void ClearSquadMovementSpeed(SiNpc npc)
+        {
+            var controller = npc as ISiMovementSpeedController;
+            controller?.ClearSquadMovementSpeed();
+        }
+
+        private static SiNpcMovementSpeed GetNpcCheckpointSpeed(SiNpc npc)
+        {
+            var controller = npc as ISiMovementSpeedController;
+            return controller?.CurrentMovementSpeed ?? SiNpcMovementSpeed.Run;
+        }
+
+        private static SiNpcMovementSpeed GetPlayerCheckpointSpeed(long leaderIdentityId)
+        {
+            if (MyPlayers.Static == null)
+                return SiNpcMovementSpeed.Run;
+
+            foreach (var entry in MyPlayers.Static.GetAllPlayers())
+            {
+                var player = entry.Value;
+                if (player?.Identity == null || player.Identity.Id != leaderIdentityId)
+                    continue;
+
+                var movement = player.ControlledEntity?.Get<MyCharacterMovementComponent>();
+                if (movement == null)
+                    return SiNpcMovementSpeed.Run;
+                if (movement.IsSprinting)
+                    return SiNpcMovementSpeed.Sprint;
+                if (movement.IsWalking)
+                    return SiNpcMovementSpeed.Walk;
+                if (movement.IsRunning)
+                    return SiNpcMovementSpeed.Run;
+
+                // A stationary leader has no committed movement state; preserve
+                // the existing default formation pace until movement resumes.
+                return SiNpcMovementSpeed.Run;
+            }
+
+            return SiNpcMovementSpeed.Run;
         }
 
         private void CachePosition(long entityId, SiNpcCachedPositionKind kind, in Vector3D position)

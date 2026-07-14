@@ -77,7 +77,8 @@
   <Definition xsi:type="MyObjectBuilder_CharacterMovementComponentDefinition">
     <Id Type="CharacterMovementComponent" Subtype="SiTrooperMovement" />
     <SprintSpeed Forward="7" Backward="0" Strafing="0" />
-    <RunSpeed Forward="4.5" Backward="3.55" Strafing="3.25" />
+    <!-- Match the vanilla PlayableCharacter movement definition. -->
+    <RunSpeed Forward="4.3" Backward="3.55" Strafing="3.25" />
     <WalkSpeed Forward="1.8" Backward="1.6" Strafing="1.45" />
     <CrouchSpeed Forward="1.3" Backward="0.9" Strafing="0.9" />
     <MaxSlope>70</MaxSlope>
@@ -102,6 +103,19 @@
     <StaggeredColumnOffset>0.75</StaggeredColumnOffset>
     <WaypointRefreshDistance>0.75</WaypointRefreshDistance>
     <EnemyJoinRadius>18</EnemyJoinRadius>
+
+    <!-- Formation checkpoint speed / fall-behind table. DistanceLessThan=0 is the final row. -->
+    <FallBehindSpeedOverrides>
+      <Override CheckpointSpeed="Walk" DistanceLessThan="1" ResultSpeed="Walk" />
+      <Override CheckpointSpeed="Walk" DistanceLessThan="5" ResultSpeed="Run" />
+      <Override CheckpointSpeed="Walk" ResultSpeed="Sprint" />
+      <Override CheckpointSpeed="Run" DistanceLessThan="1" ResultSpeed="Run" />
+      <Override CheckpointSpeed="Run" DistanceLessThan="5" ResultSpeed="Sprint" />
+      <Override CheckpointSpeed="Run" ResultSpeed="Sprint" />
+      <Override CheckpointSpeed="Sprint" DistanceLessThan="1" ResultSpeed="Sprint" />
+      <Override CheckpointSpeed="Sprint" DistanceLessThan="5" ResultSpeed="Sprint" />
+      <Override CheckpointSpeed="Sprint" ResultSpeed="Sprint" />
+    </FallBehindSpeedOverrides>
 
     <Ranks>
       <Rank Id="private" DisplayName="Private" Abbreviation="Pvt" Order="10" />

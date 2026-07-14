@@ -14,9 +14,12 @@ namespace Si.UtilityAI
         private readonly List<SiRankDefinition> _ranks = new List<SiRankDefinition>();
         private readonly Dictionary<string, SiRankDefinition> _ranksById =
             new Dictionary<string, SiRankDefinition>(StringComparer.OrdinalIgnoreCase);
+        private readonly List<SiSquadFallBehindSpeedOverride> _fallBehindSpeedOverrides =
+            new List<SiSquadFallBehindSpeedOverride>();
 
         public IReadOnlyList<SiSquadLetterDefinition> Letters => _letters;
         public IReadOnlyList<SiRankDefinition> Ranks => _ranks;
+        public IReadOnlyList<SiSquadFallBehindSpeedOverride> FallBehindSpeedOverrides => _fallBehindSpeedOverrides;
         public string PlayerRankId { get; private set; }
         public string NpcRankId { get; private set; }
         public double FollowDistance { get; private set; }
@@ -76,6 +79,54 @@ namespace Si.UtilityAI
             StaggeredColumnOffset = Math.Max(0, ob.StaggeredColumnOffset);
             WaypointRefreshDistance = Math.Max(0, ob.WaypointRefreshDistance);
             EnemyJoinRadius = Math.Max(0, ob.EnemyJoinRadius);
+
+            _fallBehindSpeedOverrides.Clear();
+            if (ob.FallBehindSpeedOverrides != null)
+                foreach (var speedOverride in ob.FallBehindSpeedOverrides)
+                {
+                    if (speedOverride == null)
+                        continue;
+
+                    _fallBehindSpeedOverrides.Add(new SiSquadFallBehindSpeedOverride(
+                        speedOverride.CheckpointSpeed,
+                        Math.Max(0, speedOverride.DistanceLessThan),
+                        speedOverride.ResultSpeed));
+                }
+
+            _fallBehindSpeedOverrides.Sort(CompareFallBehindSpeedOverrides);
+        }
+
+        public SiNpcMovementSpeed ResolveFormationSpeed(
+            SiNpcMovementSpeed checkpointSpeed,
+            double checkpointDistance)
+        {
+            checkpointDistance = Math.Max(0, checkpointDistance);
+            for (var i = 0; i < _fallBehindSpeedOverrides.Count; i++)
+            {
+                var speedOverride = _fallBehindSpeedOverrides[i];
+                if (speedOverride.CheckpointSpeed != checkpointSpeed)
+                    continue;
+                if (speedOverride.DistanceLessThan > 0
+                    && checkpointDistance >= speedOverride.DistanceLessThan)
+                    continue;
+
+                return speedOverride.ResultSpeed;
+            }
+
+            return checkpointSpeed;
+        }
+
+        private static int CompareFallBehindSpeedOverrides(
+            SiSquadFallBehindSpeedOverride left,
+            SiSquadFallBehindSpeedOverride right)
+        {
+            var leftDistance = left.DistanceLessThan > 0
+                ? left.DistanceLessThan
+                : double.MaxValue;
+            var rightDistance = right.DistanceLessThan > 0
+                ? right.DistanceLessThan
+                : double.MaxValue;
+            return leftDistance.CompareTo(rightDistance);
         }
 
         public SiSquadLetterDefinition GetLetter(int index)
@@ -186,6 +237,22 @@ namespace Si.UtilityAI
         [XmlElement]
         public double EnemyJoinRadius;
 
+        [XmlArrayItem("Override")]
+        public List<FallBehindSpeedOverride> FallBehindSpeedOverrides;
+
+        public class FallBehindSpeedOverride
+        {
+            [XmlAttribute]
+            public SiNpcMovementSpeed CheckpointSpeed;
+
+            // Zero means the final, unbounded row in the table.
+            [XmlAttribute]
+            public double DistanceLessThan;
+
+            [XmlAttribute]
+            public SiNpcMovementSpeed ResultSpeed;
+        }
+
         [XmlArrayItem("Letter")]
         public List<SquadLetter> Letters;
 
@@ -218,5 +285,22 @@ namespace Si.UtilityAI
             [XmlAttribute]
             public int Order;
         }
+    }
+
+    public sealed class SiSquadFallBehindSpeedOverride
+    {
+        public SiSquadFallBehindSpeedOverride(
+            SiNpcMovementSpeed checkpointSpeed,
+            double distanceLessThan,
+            SiNpcMovementSpeed resultSpeed)
+        {
+            CheckpointSpeed = checkpointSpeed;
+            DistanceLessThan = distanceLessThan;
+            ResultSpeed = resultSpeed;
+        }
+
+        public SiNpcMovementSpeed CheckpointSpeed { get; }
+        public double DistanceLessThan { get; }
+        public SiNpcMovementSpeed ResultSpeed { get; }
     }
 }
