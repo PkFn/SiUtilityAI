@@ -78,13 +78,13 @@
     <Definition xsi:type="MyObjectBuilder_ListboxControllerDefinition">
         <Id Type="MyObjectBuilder_ListboxController" Subtype="SiUtilityAdminMenuSquadList" />
         <Title>Available Squad Presets</Title><DataId>AdminSquads</DataId>
-        <Listbox StyleName="SiUtilityAdminListboxWide" MinSize="6" MaxSize="10"><AutoCommit>true</AutoCommit></Listbox>
+        <Listbox StyleName="SiUtilityAdminListboxWide" MinSize="1" MaxSize="4"><AutoCommit>true</AutoCommit></Listbox>
     </Definition>
 
     <Definition xsi:type="MyObjectBuilder_ListboxControllerDefinition">
         <Id Type="MyObjectBuilder_ListboxController" Subtype="SiUtilityAdminMenuSquadMembersList" />
         <Title>Squad Members</Title><DataId>AdminSelectedSquadMembers</DataId>
-        <Listbox StyleName="SiUtilityAdminListboxWide" MinSize="4" MaxSize="8"><AutoCommit>true</AutoCommit></Listbox>
+        <Listbox StyleName="SiUtilityAdminListboxWide" MinSize="1" MaxSize="4"><AutoCommit>true</AutoCommit></Listbox>
     </Definition>
 
     <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
