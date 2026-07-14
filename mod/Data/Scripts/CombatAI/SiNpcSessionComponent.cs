@@ -25,6 +25,9 @@ namespace Si.UtilityAI
         private const string EnemyCommand = "/si-enemy";
         private const string SquadCommand = "/si-squad";
         private const double SpawnDistance = 2.5;
+        private const double SpawnProbeLength = 1.6;
+        private const double SpawnProbeElevation = 2.0;
+        private const int SpawnProbeMaxElevations = 2;
         private const long CombatStanceCooldownMilliseconds = 60000;
         private const long CoverScanCacheLifetimeMilliseconds = 1000;
         private const long CoverSearchCacheLifetimeMilliseconds = 750;

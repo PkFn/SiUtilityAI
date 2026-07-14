@@ -4,8 +4,10 @@ using Sandbox.Game.Entities;
 using Sandbox.Game.Players;
 using Sandbox.ModAPI;
 using VRage.Entities.Gravity;
+using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.Components;
+using VRage.ModAPI;
 using VRageMath;
 
 namespace Si.UtilityAI
@@ -1312,7 +1314,7 @@ namespace Si.UtilityAI
             playerForward.Normalize();
 
             var position = playerTransform.Translation + playerForward * SpawnDistance;
-            return MatrixD.CreateWorld(position, -playerForward, up);
+            return PrepareSpawnTransform(MatrixD.CreateWorld(position, -playerForward, up));
         }
 
         private static MatrixD CreateSpawnTransform(in MatrixD playerTransform, int squadIndex)
@@ -1342,7 +1344,29 @@ namespace Si.UtilityAI
             var position = playerTransform.Translation
                            + playerForward * (SpawnDistance + depthOffset)
                            + right * lateralOffset;
-            return MatrixD.CreateWorld(position, -playerForward, up);
+            return PrepareSpawnTransform(MatrixD.CreateWorld(position, -playerForward, up));
+        }
+
+        private static MatrixD PrepareSpawnTransform(in MatrixD spawnTransform)
+        {
+            var preparedTransform = spawnTransform;
+            var up = preparedTransform.Up;
+            if (up.LengthSquared() < 0.0001 || MyAPIGateway.Physics == null)
+                return preparedTransform;
+
+            up.Normalize();
+            for (var attempt = 0; attempt < SpawnProbeMaxElevations; attempt++)
+            {
+                var rayStart = preparedTransform.Translation;
+                var rayEnd = rayStart + up * SpawnProbeLength;
+                IHitInfo hit;
+                if (!MyAPIGateway.Physics.CastRay(rayStart, rayEnd, out hit) || hit == null)
+                    break;
+
+                preparedTransform.Translation += up * SpawnProbeElevation;
+            }
+
+            return preparedTransform;
         }
     }
 }
