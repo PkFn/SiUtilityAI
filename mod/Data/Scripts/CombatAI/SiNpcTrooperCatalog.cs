@@ -139,7 +139,8 @@ namespace Si.UtilityAI
             {
                 if (loadout == null
                     || string.IsNullOrWhiteSpace(loadout.Id.SubtypeName)
-                    || !loadout.Webbing.HasValue)
+                    || !loadout.Webbing.HasValue
+                    || IsParatrooperVariant(loadout.Id))
                     continue;
 
                 if (!TryBuildLoadout(loadout.Id.SubtypeName, out _))
@@ -150,6 +151,16 @@ namespace Si.UtilityAI
 
             webbings.Sort(StringComparer.OrdinalIgnoreCase);
             return webbings;
+        }
+
+        private static bool IsParatrooperVariant(MyDefinitionId candidate)
+        {
+            foreach (var loadout in MyDefinitionManager.GetOfType<SiNpcLoadoutComponentDefinition>())
+                if (loadout?.ParatrooperVariant.HasValue == true
+                    && loadout.ParatrooperVariant.Value == candidate)
+                    return true;
+
+            return false;
         }
 
         private static bool TryBuildLoadout(string webbingSubtype, out SiTrooperLoadout loadout)
