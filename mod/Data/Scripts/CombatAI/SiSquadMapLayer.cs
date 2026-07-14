@@ -40,7 +40,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
         private static readonly Vector2 SelectedMarkerSize = new Vector2(0.018f, 0.018f);
         private static readonly Vector2 WaypointMarkerSize = new Vector2(0.012f, 0.012f);
         private static readonly Vector2 HoveredWaypointMarkerSize = new Vector2(0.016f, 0.016f);
-        private const float WaypointLineNativeLength = 0.04f;
+        private const float WaypointLineWidthPixels = 2f;
         private static readonly char[] PopupLineBreaks = { '\n' };
         private static readonly Vector2 CommandOverlayAnchor = new Vector2(-0.98f, -0.86f);
         private readonly Dictionary<string, string> _markerImages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -260,19 +260,36 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 if (distance <= 0.0001f)
                     continue;
 
-                direction /= distance;
-                var rightVector = new Vector2(direction.Y, -direction.X);
-                var color = new Color(0.35f, 0.85f, 1f, 0.9f * transitionAlpha);
+                var leaderPixelPosition = MyGuiManager.GetScreenCoordinateFromNormalizedCoordinate(
+                    layout[i].MapPosition,
+                    false);
+                var waypointPixelPosition = MyGuiManager.GetScreenCoordinateFromNormalizedCoordinate(
+                    layout[i].WaypointMapPosition,
+                    false);
+                var pixelDirection = waypointPixelPosition - leaderPixelPosition;
+                var pixelDistance = pixelDirection.Length();
+                if (pixelDistance <= 0.0001f)
+                    continue;
+
+                pixelDirection /= pixelDistance;
+                var rightVector = new Vector2(pixelDirection.Y, -pixelDirection.X);
+                var midpoint = (leaderPixelPosition + waypointPixelPosition) * 0.5f;
+                var destination = new RectangleF(
+                    midpoint - new Vector2(WaypointLineWidthPixels * 0.5f, pixelDistance * 0.5f),
+                    new Vector2(WaypointLineWidthPixels, pixelDistance));
+                Rectangle? sourceRectangle = null;
+                var origin = new Vector2(WaypointLineWidthPixels * 0.5f, pixelDistance * 0.5f);
+                var color = new Color(1f, 1f, 1f, 0.9f * transitionAlpha);
                 MyRenderProxy.DrawSprite(
                     _waypointLineImage,
-                    layout[i].MapPosition + direction * (distance * 0.5f),
-                    Vector2.Zero,
+                    ref destination,
+                    false,
+                    ref sourceRectangle,
                     color,
-                    MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER,
                     0f,
                     rightVector,
-                    distance / WaypointLineNativeLength,
-                    null,
+                    ref origin,
+                    SpriteEffects.None,
                     0f,
                     true,
                     null,
@@ -296,7 +313,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER,
                 0f,
                 Vector2.UnitX,
-                0.5f,
+                1.0f,
                 null,
                 0f,
                 true,
