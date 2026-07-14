@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Xml.Serialization;
 using Sandbox.Game.EntityComponents.Character;
 using Sandbox.ModAPI;
@@ -11,7 +12,6 @@ using VRage.Game.ObjectBuilders.ComponentSystem;
 using VRage.Entities.Gravity;
 using VRage.ObjectBuilders;
 using VRageMath;
-using VRageRender.Animations;
 
 namespace Si.UtilityAI
 {
@@ -121,8 +121,7 @@ namespace Si.UtilityAI
         private bool _wantsCrouch;
         private SiNpcMovementSpeed? _squadMovementSpeed;
         private SiNpcMovementSpeed? _combatMovementSpeed;
-        private bool _hasLoggedMovementState;
-        private string _lastLoggedMovementState;
+        private readonly HashSet<string> _loggedMovementTransitions = new HashSet<string>();
         private readonly SiGameLog _log = new SiGameLog(nameof(SiGroundedNpc), "[SiGroundedNpc]");
 
         protected SiGroundedNpc(long entityId, in MatrixD transform)
@@ -161,9 +160,16 @@ namespace Si.UtilityAI
 
         public void SetCrouch(bool wantsCrouch)
         {
+            if (_wantsCrouch == wantsCrouch)
+                return;
+
             _wantsCrouch = wantsCrouch;
-            var tryCrouchAccepted = _movement != null && _movement.TryCrouch(wantsCrouch);
-            LogAnimationState("posture-request", _movement, _movement?.MoveIndicator ?? Vector3.Zero, tryCrouchAccepted);
+            // The utility brain runs before character movement.  Storing the
+            // request here prevents a freshly restored NPC from changing its
+            // movement modifier while its animation components are still
+            // attaching.  The movement callback applies it in the frame where
+            // the game calculates the animation state.
+            LogAnimationState("posture-request", _movement, null);
         }
 
         public void SetSquadMovementSpeed(SiNpcMovementSpeed speed)
@@ -213,8 +219,7 @@ namespace Si.UtilityAI
         protected override void OnActivated()
         {
             base.OnActivated();
-            _hasLoggedMovementState = false;
-            _lastLoggedMovementState = null;
+            _loggedMovementTransitions.Clear();
             _squadMovementSpeed = null;
             _combatMovementSpeed = null;
             _movement = Entity?.Components.Get<MyCharacterMovementComponent>();
@@ -226,11 +231,12 @@ namespace Si.UtilityAI
                 throw new InvalidOperationException(
                     $"Grounded NPC '{EntityDefinition}' requires a {nameof(SiGroundedNpcControllerComponent)}.");
 
-            LogAnimationState("activated", _movement, Vector3.Zero, null);
+            LogAnimationState("activated", _movement, null);
 
             _movement.MovementIndicatorHandler += MovementIndicatorHandler;
             _movement.RotationIndicatorHandler += RotationIndicatorHandler;
             _movement.OnPostProcessPhysicalMovement += PostProcessPhysicalMovement;
+            _movement.OnMovementStateChanged += OnMovementStateChanged;
             _movementHandlersRegistered = true;
         }
 
@@ -250,6 +256,7 @@ namespace Si.UtilityAI
                 _movement.MovementIndicatorHandler -= MovementIndicatorHandler;
                 _movement.RotationIndicatorHandler -= RotationIndicatorHandler;
                 _movement.OnPostProcessPhysicalMovement -= PostProcessPhysicalMovement;
+                _movement.OnMovementStateChanged -= OnMovementStateChanged;
             }
 
             base.OnClosing();
@@ -258,8 +265,7 @@ namespace Si.UtilityAI
             _wantsCrouch = false;
             _squadMovementSpeed = null;
             _combatMovementSpeed = null;
-            _hasLoggedMovementState = false;
-            _lastLoggedMovementState = null;
+            _loggedMovementTransitions.Clear();
         }
 
         private bool TryGetMoveDirection(
@@ -310,14 +316,16 @@ namespace Si.UtilityAI
             if (IsDead)
             {
                 moveIndicator = Vector3.Zero;
-                LogAnimationState("movement-callback-dead", movement, moveIndicator, tryCrouchAccepted);
+                if (!tryCrouchAccepted)
+                    LogAnimationState("crouch-rejected-dead", movement, tryCrouchAccepted);
                 return;
             }
 
             if (!TryGetMoveDirection(out var direction, definition))
             {
                 moveIndicator = Vector3.Zero;
-                LogAnimationState("movement-callback-no-waypoint", movement, moveIndicator, tryCrouchAccepted);
+                if (!tryCrouchAccepted)
+                    LogAnimationState("crouch-rejected-no-waypoint", movement, tryCrouchAccepted);
                 return;
             }
 
@@ -331,7 +339,8 @@ namespace Si.UtilityAI
             if (_wantsCrouch)
                 moveIndicator.Y = -1f;
 
-            LogAnimationState("movement-callback-steering", movement, moveIndicator, tryCrouchAccepted);
+            if (!tryCrouchAccepted)
+                LogAnimationState("crouch-rejected-steering", movement, tryCrouchAccepted);
         }
 
         private void RotationIndicatorHandler(
@@ -373,7 +382,13 @@ namespace Si.UtilityAI
 
             ApplyMovementSpeed(cmp, definition);
             cmp.BlockMovement = IsDead;
-            LogAnimationState("post-process", cmp, cmp.MoveIndicator, null);
+        }
+
+        private void OnMovementStateChanged(MyCharacterMovement previous, MyCharacterMovement current)
+        {
+            var transition = $"{previous}->{current}";
+            if (_loggedMovementTransitions.Add(transition))
+                LogAnimationState($"movement-state {transition}", _movement, null);
         }
 
         private void ApplyCurrentMovementSpeed()
@@ -417,88 +432,23 @@ namespace Si.UtilityAI
         private void LogAnimationState(
             string branch,
             MyCharacterMovementComponent movement,
-            Vector3 moveIndicator,
             bool? tryCrouchAccepted)
         {
             if (!SiGameLog.Enabled)
                 return;
 
             var animation = Entity?.Components.Get<MyCharacterAnimationControllerComponent>();
-            var variables = animation?.Variables;
             var state = movement?.GetMovementState().ToString() ?? "missing";
             var snapshot = $"branch={branch} requestedCrouch={_wantsCrouch} tryCrouchAccepted={(tryCrouchAccepted.HasValue ? tryCrouchAccepted.Value.ToString() : "n/a")} "
-                + $"moveIndicator={FormatVector(moveIndicator)} movementState={state} wantsCrouch={(movement?.WantsCrouch.ToString() ?? "missing")} "
+                + $"movementState={state} wantsCrouch={(movement?.WantsCrouch.ToString() ?? "missing")} "
                 + $"isCrouching={(movement?.IsCrouching.ToString() ?? "missing")} isWalking={(movement?.IsWalking.ToString() ?? "missing")} "
                 + $"isRunning={(movement?.IsRunning.ToString() ?? "missing")} isSprinting={(movement?.IsSprinting.ToString() ?? "missing")} "
                 + $"falling={(movement?.IsFalling.ToString() ?? "missing")} flying={(movement?.IsFlying.ToString() ?? "missing")} jumping={(movement?.IsJumping.ToString() ?? "missing")} "
                 + $"wantsWalk={(movement?.WantsWalk.ToString() ?? "missing")} wantsSprint={(movement?.WantsSprint.ToString() ?? "missing")} blockMovement={(movement?.BlockMovement.ToString() ?? "missing")} "
                 + $"physics={(Entity?.Physics != null)} animation={(animation != null)} animationController={(animation?.Controller != null)} "
                 + $"source={(animation?.SourceId.ToString() ?? "missing")} animationPaused={(animation?.IsPaused.ToString() ?? "missing")} "
-                + $"variables={FormatAnimationVariables(variables)} layers={FormatAnimationLayers(animation?.Controller)}";
-
-            if (_hasLoggedMovementState && _lastLoggedMovementState == snapshot)
-                return;
-
-            _hasLoggedMovementState = true;
-            _lastLoggedMovementState = snapshot;
+                + $"variables={(animation?.Variables != null)}";
             _log.Warning($"entityId={Entity?.EntityId ?? EntityId} name={Entity?.Name ?? "null"} definition={EntityDefinition.SubtypeName} {snapshot}"); // AGENT-DEBUG-LOG
-        }
-
-        private static string FormatAnimationVariables(MyAnimationVariableStorage variables)
-        {
-            if (variables == null)
-                return "missing";
-
-            var speed = 0f;
-            var speedX = 0f;
-            var speedY = 0f;
-            var speedZ = 0f;
-            var walking = 0f;
-            var sprinting = 0f;
-            var crouch = 0f;
-            var falling = 0f;
-            var flying = 0f;
-            var jumping = 0f;
-            var hasSpeed = variables.GetValue(MyAnimationVariableStorageHints.StrIdSpeed, out speed);
-            var hasSpeedX = variables.GetValue(MyAnimationVariableStorageHints.StrIdSpeedX, out speedX);
-            var hasSpeedY = variables.GetValue(MyAnimationVariableStorageHints.StrIdSpeedY, out speedY);
-            var hasSpeedZ = variables.GetValue(MyAnimationVariableStorageHints.StrIdSpeedZ, out speedZ);
-            var hasWalking = variables.GetValue(MyAnimationVariableStorageHints.StrIdWalking, out walking);
-            var hasSprinting = variables.GetValue(MyAnimationVariableStorageHints.StrIdSprinting, out sprinting);
-            var hasCrouch = variables.GetValue(MyAnimationVariableStorageHints.StrIdCrouch, out crouch);
-            var hasFalling = variables.GetValue(MyAnimationVariableStorageHints.StrIdFalling, out falling);
-            var hasFlying = variables.GetValue(MyAnimationVariableStorageHints.StrIdFlying, out flying);
-            var hasJumping = variables.GetValue(MyAnimationVariableStorageHints.StrIdJumping, out jumping);
-            return $"speed={FormatVariable(hasSpeed, speed)} speedX={FormatVariable(hasSpeedX, speedX)} speedY={FormatVariable(hasSpeedY, speedY)} speedZ={FormatVariable(hasSpeedZ, speedZ)} "
-                + $"walking={FormatVariable(hasWalking, walking)} sprinting={FormatVariable(hasSprinting, sprinting)} crouch={FormatVariable(hasCrouch, crouch)} "
-                + $"falling={FormatVariable(hasFalling, falling)} flying={FormatVariable(hasFlying, flying)} jumping={FormatVariable(hasJumping, jumping)}";
-        }
-
-        private static string FormatAnimationLayers(MyAnimationController controller)
-        {
-            if (controller == null)
-                return "missing";
-
-            var result = string.Empty;
-            foreach (var layer in controller.Layers)
-            {
-                if (result.Length > 0)
-                    result += ";";
-
-                result += $"{layer.Name}={layer}";
-            }
-
-            return result.Length > 0 ? result : "none";
-        }
-
-        private static string FormatVariable(bool present, float value)
-        {
-            return present ? value.ToString("0.00") : "missing";
-        }
-
-        private static string FormatVector(Vector3 value)
-        {
-            return $"({value.X:0.00},{value.Y:0.00},{value.Z:0.00})";
         }
 
         private static Vector3D NormalizedOrFallback(in Vector3D value, in Vector3D fallback)
