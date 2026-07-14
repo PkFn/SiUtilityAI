@@ -42,7 +42,6 @@ namespace Si.UtilityAI
                 SiNpcTrooperCatalog.GetKnownWebbings,
                 item => item,
                 item => item,
-                item => "Compatible trooper webbing.",
                 () => SelectedWebbing,
                 value => _selectedWebbing = value));
             m_dataSources.Add(SpawnParatrooper, SimpleDataSources.Simple(
@@ -55,14 +54,18 @@ namespace Si.UtilityAI
             m_dataSources.Add(Squads, new DynamicListDataSource<SiNpcSquadPresetDefinition>(
                 SiNpcSquadPresetCatalog.GetKnownPresets,
                 preset => preset.Id.SubtypeName,
-                SquadTitle,
-                SquadDescription,
+                preset => preset.Id.SubtypeName,
                 () => SelectedSquad,
                 value => _selectedSquad = value));
             m_dataSources.Add(SquadEnemy, SimpleDataSources.Simple(
                 () => _squadEnemy,
                 value => _squadEnemy = value));
-            m_dataSources.Add(SelectedSquadMembers, SimpleDataSources.SimpleReadOnly(SelectedSquadMembersText));
+            m_dataSources.Add(SelectedSquadMembers, new DynamicListDataSource<string>(
+                SelectedSquadMemberIds,
+                item => item,
+                item => item,
+                () => null,
+                value => { }));
             m_dataSources.Add(NpcCount, SimpleDataSources.SimpleReadOnly(
                 () => SiNpcSessionComponent.Instance?.AdminNpcCountText() ?? "Custom NPC system is not available."));
             m_dataSources.Add(SquadRoster, SimpleDataSources.SimpleReadOnly(
@@ -138,54 +141,34 @@ namespace Si.UtilityAI
             }
         }
 
-        private string SelectedSquadMembersText()
+        private List<string> SelectedSquadMemberIds()
         {
             var selected = SelectedSquad;
             var presets = SiNpcSquadPresetCatalog.GetKnownPresets();
             for (var i = 0; i < presets.Count; i++)
                 if (string.Equals(presets[i].Id.SubtypeName, selected, StringComparison.OrdinalIgnoreCase))
-                    return SquadMembersText(presets[i]);
+                    return SquadMemberIds(presets[i]);
 
-            return "No squad preset is available.";
+            return new List<string>();
         }
 
-        private static string SquadTitle(SiNpcSquadPresetDefinition preset)
+        private static List<string> SquadMemberIds(SiNpcSquadPresetDefinition preset)
         {
-            if (preset == null)
-                return "Unknown squad";
+            var members = new List<string>();
+            if (preset?.Members == null)
+                return members;
 
-            return string.IsNullOrWhiteSpace(preset.DisplayName)
-                ? preset.Id.SubtypeName
-                : preset.DisplayName;
-        }
-
-        private static string SquadDescription(SiNpcSquadPresetDefinition preset)
-        {
-            if (preset == null)
-                return string.Empty;
-
-            var description = string.IsNullOrWhiteSpace(preset.Description)
-                ? preset.Id.SubtypeName
-                : preset.Description;
-            return description + "\n" + SquadMembersText(preset);
-        }
-
-        private static string SquadMembersText(SiNpcSquadPresetDefinition preset)
-        {
-            if (preset?.Members == null || preset.Members.Count == 0)
-                return "Members: none";
-
-            var lines = new List<string> { "Members:" };
             for (var i = 0; i < preset.Members.Count; i++)
             {
                 var member = preset.Members[i];
                 if (member == null || string.IsNullOrWhiteSpace(member.WebbingSubtype) || member.Count <= 0)
                     continue;
 
-                lines.Add($"{member.WebbingSubtype} x{member.Count}{(member.IsParatrooper ? " (paratrooper)" : string.Empty)}");
+                for (var count = 0; count < member.Count; count++)
+                    members.Add(member.WebbingSubtype);
             }
 
-            return string.Join("\n", lines);
+            return members;
         }
 
         private sealed class DynamicListDataSource<T> : IMyListboxDataSource
@@ -193,7 +176,6 @@ namespace Si.UtilityAI
             private readonly Func<List<T>> _getItems;
             private readonly Func<T, string> _key;
             private readonly Func<T, string> _title;
-            private readonly Func<T, string> _description;
             private readonly Func<string> _getSelected;
             private readonly Action<string> _setSelected;
 
@@ -201,14 +183,12 @@ namespace Si.UtilityAI
                 Func<List<T>> getItems,
                 Func<T, string> key,
                 Func<T, string> title,
-                Func<T, string> description,
                 Func<string> getSelected,
                 Action<string> setSelected)
             {
                 _getItems = getItems;
                 _key = key;
                 _title = title;
-                _description = description;
                 _getSelected = getSelected;
                 _setSelected = setSelected;
             }
@@ -224,7 +204,7 @@ namespace Si.UtilityAI
                 for (var i = 0; i < items.Count; i++)
                     output.Add(new MyTuple<MyStringId, string>(
                         MyStringId.GetOrCompute(_title(items[i])),
-                        _description(items[i])));
+                        string.Empty));
             }
 
             public void GetItemSelection(List<bool> output)
