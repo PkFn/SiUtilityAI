@@ -5,7 +5,7 @@
     <VehicleTargeting Type="MyObjectBuilder_SiVehicleTargetingSpotScoreDefinition" Subtype="SiDefaultVehicleTargetingSpotScore" />
     <Constant>1.0</Constant>
     <CombatThreatDirectionThresholdMultiplier>0.66</CombatThreatDirectionThresholdMultiplier>
-    <CombatThreatDirectionAngleDegrees>45</CombatThreatDirectionAngleDegrees>
+    <CombatThreatDirectionAngleDegrees>90</CombatThreatDirectionAngleDegrees>
     <SpottingReevaluationIntervalMilliseconds>250</SpottingReevaluationIntervalMilliseconds>
     <SpottingTrackingTimeoutMilliseconds>2000</SpottingTrackingTimeoutMilliseconds>
     <HearingGuaranteedRadius>4</HearingGuaranteedRadius>
