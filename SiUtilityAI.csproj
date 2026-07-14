@@ -25,9 +25,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Remove="misc_and_temp\**" />
     <EmbeddedResource Remove="ref_vanilla_content\**" />
     <EmbeddedResource Remove="ref_workshop\**" />
     <EmbeddedResource Remove="ref_gamelog\**" />
+    <None Remove="misc_and_temp\**" />
     <None Remove="ref_vanilla_content\**" />
     <None Remove="ref_workshop\**" />
     <None Remove="ref_gamelog\**" />
