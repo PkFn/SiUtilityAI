@@ -9,5 +9,13 @@ namespace Pax.RemoteRope
     public class MyRemoteRopeControlComponent : MyEntityComponent
     {
         public long AttachedPlayerId;
+
+        public void LocalAction(
+            short action,
+            float analogValue = 0,
+            bool analog = false,
+            bool noEvents = false)
+        {
+        }
     }
 }

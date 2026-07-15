@@ -110,6 +110,15 @@ namespace Si.UtilityAI
                    && string.Equals(state.SeatSlotName, slot.Definition.Name, StringComparison.Ordinal);
         }
 
+        internal bool TryGetAssignedTransportVehicle(SiNpc npc, out MyEntity vehicle)
+        {
+            vehicle = null;
+            if (npc == null || !_transportNpcStates.TryGetValue(npc.EntityId, out var state))
+                return false;
+
+            return TryGetTransportVehicleEntity(state.VehicleEntityId, out vehicle);
+        }
+
         internal void RecordTransportExitPosition(SiNpc npc, in Vector3D worldPosition)
         {
             if (npc == null)
@@ -379,6 +388,7 @@ namespace Si.UtilityAI
             }
 
             var state = GetSquadOrder(leaderIdentityId);
+            state.Mode = SiSquadOrderMode.Follow;
             SetRearmOverride(state, false);
             state.TransportMode = SiSquadTransportMode.Mount;
             state.TransportVehicleEntityId = vehicle.EntityId;

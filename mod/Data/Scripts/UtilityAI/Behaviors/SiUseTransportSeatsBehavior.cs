@@ -34,6 +34,13 @@ namespace Si.UtilityAI
 
         [DefaultValue(500L)]
         public long ActionIntervalMilliseconds = 500L;
+
+        public float VehicleStopDistance;
+        public float VehicleSlowDistance;
+        public float VehicleTurnDeadZone;
+        public float VehicleMinimumForwardAlignment;
+        public int VehicleCruiseActionRepeatCount;
+        public int VehicleCatchUpActionRepeatCount;
     }
 
     [MyDefinitionType(typeof(MyObjectBuilder_SiUseTransportSeatsBehaviorDefinition))]
@@ -43,6 +50,7 @@ namespace Si.UtilityAI
         public float WaypointRefreshDistance { get; private set; }
         public float ExitArrivalDistance { get; private set; }
         public long ActionIntervalMilliseconds { get; private set; }
+        internal SiMountedVehicleDriveSettings VehicleDriveSettings { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
         {
@@ -52,6 +60,13 @@ namespace Si.UtilityAI
             WaypointRefreshDistance = Math.Max(0.05f, ob.WaypointRefreshDistance);
             ExitArrivalDistance = Math.Max(0.1f, ob.ExitArrivalDistance);
             ActionIntervalMilliseconds = Math.Max(0L, ob.ActionIntervalMilliseconds);
+            VehicleDriveSettings = new SiMountedVehicleDriveSettings(
+                Math.Max(0, ob.VehicleStopDistance),
+                Math.Max(0, ob.VehicleSlowDistance),
+                Math.Max(0, ob.VehicleTurnDeadZone),
+                MathHelper.Clamp(ob.VehicleMinimumForwardAlignment, -1, 1),
+                Math.Max(0, ob.VehicleCruiseActionRepeatCount),
+                Math.Max(0, ob.VehicleCatchUpActionRepeatCount));
         }
     }
 
@@ -98,6 +113,8 @@ namespace Si.UtilityAI
 
         void ISiUtilityBehavior.End(SiUtilityContext context)
         {
+            StopMountedVehicle(context);
+
             if (context?.Agent == null)
                 return;
 
@@ -160,6 +177,7 @@ namespace Si.UtilityAI
                 {
                     if (context.HasWaypoint)
                         context.TryClearWaypoint();
+                    DriveMountedVehicle(session, context, controller.Controlled);
                     return;
                 }
 
@@ -192,6 +210,42 @@ namespace Si.UtilityAI
                 || Vector3D.DistanceSquared(context.Waypoint, seatPosition)
                    > _definition.WaypointRefreshDistance * _definition.WaypointRefreshDistance)
                 context.TrySetWaypoint(seatPosition);
+        }
+
+        private void DriveMountedVehicle(
+            SiNpcSessionComponent session,
+            SiUtilityContext context,
+            EquiPlayerAttachmentComponent.Slot seat)
+        {
+            if (!session.TryGetFormationTarget(context.Agent, out var formationTarget))
+            {
+                SiMountedVehicleDrivers.Stop(null, seat);
+                return;
+            }
+
+            if (!session.TryGetAssignedTransportVehicle(context.Agent, out var vehicle))
+            {
+                SiMountedVehicleDrivers.Stop(null, seat);
+                return;
+            }
+
+            SiMountedVehicleDrivers.TryDrive(
+                vehicle,
+                seat,
+                formationTarget,
+                _definition.VehicleDriveSettings);
+        }
+
+        private static void StopMountedVehicle(SiUtilityContext context)
+        {
+            var controller = context?.Entity?.Components?.Get<EquiEntityControllerComponent>();
+            var seat = controller?.Controlled;
+            if (seat == null)
+                return;
+
+            MyEntity vehicle = null;
+            SiNpcSessionComponent.Instance?.TryGetAssignedTransportVehicle(context.Agent, out vehicle);
+            SiMountedVehicleDrivers.Stop(vehicle, seat);
         }
 
         private void ApplyDisembarkOrder(SiNpcSessionComponent session, SiUtilityContext context)

@@ -220,7 +220,9 @@ namespace Si.UtilityAI
             foreach (var entry in _squadOrders)
             {
                 var state = entry.Value;
-                if (state.Mode != SiSquadOrderMode.Follow || state.TransportMode != SiSquadTransportMode.None)
+                if (state.Mode != SiSquadOrderMode.Follow
+                    || (state.TransportMode != SiSquadTransportMode.None
+                        && state.TransportMode != SiSquadTransportMode.Mount))
                     continue;
                 var leader = PlayerLeaderKey(entry.Key);
                 var combatStance = GetCombatStance(leader);
@@ -993,6 +995,16 @@ namespace Si.UtilityAI
                 return false;
             }
 
+            // Mounted drivers consume the same cached formation checkpoint as
+            // infantry, but their vehicle adapter owns movement.  Do not issue
+            // character waypoints that would compete with the transport seat.
+            if (IsTransportMountOrder(npc))
+            {
+                CacheFormationPosition(npc, target);
+                ClearSquadMovementSpeed(npc);
+                return true;
+            }
+
             var definition = Squads?.Definition;
             if (definition == null)
                 return false;
@@ -1005,6 +1017,20 @@ namespace Si.UtilityAI
 
             CacheFormationPosition(npc, target);
             return TryFollowCachedFormationPosition(npc, refreshDistanceSquared);
+        }
+
+        internal bool TryGetFormationTarget(SiNpc npc, out Vector3D target)
+        {
+            return TryGetCachedPosition(
+                npc?.EntityId ?? 0,
+                SiNpcCachedPositionKind.Formation,
+                out target);
+        }
+
+        private bool IsTransportMountOrder(SiNpc npc)
+        {
+            return TryGetTransportMode(npc, out var mode)
+                   && mode == SiSquadTransportMode.Mount;
         }
 
         private static double CheckpointDistance(SiNpc npc, in Vector3D checkpoint)
