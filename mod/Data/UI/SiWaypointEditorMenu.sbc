@@ -59,17 +59,17 @@
         <Buttons>
             <Button StyleName="ContextButtonSliced">
                 <Text>Walk</Text>
-                <Tooltip>Waypoint speed control is not implemented yet.</Tooltip>
+                <Tooltip>Move the squad toward this waypoint at walking speed.</Tooltip>
                 <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="WaypointSpeedWalk" />
             </Button>
             <Button StyleName="ContextButtonSliced">
                 <Text>Run</Text>
-                <Tooltip>Waypoint speed control is not implemented yet.</Tooltip>
+                <Tooltip>Move the squad toward this waypoint at running speed.</Tooltip>
                 <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="WaypointSpeedRun" />
             </Button>
             <Button StyleName="ContextButtonSliced">
                 <Text>Sprint</Text>
-                <Tooltip>Waypoint speed control is not implemented yet.</Tooltip>
+                <Tooltip>Move the squad toward this waypoint at sprinting speed.</Tooltip>
                 <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="WaypointSpeedSprint" />
             </Button>
         </Buttons>

@@ -175,6 +175,12 @@ namespace Si.UtilityAI
             [XmlAttribute]
             public byte Formation;
 
+            [XmlAttribute]
+            public bool HasCheckpointSpeed;
+
+            [XmlAttribute]
+            public byte CheckpointSpeed;
+
             public SerializableVector3D Target;
         }
     }
@@ -258,6 +264,8 @@ namespace Si.UtilityAI
 
         public Vector3D Target { get; set; }
         public SiSquadFormation Formation { get; set; }
+        public bool HasCheckpointSpeed { get; set; }
+        public SiNpcMovementSpeed CheckpointSpeed { get; set; }
     }
 
     internal sealed class SiPlayerLeaderState

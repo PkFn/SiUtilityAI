@@ -33,7 +33,9 @@ namespace Si.UtilityAI
 
         public void SelectSpeed(SiWaypointEditorSpeed speed)
         {
-            // Speed orders will be added after AI waypoint speed handling exists.
+            SiNpcSessionComponent.Instance?.RequestAiSquadWaypointSpeed(
+                _leader,
+                (SiNpcMovementSpeed)speed);
         }
 
         public void SelectFormation(SiSquadFormation formation)

@@ -777,6 +777,33 @@ namespace Si.UtilityAI
             ApplyAiSquadWaypointFormation(player, leader, formation);
         }
 
+        internal void RequestAiSquadWaypointSpeed(
+            SiSquadLeaderKey leader,
+            SiNpcMovementSpeed speed)
+        {
+            if (leader.Kind != SiSquadLeaderKind.Ai
+                || !Enum.IsDefined(typeof(SiNpcMovementSpeed), (int)speed))
+                return;
+
+            var player = LocalPlayer();
+            if (player?.Identity == null || !CanIdentityCommandArmy(player.Identity.Id, leader.Army))
+                return;
+
+            if (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer)
+            {
+                MyMultiplayerModApi.Static.RaiseStaticEvent(
+                    x => RequestAiSquadWaypointSpeedServer,
+                    (byte)leader.Kind,
+                    leader.Id,
+                    (byte)leader.Army.Kind,
+                    leader.Army.Id,
+                    (byte)speed);
+                return;
+            }
+
+            ApplyAiSquadWaypointSpeed(player, leader, speed);
+        }
+
         private void ApplyAiSquadMoveOrder(MyPlayer issuer, SiSquadLeaderKey leader, in Vector3D target)
         {
             if (issuer?.Identity == null
@@ -809,6 +836,27 @@ namespace Si.UtilityAI
             ApplyAiFollowOrder(leader);
         }
 
+        private void ApplyAiSquadWaypointSpeed(
+            MyPlayer issuer,
+            SiSquadLeaderKey leader,
+            SiNpcMovementSpeed speed)
+        {
+            if (issuer?.Identity == null
+                || leader.Kind != SiSquadLeaderKind.Ai
+                || !CanIdentityCommandArmy(issuer.Identity.Id, leader.Army)
+                || Npcs == null
+                || !_aiSquadMoveOrders.TryGetValue(leader, out var moveOrder)
+                || moveOrder == null
+                || !Npcs.Npcs.TryGetValue(leader.Id, out var leaderNpc)
+                || leaderNpc == null)
+                return;
+
+            moveOrder.HasCheckpointSpeed = true;
+            moveOrder.CheckpointSpeed = speed;
+            SetSquadMovementSpeed(leaderNpc, speed);
+            ApplyAiFollowOrder(leader);
+        }
+
         private bool MaintainAiLeaderMoveOrder(SiSquadLeaderKey leader)
         {
             if (leader.Kind != SiSquadLeaderKind.Ai
@@ -824,6 +872,9 @@ namespace Si.UtilityAI
                 || leaderNpc.IsDead)
                 return false;
 
+            if (state.HasCheckpointSpeed)
+                SetSquadMovementSpeed(leaderNpc, state.CheckpointSpeed);
+
             var definition = Squads?.Definition;
             var refreshDistance = definition?.WaypointRefreshDistance ?? 0;
             var arrivalDistance = Math.Max(
@@ -835,6 +886,7 @@ namespace Si.UtilityAI
             {
                 _aiSquadMoveOrders.Remove(leader);
                 Npcs.TryClearWaypoint(leader.Id);
+                ClearSquadMovementSpeed(leaderNpc);
                 return false;
             }
 

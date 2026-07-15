@@ -73,6 +73,8 @@ namespace Si.UtilityAI
                     ArmyKind = (byte)entry.Key.Army.Kind,
                     ArmyId = entry.Key.Army.Id,
                     Formation = (byte)entry.Value.Formation,
+                    HasCheckpointSpeed = entry.Value.HasCheckpointSpeed,
+                    CheckpointSpeed = (byte)entry.Value.CheckpointSpeed,
                     Target = (SerializableVector3D)entry.Value.Target,
                 });
             }
@@ -273,7 +275,9 @@ namespace Si.UtilityAI
                 if (saved == null
                     || saved.LeaderId == 0
                     || !Enum.IsDefined(typeof(SiArmyKind), (int)saved.ArmyKind)
-                    || !Enum.IsDefined(typeof(SiSquadFormation), (int)saved.Formation))
+                    || !Enum.IsDefined(typeof(SiSquadFormation), (int)saved.Formation)
+                    || (saved.HasCheckpointSpeed
+                        && !Enum.IsDefined(typeof(SiNpcMovementSpeed), (int)saved.CheckpointSpeed)))
                     continue;
 
                 var leader = new SiSquadLeaderKey(
@@ -286,6 +290,8 @@ namespace Si.UtilityAI
                 _aiSquadMoveOrders[leader] = new SiAiSquadMoveOrderState(saved.Target)
                 {
                     Formation = (SiSquadFormation)saved.Formation,
+                    HasCheckpointSpeed = saved.HasCheckpointSpeed,
+                    CheckpointSpeed = (SiNpcMovementSpeed)saved.CheckpointSpeed,
                 };
             }
         }
@@ -907,6 +913,40 @@ namespace Si.UtilityAI
                     leaderId,
                     new SiArmyKey((SiArmyKind)armyKind, armyId)),
                 (SiSquadFormation)formation);
+        }
+
+        [Event, Reliable, Server]
+        private static void RequestAiSquadWaypointSpeedServer(
+            byte leaderKind,
+            long leaderId,
+            byte armyKind,
+            long armyId,
+            byte speed)
+        {
+            if (!Enum.IsDefined(typeof(SiSquadLeaderKind), (int)leaderKind)
+                || !Enum.IsDefined(typeof(SiArmyKind), (int)armyKind)
+                || !Enum.IsDefined(typeof(SiNpcMovementSpeed), (int)speed)
+                || (SiSquadLeaderKind)leaderKind != SiSquadLeaderKind.Ai
+                || leaderId == 0)
+            {
+                MyEventContext.ValidationFailed();
+                return;
+            }
+
+            var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(MyEventContext.Current.Sender.Value, 0));
+            if (player?.Identity == null)
+            {
+                MyEventContext.ValidationFailed();
+                return;
+            }
+
+            _instance?.ApplyAiSquadWaypointSpeed(
+                player,
+                new SiSquadLeaderKey(
+                    (SiSquadLeaderKind)leaderKind,
+                    leaderId,
+                    new SiArmyKey((SiArmyKind)armyKind, armyId)),
+                (SiNpcMovementSpeed)speed);
         }
     }
 }
