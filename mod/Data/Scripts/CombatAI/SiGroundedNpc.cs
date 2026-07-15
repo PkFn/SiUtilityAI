@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Xml.Serialization;
 using Sandbox.Game.EntityComponents.Character;
@@ -448,7 +448,6 @@ namespace Si.UtilityAI
                 + $"physics={(Entity?.Physics != null)} animation={(animation != null)} animationController={(animation?.Controller != null)} "
                 + $"source={(animation?.SourceId.ToString() ?? "missing")} animationPaused={(animation?.IsPaused.ToString() ?? "missing")} "
                 + $"variables={(animation?.Variables != null)}";
-            _log.Warning($"entityId={Entity?.EntityId ?? EntityId} name={Entity?.Name ?? "null"} definition={EntityDefinition.SubtypeName} {snapshot}"); // AGENT-DEBUG-LOG
         }
 
         private static Vector3D NormalizedOrFallback(in Vector3D value, in Vector3D fallback)
