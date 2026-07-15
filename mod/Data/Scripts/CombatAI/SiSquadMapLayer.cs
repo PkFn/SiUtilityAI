@@ -486,15 +486,22 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
 
         private void HandleMapCommandActivation(SiNpcSessionComponent session, Vector2I? cell)
         {
-            if (session == null
-                || Map == null
-                || !cell.HasValue)
+            if (session == null || Map == null)
                 return;
 
-            var clickedMarker = FindMarkerAtCursor(
-                BuildMarkerLayout(session.SquadMapMarkerSnapshot),
+            var layout = BuildMarkerLayout(session.SquadMapMarkerSnapshot);
+            FindWaypointAtCursor(
+                layout,
                 MyGuiManager.MouseCursorPosition,
+                out var clickedWaypointMarker,
                 out _);
+            if (clickedWaypointMarker != null && session.TryOpenWaypointEditor(clickedWaypointMarker))
+                return;
+
+            if (!cell.HasValue)
+                return;
+
+            var clickedMarker = FindMarkerAtCursor(layout, MyGuiManager.MouseCursorPosition, out _);
             if (clickedMarker != null && session.CanLocalPlayerCommandSquad(clickedMarker))
             {
                 session.ToggleLocalMapCommandSelection(clickedMarker);

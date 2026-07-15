@@ -1,0 +1,77 @@
+<?xml version="1.0"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://storage.googleapis.com/unofficial-keen-schemas/latest/medieval-modded.xsd">
+    <Definition xsi:type="MyObjectBuilder_ContextMenuDefinition">
+        <Id Type="MyObjectBuilder_ContextMenu" Subtype="SiWaypointEditorMenu" />
+        <StyleName>ContextMenuDefault</StyleName>
+        <Position x="0.35" y="0.32" />
+        <MainController Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiWaypointEditorMenuRoot" />
+        <ContextType>MyObjectBuilder_SiWaypointEditorMenuContext</ContextType>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+        <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiWaypointEditorMenuRoot" />
+        <Title>Squad Waypoint</Title>
+        <Width>800</Width>
+        <AutoCommit>true</AutoCommit>
+        <Embedded>
+            <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiWaypointEditorMenuRootButtons" />
+        </Embedded>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
+        <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiWaypointEditorMenuRootButtons" />
+        <Columns>2</Columns>
+        <Rows>1</Rows>
+        <ButtonStyleId>ButtonListWide</ButtonStyleId>
+        <Buttons>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Speed</Text>
+                <Tooltip>Choose the squad's waypoint speed.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_AddController">
+                    <Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiWaypointEditorMenuSpeed" />
+                </Action>
+            </Button>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Formation</Text>
+                <Tooltip>Choose the squad's formation while moving to this waypoint.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_AddController">
+                    <Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityCommandMenuFormation" />
+                </Action>
+            </Button>
+        </Buttons>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+        <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiWaypointEditorMenuSpeed" />
+        <Title>Squad Speed</Title>
+        <Width>800</Width>
+        <AutoCommit>true</AutoCommit>
+        <Embedded>
+            <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiWaypointEditorMenuSpeedButtons" />
+        </Embedded>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
+        <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiWaypointEditorMenuSpeedButtons" />
+        <Columns>3</Columns>
+        <Rows>1</Rows>
+        <ButtonStyleId>ButtonListWide</ButtonStyleId>
+        <Buttons>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Walk</Text>
+                <Tooltip>Waypoint speed control is not implemented yet.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="WaypointSpeedWalk" />
+            </Button>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Run</Text>
+                <Tooltip>Waypoint speed control is not implemented yet.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="WaypointSpeedRun" />
+            </Button>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Sprint</Text>
+                <Tooltip>Waypoint speed control is not implemented yet.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="WaypointSpeedSprint" />
+            </Button>
+        </Buttons>
+    </Definition>
+</Definitions>

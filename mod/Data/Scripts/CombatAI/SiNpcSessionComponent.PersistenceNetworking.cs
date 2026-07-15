@@ -72,6 +72,7 @@ namespace Si.UtilityAI
                     LeaderId = entry.Key.Id,
                     ArmyKind = (byte)entry.Key.Army.Kind,
                     ArmyId = entry.Key.Army.Id,
+                    Formation = (byte)entry.Value.Formation,
                     Target = (SerializableVector3D)entry.Value.Target,
                 });
             }
@@ -271,7 +272,8 @@ namespace Si.UtilityAI
             {
                 if (saved == null
                     || saved.LeaderId == 0
-                    || !Enum.IsDefined(typeof(SiArmyKind), (int)saved.ArmyKind))
+                    || !Enum.IsDefined(typeof(SiArmyKind), (int)saved.ArmyKind)
+                    || !Enum.IsDefined(typeof(SiSquadFormation), (int)saved.Formation))
                     continue;
 
                 var leader = new SiSquadLeaderKey(
@@ -281,7 +283,10 @@ namespace Si.UtilityAI
                 if (!HasSquadMembers(leader))
                     continue;
 
-                _aiSquadMoveOrders[leader] = new SiAiSquadMoveOrderState(saved.Target);
+                _aiSquadMoveOrders[leader] = new SiAiSquadMoveOrderState(saved.Target)
+                {
+                    Formation = (SiSquadFormation)saved.Formation,
+                };
             }
         }
 
@@ -868,6 +873,40 @@ namespace Si.UtilityAI
                     leaderId,
                     new SiArmyKey((SiArmyKind)armyKind, armyId)),
                 target);
+        }
+
+        [Event, Reliable, Server]
+        private static void RequestAiSquadWaypointFormationServer(
+            byte leaderKind,
+            long leaderId,
+            byte armyKind,
+            long armyId,
+            byte formation)
+        {
+            if (!Enum.IsDefined(typeof(SiSquadLeaderKind), (int)leaderKind)
+                || !Enum.IsDefined(typeof(SiArmyKind), (int)armyKind)
+                || !Enum.IsDefined(typeof(SiSquadFormation), (int)formation)
+                || (SiSquadLeaderKind)leaderKind != SiSquadLeaderKind.Ai
+                || leaderId == 0)
+            {
+                MyEventContext.ValidationFailed();
+                return;
+            }
+
+            var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(MyEventContext.Current.Sender.Value, 0));
+            if (player?.Identity == null)
+            {
+                MyEventContext.ValidationFailed();
+                return;
+            }
+
+            _instance?.ApplyAiSquadWaypointFormation(
+                player,
+                new SiSquadLeaderKey(
+                    (SiSquadLeaderKind)leaderKind,
+                    leaderId,
+                    new SiArmyKey((SiArmyKind)armyKind, armyId)),
+                (SiSquadFormation)formation);
         }
     }
 }

@@ -172,6 +172,9 @@ namespace Si.UtilityAI
             [XmlAttribute]
             public long ArmyId;
 
+            [XmlAttribute]
+            public byte Formation;
+
             public SerializableVector3D Target;
         }
     }
@@ -250,9 +253,11 @@ namespace Si.UtilityAI
         public SiAiSquadMoveOrderState(in Vector3D target)
         {
             Target = target;
+            Formation = SiSquadFormation.Column;
         }
 
         public Vector3D Target { get; set; }
+        public SiSquadFormation Formation { get; set; }
     }
 
     internal sealed class SiPlayerLeaderState

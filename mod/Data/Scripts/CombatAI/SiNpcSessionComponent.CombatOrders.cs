@@ -334,14 +334,41 @@ namespace Si.UtilityAI
 
             var definition = Squads.Definition;
             var refreshDistanceSquared = definition.WaypointRefreshDistance * definition.WaypointRefreshDistance;
-            return ApplyChainedFollowOrder(
-                troops,
-                SiSquadFormation.Column,
-                origin,
-                forward,
-                definition,
-                refreshDistanceSquared,
-                checkpointSpeed);
+            var formation = _aiSquadMoveOrders.TryGetValue(leader, out var moveOrder)
+                            && moveOrder != null
+                ? moveOrder.Formation
+                : SiSquadFormation.Column;
+            if (formation == SiSquadFormation.File
+                || formation == SiSquadFormation.Column
+                || formation == SiSquadFormation.StaggeredColumn)
+                return ApplyChainedFollowOrder(
+                    troops,
+                    formation,
+                    origin,
+                    forward,
+                    definition,
+                    refreshDistanceSquared,
+                    checkpointSpeed);
+
+            var issued = 0;
+            for (var i = 0; i < troops.Count; i++)
+            {
+                var target = origin + FormationOffset(
+                    formation,
+                    i,
+                    troops.Count,
+                    forward,
+                    right,
+                    definition);
+                if (TryCacheAndIssueFollowWaypoint(
+                        troops[i],
+                        target,
+                        refreshDistanceSquared,
+                        checkpointSpeed))
+                    issued++;
+            }
+
+            return issued;
         }
 
         private void HandleInactivePlayerLedSquads()
@@ -723,6 +750,33 @@ namespace Si.UtilityAI
             ApplyAiSquadMoveOrder(player, leader, target);
         }
 
+        internal void RequestAiSquadWaypointFormation(
+            SiSquadLeaderKey leader,
+            SiSquadFormation formation)
+        {
+            if (leader.Kind != SiSquadLeaderKind.Ai
+                || !Enum.IsDefined(typeof(SiSquadFormation), (int)formation))
+                return;
+
+            var player = LocalPlayer();
+            if (player?.Identity == null || !CanIdentityCommandArmy(player.Identity.Id, leader.Army))
+                return;
+
+            if (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer)
+            {
+                MyMultiplayerModApi.Static.RaiseStaticEvent(
+                    x => RequestAiSquadWaypointFormationServer,
+                    (byte)leader.Kind,
+                    leader.Id,
+                    (byte)leader.Army.Kind,
+                    leader.Army.Id,
+                    (byte)formation);
+                return;
+            }
+
+            ApplyAiSquadWaypointFormation(player, leader, formation);
+        }
+
         private void ApplyAiSquadMoveOrder(MyPlayer issuer, SiSquadLeaderKey leader, in Vector3D target)
         {
             if (issuer?.Identity == null
@@ -736,6 +790,23 @@ namespace Si.UtilityAI
             _aiSquadMoveOrders[leader] = new SiAiSquadMoveOrderState(target);
             SpeakAiMapMoveOrder(issuer, leader, target);
             MaintainAiLeaderMoveOrder(leader);
+        }
+
+        private void ApplyAiSquadWaypointFormation(
+            MyPlayer issuer,
+            SiSquadLeaderKey leader,
+            SiSquadFormation formation)
+        {
+            if (issuer?.Identity == null
+                || leader.Kind != SiSquadLeaderKind.Ai
+                || !CanIdentityCommandArmy(issuer.Identity.Id, leader.Army)
+                || !HasSquadMembers(leader)
+                || !_aiSquadMoveOrders.TryGetValue(leader, out var moveOrder)
+                || moveOrder == null)
+                return;
+
+            moveOrder.Formation = formation;
+            ApplyAiFollowOrder(leader);
         }
 
         private bool MaintainAiLeaderMoveOrder(SiSquadLeaderKey leader)

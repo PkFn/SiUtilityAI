@@ -55,6 +55,14 @@ namespace Si.UtilityAI
             return CanIdentityCommandArmy(identityId, marker.Leader.Army);
         }
 
+        internal bool TryOpenWaypointEditor(SiSquadMapMarker marker)
+        {
+            if (!CanLocalPlayerCommandSquad(marker) || !marker.HasWaypoint)
+                return false;
+
+            return SiWaypointEditorMenu.OpenFor(marker.Leader);
+        }
+
         internal void ResetLocalMapCommandSelection()
         {
             ClearLocalMapCommandSelection(false);
