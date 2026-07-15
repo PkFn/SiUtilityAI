@@ -173,7 +173,21 @@ namespace Si.UtilityAI
         {
             var session = SiNpcSessionComponent.Instance;
             var lines = session?.Squads?.CreateRosterLines(session.Npcs);
-            return lines ?? new List<string> { "No squad roster is available." };
+            if (lines == null || lines.Count == 0)
+                return new List<string> { "No squad roster is available." };
+
+            var entries = new List<string>();
+            for (var i = 0; i < lines.Count; i++)
+            {
+                if (i > 0)
+                    entries.Add(string.Empty);
+
+                var squadLines = lines[i].Split(new[] { '\n' }, StringSplitOptions.None);
+                for (var j = 0; j < squadLines.Length; j++)
+                    entries.Add(squadLines[j].TrimEnd('\r'));
+            }
+
+            return entries;
         }
 
         private static List<string> SquadMemberIds(SiNpcSquadPresetDefinition preset)

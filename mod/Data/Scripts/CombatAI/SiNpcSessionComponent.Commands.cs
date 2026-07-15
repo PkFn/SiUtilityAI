@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Equinox76561198048419394.Core.Util;
 using Medieval.GameSystems;
 using Medieval.GameSystems.Factions;
-using Sandbox.Definitions.Chat;
 using Sandbox.Game.Entities;
 using Sandbox.Game.GameSystems.Chat;
 using Sandbox.Game.Players;
@@ -171,48 +170,6 @@ namespace Si.UtilityAI
             NotifyShow($"Squad chatter {(_showSquadChatter ? "enabled" : "disabled")}.");
         }
 
-        private bool HandleUtilityAiCommand(ulong sender, string[] tokens)
-        {
-            var action = tokens.Length >= 3 ? tokens[2].ToLowerInvariant() : "toggle";
-            switch (action)
-            {
-                case "toggle":
-                    _utilityDecisionMakingEnabled = !_utilityDecisionMakingEnabled;
-                    return Respond(sender, UtilityAiDecisionMakingStatusText());
-                case "on":
-                    _utilityDecisionMakingEnabled = true;
-                    return Respond(sender, UtilityAiDecisionMakingStatusText());
-                case "off":
-                    _utilityDecisionMakingEnabled = false;
-                    return Respond(sender, UtilityAiDecisionMakingStatusText());
-                case "status":
-                    return Respond(sender, UtilityAiDecisionMakingStatusText());
-                default:
-                    return Respond(sender, $"{Command} utility-ai [toggle|on|off|status]");
-            }
-        }
-
-        private bool HandleGameLogCommand(ulong sender, string[] tokens)
-        {
-            var action = tokens.Length >= 3 ? tokens[2].ToLowerInvariant() : "toggle";
-            switch (action)
-            {
-                case "toggle":
-                    SiGameLog.SetEnabled(!SiGameLog.Enabled);
-                    return Respond(sender, SiGameLog.StatusText());
-                case "on":
-                    SiGameLog.SetEnabled(true);
-                    return Respond(sender, SiGameLog.StatusText());
-                case "off":
-                    SiGameLog.SetEnabled(false);
-                    return Respond(sender, SiGameLog.StatusText());
-                case "status":
-                    return Respond(sender, SiGameLog.StatusText());
-                default:
-                    return Respond(sender, $"{Command} gamelog [toggle|on|off|status]");
-            }
-        }
-
         internal bool CanLocalPlayerManageNpcs()
         {
             var player = LocalPlayer();
@@ -316,7 +273,7 @@ namespace Si.UtilityAI
                 || !CanManageNpcs(player.Id.SteamId))
                 return;
 
-            SpawnFromCommand(player.Id.SteamId, new SiNpcSpawnRequest(webbingSubtype, isParatrooper, isEnemy));
+            SpawnAdminNpc(player.Id.SteamId, new SiNpcSpawnRequest(webbingSubtype, isParatrooper, isEnemy));
         }
 
         private void ExecuteAdminSpawnSquad(MyPlayer player, string presetSubtype, bool isEnemy)
@@ -327,7 +284,7 @@ namespace Si.UtilityAI
                 || !CanManageNpcs(player.Id.SteamId))
                 return;
 
-            SpawnSquadFromCommand(player.Id.SteamId, presetSubtype, isEnemy);
+            SpawnAdminSquad(player.Id.SteamId, presetSubtype, isEnemy);
         }
 
         private void ExecuteAdminRearm(MyPlayer player)
@@ -658,120 +615,10 @@ namespace Si.UtilityAI
             state.EngagementStance = engagementStance;
         }
 
-        private bool HandleCommand(ulong sender, string message, MyChatCommandType handledAsType)
-        {
-            if (!CanManageNpcs(sender))
-                return Respond(sender, "Enable Medieval Master to manage custom NPCs in survival.");
-
-            var tokens = message.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            if (tokens.Length < 2)
-                return Respond(sender, BasicHelpText());
-
-            switch (tokens[1].ToLowerInvariant())
-            {
-                case "help":
-                case "?":
-                    return Respond(sender, ExpandedHelpText());
-                case "squad":
-                case "squads":
-                    return HandleSquadPresetCommand(sender, tokens);
-                case "spawn":
-                    return SpawnFromCommand(sender, tokens);
-                case "spawn-enemy":
-                case "enemy":
-                    return SpawnFromEnemyShortcut(sender, tokens);
-                case "rearm":
-                {
-                    var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(sender, 0));
-                    if (player?.Identity == null)
-                        return Respond(sender, "You must control a character to order a squad to rearm.");
-                    RearmSquad(sender, player.Identity.Id);
-                    return Respond(sender, "Rearm order issued.");
-                }
-                case "list":
-                    return Respond(sender, $"Custom NPCs alive: {Npcs.Npcs.Count}.");
-                case "clear":
-                    var removed = Npcs.Npcs.Count;
-                    Npcs.CloseAll();
-                    _squadOrders.Clear();
-                    _squadCombatStates.Clear();
-                    _playerLeaderStates.Clear();
-                    Squads?.ClearNpcs();
-                    BroadcastClear();
-                    return Respond(sender, $"Removed {removed} custom NPC(s).");
-                case "utility-ai":
-                case "utilityai":
-                case "ai":
-                    return HandleUtilityAiCommand(sender, tokens);
-                case "gamelog":
-                case "log":
-                    return HandleGameLogCommand(sender, tokens);
-                default:
-                    return Respond(sender, BasicHelpText());
-            }
-        }
-
-        private bool HandleEnemyCommand(ulong sender, string message, MyChatCommandType handledAsType)
-        {
-            if (!CanManageNpcs(sender))
-                return Respond(sender, "Enable Medieval Master to manage custom NPCs in survival.");
-
-            var tokens = message.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            if (tokens.Length > 1 && !string.Equals(tokens[1], "spawn", StringComparison.OrdinalIgnoreCase))
-                return Respond(sender, $"{EnemyCommand} [spawn]");
-
-            return SpawnFromEnemyShortcut(sender, tokens);
-        }
-
-        private bool SpawnFromEnemyShortcut(ulong sender, string[] tokens)
-        {
-            var webbing = tokens.Length >= 3 ? tokens[2] : GetDefaultEnemyWebbing();
-            if (string.IsNullOrWhiteSpace(webbing))
-                return Respond(sender, "No trooper webbings are currently available.");
-
-            return SpawnFromCommand(
-                sender,
-                new SiNpcSpawnRequest(webbing, false, true));
-        }
-
-        private static string GetDefaultEnemyWebbing()
-        {
-            var webbings = SiNpcTrooperCatalog.GetKnownWebbings();
-            return webbings.Count > 0 ? webbings[0] : null;
-        }
-
-        private bool HandleSquadPresetCommand(ulong sender, string[] tokens)
-        {
-            if (tokens == null || tokens.Length < 3)
-                return Respond(sender, SquadPresetHelpText());
-
-            var action = tokens[2].ToLowerInvariant();
-            switch (action)
-            {
-                case "list":
-                    return Respond(sender, $"Available squad presets:\n{KnownSquadPresetsText()}");
-                case "help":
-                case "?":
-                    return Respond(sender, SquadPresetHelpText());
-                case "spawn":
-                    return SpawnSquadFromCommand(sender, tokens, 3);
-                default:
-                    return SpawnSquadFromCommand(sender, tokens, 2);
-            }
-        }
-
-        private bool SpawnFromCommand(ulong sender, string[] tokens)
-        {
-            if (!TryParseSpawnRequest(tokens, false, out var request, out var failure))
-                return Respond(sender, failure ?? BasicHelpText());
-
-            return SpawnFromCommand(sender, request);
-        }
-
-        private bool SpawnFromCommand(ulong sender, SiNpcSpawnRequest request)
+        private bool SpawnAdminNpc(ulong sender, SiNpcSpawnRequest request)
         {
             if (!SiNpcTrooperCatalog.TryResolveLoadout(request.WebbingSubtype, request.IsParatrooper, out _, out _))
-                return Respond(sender, $"Unknown trooper webbing '{request.WebbingSubtype}'. Use {Command} help to see available unit webbings.");
+                return Respond(sender, $"Unknown trooper webbing '{request.WebbingSubtype}'.");
 
             var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(sender, 0));
             var playerPosition = player?.ControlledEntity?.Get<MyPositionComponentBase>();
@@ -887,15 +734,7 @@ namespace Si.UtilityAI
             return false;
         }
 
-        private bool SpawnSquadFromCommand(ulong sender, string[] tokens, int presetTokenIndex)
-        {
-            if (!TryParseSquadSpawnRequest(tokens, presetTokenIndex, out var presetSubtype, out var isEnemy, out var failure))
-                return Respond(sender, failure ?? SquadPresetHelpText());
-
-            return SpawnSquadFromCommand(sender, presetSubtype, isEnemy);
-        }
-
-        private bool SpawnSquadFromCommand(ulong sender, string presetSubtype, bool isEnemy)
+        private bool SpawnAdminSquad(ulong sender, string presetSubtype, bool isEnemy)
         {
             if (!SiNpcSquadPresetCatalog.TryResolvePreset(
                     presetSubtype,
@@ -903,7 +742,7 @@ namespace Si.UtilityAI
                     out _,
                     out var members,
                     out var failure))
-                return Respond(sender, failure ?? $"Unknown squad preset '{presetSubtype}'. Use {Command} help to see available squad presets.");
+                return Respond(sender, failure ?? $"Unknown squad preset '{presetSubtype}'.");
 
             var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(sender, 0));
             var playerPosition = player?.ControlledEntity?.Get<MyPositionComponentBase>();
@@ -1066,98 +905,6 @@ namespace Si.UtilityAI
 
             for (var i = 0; i < entityIds.Count; i++)
                 _instance.Npcs.Close(entityIds[i]);
-        }
-
-        private bool TryParseSquadSpawnRequest(
-            string[] tokens,
-            int presetTokenIndex,
-            out string presetSubtype,
-            out bool isEnemy,
-            out string failure)
-        {
-            presetSubtype = null;
-            isEnemy = false;
-            failure = null;
-
-            if (tokens == null
-                || presetTokenIndex < 0
-                || tokens.Length <= presetTokenIndex
-                || string.IsNullOrWhiteSpace(tokens[presetTokenIndex]))
-            {
-                failure = $"Usage: {Command} squad <preset> [enemy|friendly]. Use {Command} help to see available squad presets.";
-                return false;
-            }
-
-            presetSubtype = tokens[presetTokenIndex].Trim();
-            for (var i = presetTokenIndex + 1; i < tokens.Length; i++)
-            {
-                var token = tokens[i];
-                if (string.Equals(token, "enemy", StringComparison.OrdinalIgnoreCase))
-                {
-                    isEnemy = true;
-                    continue;
-                }
-
-                if (string.Equals(token, "friendly", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(token, "ally", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(token, "allied", StringComparison.OrdinalIgnoreCase))
-                {
-                    isEnemy = false;
-                    continue;
-                }
-
-                failure = $"Unknown squad flag '{token}'. Supported flags: enemy, friendly.";
-                return false;
-            }
-
-            return true;
-        }
-
-        private bool TryParseSpawnRequest(
-            string[] tokens,
-            bool forceEnemy,
-            out SiNpcSpawnRequest request,
-            out string failure)
-        {
-            request = default(SiNpcSpawnRequest);
-            failure = null;
-            if (tokens == null || tokens.Length < 3 || string.IsNullOrWhiteSpace(tokens[2]))
-            {
-                failure = $"Usage: {Command} spawn <webbing> [paratrooper] [enemy]. Use {Command} help to see available unit webbings.";
-                return false;
-            }
-
-            var webbingSubtype = tokens[2].Trim();
-            var isParatrooper = false;
-            var isEnemy = forceEnemy;
-            for (var i = 3; i < tokens.Length; i++)
-            {
-                var token = tokens[i];
-                if (string.Equals(token, "paratrooper", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(token, "para", StringComparison.OrdinalIgnoreCase))
-                {
-                    isParatrooper = true;
-                    continue;
-                }
-
-                if (string.Equals(token, "enemy", StringComparison.OrdinalIgnoreCase))
-                {
-                    isEnemy = true;
-                    continue;
-                }
-
-                if (string.Equals(token, "friendly", StringComparison.OrdinalIgnoreCase))
-                {
-                    isEnemy = false;
-                    continue;
-                }
-
-                failure = $"Unknown spawn flag '{token}'. Supported flags: paratrooper, enemy, friendly.";
-                return false;
-            }
-
-            request = new SiNpcSpawnRequest(webbingSubtype, isParatrooper, isEnemy);
-            return true;
         }
 
         private bool ConfigureFriendlyTrooper(SiNpc npc, MyPlayer player, out string failure)
@@ -1371,82 +1118,8 @@ namespace Si.UtilityAI
         private static string FriendlyTrooperName(SiNpc npc) =>
             "AI";
 
-        private bool HandleSquadCommand(ulong sender, string message, MyChatCommandType handledAsType)
-        {
-            var tokens = message.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            if (tokens.Length < 2)
-                return Respond(sender, SquadHelpText());
-
-            switch (tokens[1].ToLowerInvariant())
-            {
-                case "list":
-                case "members":
-                    return RespondSquadRoster(sender);
-                default:
-                    return Respond(sender, SquadHelpText());
-            }
-        }
-
-        private string BasicHelpText() =>
-            $"{Command} spawn <webbing> [paratrooper] [enemy] | squad <preset> [enemy|friendly] | squad list | rearm | spawn-enemy [webbing] | list | clear | utility-ai [toggle|on|off|status] | gamelog [toggle|on|off|status] | help";
-
-        private string ExpandedHelpText() =>
-            $"{BasicHelpText()}.\nAvailable unit webbings:\n{KnownWebbingsText()}\nAvailable squad presets:\n{KnownSquadPresetsText()}";
-
-        private static string KnownWebbingsText()
-        {
-            var webbings = SiNpcTrooperCatalog.GetKnownWebbings();
-            return webbings.Count > 0
-                ? string.Join("\n", webbings)
-                : "none";
-        }
-
-        private static string KnownSquadPresetsText()
-        {
-            var presets = SiNpcSquadPresetCatalog.GetKnownPresets();
-            if (presets.Count == 0)
-                return "none";
-
-            var lines = new List<string>(presets.Count);
-            for (var i = 0; i < presets.Count; i++)
-                lines.Add(FormatSquadPresetSummary(presets[i]));
-            return string.Join("\n", lines);
-        }
-
-        private static string FormatSquadPresetSummary(SiNpcSquadPresetDefinition preset)
-        {
-            if (preset == null)
-                return "unknown";
-
-            var parts = new List<string>();
-            if (preset.Members != null)
-                for (var i = 0; i < preset.Members.Count; i++)
-                {
-                    var member = preset.Members[i];
-                    if (member == null || string.IsNullOrWhiteSpace(member.WebbingSubtype) || member.Count <= 0)
-                        continue;
-
-                    parts.Add(member.WebbingSubtype + " x" + member.Count);
-                }
-
-            var label = preset.Id.SubtypeName;
-            if (!string.IsNullOrWhiteSpace(preset.DisplayName)
-                && !string.Equals(preset.DisplayName, preset.Id.SubtypeName, StringComparison.OrdinalIgnoreCase))
-                label += " - " + preset.DisplayName;
-
-            return parts.Count > 0
-                ? label + ": " + string.Join(", ", parts)
-                : label;
-        }
-
-        private string SquadPresetHelpText() =>
-            $"{Command} squad <preset> [enemy|friendly] | squad spawn <preset> [enemy|friendly] | squad list\nAvailable squad presets:\n{KnownSquadPresetsText()}";
-
         private string UtilityAiDecisionMakingStatusText() =>
             $"UtilityAI decision making {(_utilityDecisionMakingEnabled ? "enabled" : "disabled")}.";
-
-        private static string SquadHelpText() =>
-            $"{SquadCommand} list | members";
 
         private bool Respond(ulong sender, string response)
         {
@@ -1460,15 +1133,6 @@ namespace Si.UtilityAI
                 return Respond(sender, string.Empty);
 
             return Respond(sender, string.Join("\n\n", lines));
-        }
-
-        private bool RespondSquadRoster(ulong sender)
-        {
-            var lines = Squads?.CreateRosterLines(Npcs);
-            if (lines == null || lines.Count == 0)
-                return Respond(sender, "No squad roster is available.");
-
-            return RespondLines(sender, lines);
         }
 
         private static string PlayerName(MyPlayer player)

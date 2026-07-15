@@ -21,9 +21,6 @@ namespace Si.UtilityAI
     [MyDependency(typeof(MyChatSystem), Critical = false)]
     public sealed partial class SiNpcSessionComponent : MySessionComponent, IDraw
     {
-        private const string Command = "/si-npc";
-        private const string EnemyCommand = "/si-enemy";
-        private const string SquadCommand = "/si-squad";
         private const double SpawnDistance = 2.5;
         private const double SpawnProbeLength = 1.6;
         private const double SpawnProbeElevation = 2.0;
@@ -108,21 +105,6 @@ namespace Si.UtilityAI
             if (!IsAuthoritative)
                 MyEntities.OnEntityAdd += OnEntityAddedClient;
 
-            _chat?.RegisterChatCommand(
-                Command,
-                HandleCommand,
-                "Manage custom Si Utility AI NPCs. /si-npc spawn <webbing> [paratrooper] [enemy] | squad <preset> [enemy|friendly] | squad list | rearm | spawn-enemy [webbing] | list | clear | utility-ai [toggle|on|off|status] | gamelog [toggle|on|off|status] | help",
-                MyChatCommandType.Server);
-            _chat?.RegisterChatCommand(
-                EnemyCommand,
-                HandleEnemyCommand,
-                "Spawn a hostile test Si Utility AI trooper. /si-enemy [spawn] [webbing]",
-                MyChatCommandType.Server);
-            _chat?.RegisterChatCommand(
-                SquadCommand,
-                HandleSquadCommand,
-                "Show Si Utility AI squad rosters. /si-squad list | members",
-                MyChatCommandType.Server);
         }
 
         protected override void OnSessionReady()
