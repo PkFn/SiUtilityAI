@@ -1,9 +1,7 @@
-using System;
-using System.Collections.Generic;
+﻿using System;
 using Equinox76561198048419394.Core.Controller;
 using Pax.Animals;
 using Pax.RemoteRope;
-using SiCore.Core.Debug;
 using VRage.Entities.Gravity;
 using VRage.Game.Entity;
 using VRageMath;
@@ -115,9 +113,6 @@ namespace Si.UtilityAI
         private const short TurnRightAction = 3;
         private const short StopAction = 4;
         private const double MinimumDirectionLengthSquared = 0.0001;
-        private const long DriveProbeCooldownMilliseconds = 1000;
-        private readonly SiGameLog _log = new SiGameLog(nameof(SiPaxHorseMountedVehicleDriver), "[SiHorseDrive]");
-        private readonly Dictionary<long, long> _driveProbeTimes = new Dictionary<long, long>();
 
         public bool CanDrive(MyEntity vehicle, EquiPlayerAttachmentComponent.Slot seat)
         {
@@ -148,7 +143,6 @@ namespace Si.UtilityAI
             var distance = toTarget.Length();
             if (distance <= settings.StopDistance)
             {
-                LogDriveProbe(horse, vehicle, formationTarget, distance, 0, 0, "stop-within-formation-distance");
                 Stop(controls);
                 return;
             }
@@ -159,19 +153,23 @@ namespace Si.UtilityAI
             // for navigation, otherwise a target directly ahead makes the
             // driver accelerate away from it.
             var forward = NormalizedOrFallback(Vector3D.Reject(world.Backward, up), Vector3D.Backward);
-            var right = NormalizedOrFallback(Vector3D.Cross(forward, up), world.Right);
+            var right = NormalizedOrFallback(Vector3D.Cross(forward, up), world.Left);
             var lateral = Vector3D.Dot(direction, right);
             var forwardAlignment = Vector3D.Dot(direction, forward);
-            LogDriveProbe(horse, vehicle, formationTarget, distance, forwardAlignment, lateral, forwardAlignment < settings.MinimumForwardAlignment ? "turn-in-place" : "drive-toward-formation-target");
-
-            if (Math.Abs(lateral) >= settings.TurnDeadZone)
-                controls.LocalAction(lateral > 0 ? TurnRightAction : TurnLeftAction, 0, false, true);
 
             if (forwardAlignment < settings.MinimumForwardAlignment)
             {
                 Stop(controls);
+                controls.LocalAction(
+                    lateral >= settings.TurnDeadZone ? TurnRightAction : TurnLeftAction,
+                    0,
+                    false,
+                    true);
                 return;
             }
+
+            if (Math.Abs(lateral) >= settings.TurnDeadZone)
+                controls.LocalAction(lateral > 0 ? TurnRightAction : TurnLeftAction, 0, false, true);
 
             var repeatCount = distance >= settings.SlowDistance
                 ? settings.CatchUpActionRepeatCount
@@ -195,27 +193,6 @@ namespace Si.UtilityAI
         private static void Stop(MyRemoteRopeControlComponent controls)
         {
             controls.LocalAction(StopAction, 0, false, true);
-        }
-
-        private void LogDriveProbe(
-            MyEntity horse,
-            MyEntity vehicle,
-            in Vector3D formationTarget,
-            double distance,
-            double forwardAlignment,
-            double lateral,
-            string branch)
-        {
-            if (!SiGameLog.Enabled || horse == null)
-                return;
-
-            var now = DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond;
-            if (_driveProbeTimes.TryGetValue(horse.EntityId, out var lastTime)
-                && now - lastTime < DriveProbeCooldownMilliseconds)
-                return;
-
-            _driveProbeTimes[horse.EntityId] = now;
-            _log.Warning($"horseId={horse.EntityId} horseName={horse.Name ?? "null"} horseDefinition={horse.Definition?.Id.SubtypeName ?? "null"} vehicleId={vehicle?.EntityId ?? 0} horsePosition={horse.WorldMatrix.Translation} horseForward={horse.WorldMatrix.Forward} formationTarget={formationTarget} distance={distance:0.##} forwardAlignment={forwardAlignment:0.###} lateral={lateral:0.###} branch={branch}"); // AGENT-DEBUG-LOG
         }
 
         private static Vector3D NormalizedOrFallback(in Vector3D value, in Vector3D fallback)

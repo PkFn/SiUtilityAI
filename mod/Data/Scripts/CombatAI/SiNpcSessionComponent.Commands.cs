@@ -583,7 +583,8 @@ namespace Si.UtilityAI
             var state = GetSquadOrder(leaderIdentityId);
             state.Mode = SiSquadOrderMode.Follow;
             SetRearmOverride(state, false);
-            CancelTransportOverride(leaderIdentityId, state);
+            if (state.TransportMode != SiSquadTransportMode.Mount)
+                CancelTransportOverride(leaderIdentityId, state);
 
             string failure;
             ApplyFollowOrder(leaderIdentityId, state, true, out failure);
@@ -595,7 +596,7 @@ namespace Si.UtilityAI
             state.Formation = formation;
             state.Mode = SiSquadOrderMode.Follow;
             SetRearmOverride(state, false);
-            // Formation changes only replace the cached follow targets.  Keep
+            // Follow and formation commands only replace cached targets. Keep
             // mounted drivers in their assigned vehicle so their adapter can
             // steer to the new formation position instead of dismounting.
             if (state.TransportMode != SiSquadTransportMode.Mount)
