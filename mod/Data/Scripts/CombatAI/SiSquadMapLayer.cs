@@ -113,11 +113,10 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 return;
             }
 
-            PollMiddleMouseCommandActivation(session);
-
             if (snapshot == null
                 || snapshot.Count == 0)
             {
+                ResetMiddleMousePollingState(true);
                 _hoveredMarker = null;
                 HideMarkerTooltip();
                 return;
@@ -131,6 +130,13 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 mouseNormalizedPosition,
                 out var hoveredWaypointMarker,
                 out var hoveredWaypointPosition);
+            var clickedTarget = hoveredWaypointMarker != null
+                ? new SiMapCommandClickTarget(hoveredWaypointMarker, true)
+                : hoveredMarker != null
+                    ? new SiMapCommandClickTarget(hoveredMarker, false)
+                    : default(SiMapCommandClickTarget);
+
+            PollMiddleMouseCommandActivation(session, clickedTarget);
 
             DrawWaypointConnections(layout, transitionAlpha);
 
@@ -156,7 +162,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             {
                 _hoveredMarker = null;
                 DrawWaypointMarker(hoveredWaypointPosition, transitionAlpha, true);
-                ShowWaypointTooltip(hoveredWaypointMarker);
+                ShowWaypointTooltip(session, hoveredWaypointMarker);
                 DrawMapCommandOverlay(session, null);
                 return;
             }
@@ -332,7 +338,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             _markerTooltipVisible = true;
         }
 
-        private void ShowWaypointTooltip(SiSquadMapMarker marker)
+        private void ShowWaypointTooltip(SiNpcSessionComponent session, SiSquadMapMarker marker)
         {
             if (marker == null)
                 return;
@@ -342,6 +348,8 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 _tooltip.AddTitle("Squad waypoint");
                 if (!string.IsNullOrWhiteSpace(marker.Name))
                     _tooltip.AddLine(marker.Name);
+                if (session?.CanLocalPlayerCommandSquad(marker) == true)
+                    _tooltip.AddLine("Middle mouse: edit waypoint");
             }
 
             Map.SetTooltip(_tooltip);
@@ -393,7 +401,9 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 0.7f);
         }
 
-        private void PollMiddleMouseCommandActivation(SiNpcSessionComponent session)
+        private void PollMiddleMouseCommandActivation(
+            SiNpcSessionComponent session,
+            SiMapCommandClickTarget clickedTarget)
         {
             var input = MyAPIGateway.Input;
             if (!CanProcessMapCommands(input, session))
@@ -419,7 +429,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             if (!middlePressed && !middleRisingEdge)
                 return;
 
-            HandleMapCommandActivation(session, Map.HoveredCell);
+            HandleMapCommandActivation(session, Map.HoveredCell, clickedTarget);
         }
 
         private bool TryResolveCommandTarget(Vector2I cell, out Vector3D target)
@@ -484,29 +494,29 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             }
         }
 
-        private void HandleMapCommandActivation(SiNpcSessionComponent session, Vector2I? cell)
+        private void HandleMapCommandActivation(
+            SiNpcSessionComponent session,
+            Vector2I? cell,
+            SiMapCommandClickTarget clickedTarget)
         {
             if (session == null || Map == null)
                 return;
 
-            var layout = BuildMarkerLayout(session.SquadMapMarkerSnapshot);
-            FindWaypointAtCursor(
-                layout,
-                MyGuiManager.MouseCursorPosition,
-                out var clickedWaypointMarker,
-                out _);
-            if (clickedWaypointMarker != null && session.TryOpenWaypointEditor(clickedWaypointMarker))
+            if (clickedTarget.IsWaypoint)
+            {
+                session.TryOpenWaypointEditor(clickedTarget.Marker);
                 return;
+            }
+
+            if (clickedTarget.IsSquad)
+            {
+                if (session.CanLocalPlayerCommandSquad(clickedTarget.Marker))
+                    session.ToggleLocalMapCommandSelection(clickedTarget.Marker);
+                return;
+            }
 
             if (!cell.HasValue)
                 return;
-
-            var clickedMarker = FindMarkerAtCursor(layout, MyGuiManager.MouseCursorPosition, out _);
-            if (clickedMarker != null && session.CanLocalPlayerCommandSquad(clickedMarker))
-            {
-                session.ToggleLocalMapCommandSelection(clickedMarker);
-                return;
-            }
 
             if (!session.HasSelectedMapCommandLeader())
                 return;
@@ -717,6 +727,19 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             public bool HasLeaderPosition;
             public Vector2 WaypointMapPosition;
             public bool HasWaypointPosition;
+        }
+
+        private struct SiMapCommandClickTarget
+        {
+            public SiMapCommandClickTarget(SiSquadMapMarker marker, bool isWaypoint)
+            {
+                Marker = marker;
+                IsWaypoint = isWaypoint;
+            }
+
+            public SiSquadMapMarker Marker;
+            public bool IsWaypoint;
+            public bool IsSquad => Marker != null && !IsWaypoint;
         }
 
         private RectangleF GetScreenViewport()
