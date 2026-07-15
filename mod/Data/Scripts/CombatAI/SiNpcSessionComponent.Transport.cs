@@ -121,6 +121,28 @@ namespace Si.UtilityAI
             return TryGetTransportVehicleEntity(state.VehicleEntityId, out vehicle);
         }
 
+        internal bool TryGetTransportLeaderThrottle(SiNpc npc, out float throttle)
+        {
+            throttle = 0;
+            if (npc == null || Squads == null)
+                return false;
+
+            SiAssignedNpc assignment;
+            if (!Squads.TryGetAssignment(npc.EntityId, out assignment)
+                || assignment.Leader.Kind != SiSquadLeaderKind.Player)
+                return false;
+
+            SiSquadCommandState order;
+            if (!_squadOrders.TryGetValue(assignment.Leader.Id, out order)
+                || order.TransportMode != SiSquadTransportMode.Mount
+                || !TryGetTransportVehicleEntity(order.TransportVehicleEntityId, out var leaderVehicle)
+                || leaderVehicle.Physics == null)
+                return false;
+
+            throttle = Math.Max(0, leaderVehicle.Physics.LinearVelocity.Length());
+            return true;
+        }
+
         internal void RecordTransportExitPosition(SiNpc npc, in Vector3D worldPosition)
         {
             if (npc == null)

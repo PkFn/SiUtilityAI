@@ -35,12 +35,8 @@ namespace Si.UtilityAI
         [DefaultValue(500L)]
         public long ActionIntervalMilliseconds = 500L;
 
-        public float VehicleStopDistance;
-        public float VehicleSlowDistance;
         public float VehicleTurnDeadZone;
         public float VehicleMinimumForwardAlignment;
-        public int VehicleCruiseActionRepeatCount;
-        public int VehicleCatchUpActionRepeatCount;
     }
 
     [MyDefinitionType(typeof(MyObjectBuilder_SiUseTransportSeatsBehaviorDefinition))]
@@ -61,12 +57,8 @@ namespace Si.UtilityAI
             ExitArrivalDistance = Math.Max(0.1f, ob.ExitArrivalDistance);
             ActionIntervalMilliseconds = Math.Max(0L, ob.ActionIntervalMilliseconds);
             VehicleDriveSettings = new SiMountedVehicleDriveSettings(
-                Math.Max(0, ob.VehicleStopDistance),
-                Math.Max(0, ob.VehicleSlowDistance),
                 Math.Max(0, ob.VehicleTurnDeadZone),
-                MathHelper.Clamp(ob.VehicleMinimumForwardAlignment, -1, 1),
-                Math.Max(0, ob.VehicleCruiseActionRepeatCount),
-                Math.Max(0, ob.VehicleCatchUpActionRepeatCount));
+                MathHelper.Clamp(ob.VehicleMinimumForwardAlignment, -1, 1));
         }
     }
 
@@ -229,10 +221,13 @@ namespace Si.UtilityAI
                 return;
             }
 
+            session.TryGetTransportLeaderThrottle(context.Agent, out var leaderThrottle);
+
             SiMountedVehicleDrivers.TryDrive(
                 vehicle,
                 seat,
                 formationTarget,
+                leaderThrottle,
                 _definition.VehicleDriveSettings);
         }
 

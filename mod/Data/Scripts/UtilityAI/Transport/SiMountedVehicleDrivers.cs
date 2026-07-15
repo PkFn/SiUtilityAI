@@ -21,6 +21,7 @@ namespace Si.UtilityAI
             MyEntity vehicle,
             EquiPlayerAttachmentComponent.Slot seat,
             in Vector3D formationTarget,
+            float leaderThrottle,
             in SiMountedVehicleDriveSettings settings);
 
         void Stop(MyEntity vehicle, EquiPlayerAttachmentComponent.Slot seat);
@@ -29,27 +30,15 @@ namespace Si.UtilityAI
     internal readonly struct SiMountedVehicleDriveSettings
     {
         public SiMountedVehicleDriveSettings(
-            float stopDistance,
-            float slowDistance,
             float turnDeadZone,
-            float minimumForwardAlignment,
-            int cruiseActionRepeatCount,
-            int catchUpActionRepeatCount)
+            float minimumForwardAlignment)
         {
-            StopDistance = stopDistance;
-            SlowDistance = slowDistance;
             TurnDeadZone = turnDeadZone;
             MinimumForwardAlignment = minimumForwardAlignment;
-            CruiseActionRepeatCount = cruiseActionRepeatCount;
-            CatchUpActionRepeatCount = catchUpActionRepeatCount;
         }
 
-        public float StopDistance { get; }
-        public float SlowDistance { get; }
         public float TurnDeadZone { get; }
         public float MinimumForwardAlignment { get; }
-        public int CruiseActionRepeatCount { get; }
-        public int CatchUpActionRepeatCount { get; }
     }
 
     internal static class SiMountedVehicleDrivers
@@ -75,6 +64,7 @@ namespace Si.UtilityAI
             MyEntity vehicle,
             EquiPlayerAttachmentComponent.Slot seat,
             in Vector3D formationTarget,
+            float leaderThrottle,
             in SiMountedVehicleDriveSettings settings)
         {
             for (var i = 0; i < Drivers.Length; i++)
@@ -83,7 +73,7 @@ namespace Si.UtilityAI
                 if (driver == null || !driver.CanDrive(vehicle, seat))
                     continue;
 
-                driver.Drive(vehicle, seat, formationTarget, settings);
+                driver.Drive(vehicle, seat, formationTarget, leaderThrottle, settings);
                 return true;
             }
 
@@ -109,6 +99,7 @@ namespace Si.UtilityAI
     internal sealed class SiPaxHorseMountedVehicleDriver : ISiMountedVehicleDriver
     {
         private const short ForwardAction = 0;
+        private const short BackwardAction = 1;
         private const short TurnLeftAction = 2;
         private const short TurnRightAction = 3;
         private const short StopAction = 4;
@@ -127,12 +118,15 @@ namespace Si.UtilityAI
             MyEntity vehicle,
             EquiPlayerAttachmentComponent.Slot seat,
             in Vector3D formationTarget,
+            float leaderThrottle,
             in SiMountedVehicleDriveSettings settings)
         {
             var horse = SeatEntity(seat);
             var controls = horse?.Components.Get<MyRemoteRopeControlComponent>();
-            var steeringMultiplier = SiNpcSessionComponent.Instance?.VehicleSettings?.PaxHorseSteeringMultiplier ?? 0;
-            if (controls == null || steeringMultiplier <= 0)
+            var vehicleSettings = SiNpcSessionComponent.Instance?.VehicleSettings;
+            var steeringMultiplier = vehicleSettings?.PaxHorseSteeringMultiplier ?? 0;
+            var distanceThrottleCoefficient = vehicleSettings?.PaxHorseDistanceThrottleCoefficient ?? 0;
+            if (controls == null || steeringMultiplier <= 0 || distanceThrottleCoefficient <= 0)
                 return;
 
             var world = horse.WorldMatrix;
@@ -143,13 +137,9 @@ namespace Si.UtilityAI
                 : NormalizedOrFallback(world.Up, Vector3D.Up);
             var toTarget = Vector3D.Reject(formationTarget - position, up);
             var distance = toTarget.Length();
-            if (distance <= settings.StopDistance)
-            {
-                Stop(controls);
-                return;
-            }
-
-            var direction = toTarget / distance;
+            var direction = distance > MinimumDirectionLengthSquared
+                ? toTarget / distance
+                : Vector3D.Zero;
             // PAX applies its positive forward command along the inverse of
             // the horse block's WorldMatrix.Forward.  Use that travel axis
             // for navigation, otherwise a target directly ahead makes the
@@ -159,7 +149,8 @@ namespace Si.UtilityAI
             var lateral = Vector3D.Dot(direction, right);
             var forwardAlignment = Vector3D.Dot(direction, forward);
 
-            if (forwardAlignment < settings.MinimumForwardAlignment)
+            if (distance > MinimumDirectionLengthSquared
+                && forwardAlignment < settings.MinimumForwardAlignment)
             {
                 Stop(controls);
                 SendTurnAction(
@@ -175,11 +166,12 @@ namespace Si.UtilityAI
                     lateral > 0 ? TurnRightAction : TurnLeftAction,
                     steeringMultiplier);
 
-            var repeatCount = distance >= settings.SlowDistance
-                ? settings.CatchUpActionRepeatCount
-                : settings.CruiseActionRepeatCount;
-            for (var i = 0; i < repeatCount; i++)
+            var desiredThrottle = Math.Max(0, leaderThrottle) + (float)distance * distanceThrottleCoefficient;
+            var currentThrottle = (float)Vector3D.Dot(vehicle?.Physics?.LinearVelocity ?? Vector3D.Zero, forward);
+            if (currentThrottle < desiredThrottle)
                 controls.LocalAction(ForwardAction, 0, false, true);
+            else if (currentThrottle > desiredThrottle)
+                controls.LocalAction(BackwardAction, 0, false, true);
         }
 
         public void Stop(MyEntity vehicle, EquiPlayerAttachmentComponent.Slot seat)

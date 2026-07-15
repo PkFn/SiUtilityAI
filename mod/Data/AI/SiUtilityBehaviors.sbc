@@ -26,12 +26,8 @@
     <WaypointRefreshDistance>0.75</WaypointRefreshDistance>
     <ExitArrivalDistance>1.25</ExitArrivalDistance>
     <ActionIntervalMilliseconds>500</ActionIntervalMilliseconds>
-    <VehicleStopDistance>1.5</VehicleStopDistance>
-    <VehicleSlowDistance>5</VehicleSlowDistance>
     <VehicleTurnDeadZone>0.1</VehicleTurnDeadZone>
     <VehicleMinimumForwardAlignment>0.35</VehicleMinimumForwardAlignment>
-    <VehicleCruiseActionRepeatCount>1</VehicleCruiseActionRepeatCount>
-    <VehicleCatchUpActionRepeatCount>3</VehicleCatchUpActionRepeatCount>
   </Definition>
 
   <Definition xsi:type="MyObjectBuilder_SiRearmBehaviorDefinition">

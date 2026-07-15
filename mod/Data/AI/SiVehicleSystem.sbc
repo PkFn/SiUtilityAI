@@ -5,5 +5,7 @@
     <Id Type="MyObjectBuilder_SiVehicleSystemDefinition" Subtype="SiDefaultVehicleSystem" />
     <!-- PAX handles each turn control as a unit impulse; this repeats it per AI tick. -->
     <PaxHorseSteeringMultiplier>6</PaxHorseSteeringMultiplier>
+    <!-- Additional target speed in metres per second per metre behind formation position. -->
+    <PaxHorseDistanceThrottleCoefficient>1</PaxHorseDistanceThrottleCoefficient>
   </Definition>
 </Definitions>
