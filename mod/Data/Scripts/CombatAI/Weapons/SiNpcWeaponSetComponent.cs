@@ -80,7 +80,7 @@ namespace Si.UtilityAI
                     _shootBehavior.ApplyRuntimeDefinition((MyDefinitionId)binding.ShootBehaviorDefinitionId.Value);
 
                 _activeSlot = slot;
-                return _rangedWeapon.TryEquipHeldWeapon();
+                return true;
             }
 
             if (binding.TryResolveMeleeDefinition(out var meleeDefinition))
@@ -90,7 +90,7 @@ namespace Si.UtilityAI
                     return false;
 
                 _activeSlot = slot;
-                return _meleeWeapon.TryEquipHeldWeapon();
+                return true;
             }
 
             return false;

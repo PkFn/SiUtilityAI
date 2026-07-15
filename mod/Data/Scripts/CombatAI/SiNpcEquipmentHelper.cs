@@ -86,7 +86,7 @@ namespace Si.UtilityAI
                 return false;
             }
 
-            if (HasEquippedSubtype(entity, itemId.SubtypeName))
+            if (IsEquipmentItemEquipped(equipment, inventory, itemId))
                 return true;
 
             MyInventoryItem item;
@@ -177,6 +177,17 @@ namespace Si.UtilityAI
             }
 
             return false;
+        }
+
+        public static bool IsEquipmentItemEquipped(
+            MyEntityEquipmentComponent equipment,
+            MyInventoryBase inventory,
+            MyDefinitionId itemId)
+        {
+            return equipment != null
+                   && inventory != null
+                   && equipment.IsEquipped(itemId)
+                   && inventory.FindItem(itemId) != null;
         }
     }
 }
