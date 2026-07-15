@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Xml.Serialization;
+using Pax.Cannons;
+using Pax.Equipment;
+using Sandbox.Definitions.Inventory;
 using VRage.Game;
 using VRage.Game.Definitions;
 using VRage.Game.ObjectBuilders;
@@ -38,6 +41,7 @@ namespace Si.UtilityAI
     {
         public string SubtypeName;
         public MyDefinitionId WebbingItemId;
+        public MyDefinitionId? PrimaryWeaponItemId;
         public SiNpcLoadoutComponentDefinition CompatibilityDefinition;
         public SiNpcTrooperWeaponBindingDefinition WeaponBindings;
         public bool IsParatrooper;
@@ -186,12 +190,43 @@ namespace Si.UtilityAI
             {
                 SubtypeName = definition.Id.SubtypeName,
                 WebbingItemId = webbingId,
+                PrimaryWeaponItemId = ResolvePrimaryWeaponItem(webbingContainer),
                 CompatibilityDefinition = definition,
                 WeaponBindings = weaponBinding,
                 IsParatrooper = definition.IsParatrooper,
                 Uniform = definition.Uniform.HasValue ? definition.Uniform : null,
             };
             return true;
+        }
+
+        private static MyDefinitionId? ResolvePrimaryWeaponItem(MyContainerDefinition webbingContainer)
+        {
+            if (webbingContainer?.Components == null)
+                return null;
+
+            for (var componentIndex = 0; componentIndex < webbingContainer.Components.Count; componentIndex++)
+            {
+                var storageDefinition = webbingContainer.Components[componentIndex]?.Definition as MyPAX_ItemStorageEquipmentDefinition;
+                if (storageDefinition?.Items == null)
+                    continue;
+
+                foreach (var item in storageDefinition.Items)
+                {
+                    if (item.Value <= 0)
+                        continue;
+
+                    MyHandItemDefinition handItemDefinition;
+                    if (!MyDefinitionManager.TryGet(item.Key, out handItemDefinition)
+                        || handItemDefinition?.Behaviors == null)
+                        continue;
+
+                    for (var behaviorIndex = 0; behaviorIndex < handItemDefinition.Behaviors.Count; behaviorIndex++)
+                        if (handItemDefinition.Behaviors[behaviorIndex] is MyPAX_HandheldGunDefinition)
+                            return item.Key;
+                }
+            }
+
+            return null;
         }
 
         private static SerializableDefinitionId? GuessUniform(string webbingSubtype, bool paratrooper)

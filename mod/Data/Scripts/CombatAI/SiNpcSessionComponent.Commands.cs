@@ -685,7 +685,7 @@ namespace Si.UtilityAI
                 return false;
             }
 
-            if (!weaponSet.ApplyRuntimeDefinition(loadout.WeaponBindings))
+            if (!weaponSet.ApplyRuntimeDefinition(loadout.WeaponBindings, loadout.PrimaryWeaponItemId))
             {
                 failure = $"Weapon slot bindings for '{resolvedWebbingSubtype}' could not be applied.";
                 return false;

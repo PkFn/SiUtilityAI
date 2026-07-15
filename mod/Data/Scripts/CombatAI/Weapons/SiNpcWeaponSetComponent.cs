@@ -17,6 +17,7 @@ namespace Si.UtilityAI
     public class SiNpcWeaponSetComponent : MyEntityComponent
     {
         private SiNpcTrooperWeaponBindingDefinition _runtimeDefinition;
+        private MyDefinitionId? _primaryRangedWeaponItem;
         private SiNpcWeaponSlot _activeSlot;
         private SiNpcRangedWeaponComponent _rangedWeapon;
         private SiNpcMeleeWeaponComponent _meleeWeapon;
@@ -31,13 +32,16 @@ namespace Si.UtilityAI
             CacheComponents();
         }
 
-        internal bool ApplyRuntimeDefinition(SiNpcTrooperWeaponBindingDefinition runtimeDefinition)
+        internal bool ApplyRuntimeDefinition(
+            SiNpcTrooperWeaponBindingDefinition runtimeDefinition,
+            MyDefinitionId? primaryRangedWeaponItem = null)
         {
             if (runtimeDefinition == null)
                 return false;
 
             CacheComponents();
             _runtimeDefinition = runtimeDefinition;
+            _primaryRangedWeaponItem = primaryRangedWeaponItem;
             _activeSlot = SiNpcWeaponSlot.None;
             return TryActivateMainFirearm();
         }
@@ -73,7 +77,8 @@ namespace Si.UtilityAI
             if (binding.TryResolveRangedDefinition(out var rangedDefinition))
             {
                 _meleeWeapon?.ClearRuntimeDefinition();
-                if (_rangedWeapon == null || !_rangedWeapon.ApplyRuntimeDefinition(rangedDefinition))
+                var heldItemFallback = slot == SiNpcWeaponSlot.MainFirearm ? _primaryRangedWeaponItem : null;
+                if (_rangedWeapon == null || !_rangedWeapon.ApplyRuntimeDefinition(rangedDefinition, heldItemFallback))
                     return false;
 
                 if (binding.ShootBehaviorDefinitionId.HasValue && _shootBehavior != null)
