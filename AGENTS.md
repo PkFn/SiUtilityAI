@@ -19,6 +19,7 @@
 - `modern small arms` adds player held guns.
 - `watercore` adds content using PAX Core.
 - `cartography` a useful map layer example that adds height isolines.
+- Local mods under `C:\Users\SicH\AppData\Roaming\MedievalEngineers\Mods\` are editable when a task explicitly scopes them; unlike `ref_workshop`, they are not read-only dependencies.
 
 ## Shared content
 - `ref_si_core/` is a soft link to another Visual Studio project and is editable. It is the shared core for reusable code across the user's mods. It's the only mod you can modify.

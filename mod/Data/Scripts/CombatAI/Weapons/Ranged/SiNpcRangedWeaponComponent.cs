@@ -1,9 +1,7 @@
 using System;
 using Pax.Cannons;
 using Sandbox.Game.EntityComponents.Character;
-using Sandbox.Game.Inventory;
 using Sandbox.ModAPI;
-using SiCore.Core.Debug;
 using VRage.Components;
 using VRage.Game;
 using VRage.Game.Components;
@@ -22,9 +20,6 @@ namespace Si.UtilityAI
     public partial class SiNpcRangedWeaponComponent : MyEntityComponent
     {
         private const long FireIntentGraceMilliseconds = 500;
-        private const long InitialEquipmentRetryMilliseconds = 100;
-        private const long EquipmentIntegrityCheckMilliseconds = 5000;
-        private const long EquipmentFailureLogCooldownMilliseconds = 1000;
 
         private SiNpcRangedWeaponComponentDefinition _definition;
         private SiNpcRangedWeaponComponentDefinition _runtimeDefinition;
@@ -35,9 +30,6 @@ namespace Si.UtilityAI
         private long _lastFireIntentTime = long.MinValue;
         private bool _scheduledFireQueued;
         private bool _maintenanceQueued;
-        private bool _heldWeaponEquipQueued;
-        private long _lastEquipmentFailureLogTime = long.MinValue;
-        private readonly SiGameLog _log = new SiGameLog(nameof(SiNpcRangedWeaponComponent), "[SiNpcWeapon]");
         private ReloadMaintenanceState _reloadMaintenanceState;
         private AmmoSpeechState _lastAmmoSpeechState;
         private MyEntity _fireIntentTarget;
@@ -92,9 +84,8 @@ namespace Si.UtilityAI
             _runtimeDefinition = runtimeDefinition;
             _runtimeHeldItemFallback = runtimeDefinition.HeldItem.HasValue ? null : heldItemFallback;
             ResetState();
-            _log.Info($"entityId={Entity?.EntityId ?? 0} entityName={Entity?.Name ?? "none"} weaponDefinition={runtimeDefinition.Id.SubtypeName} heldItem={HeldItemId?.SubtypeName ?? "none"} branch=runtime-definition-applied fallbackUsed={_runtimeHeldItemFallback.HasValue} inScene={Entity?.InScene == true}"); // AGENT-DEBUG-LOG
             if (Entity != null && Entity.InScene && (MyAPIGateway.Multiplayer == null || MyAPIGateway.Multiplayer.IsServer))
-                QueueHeldWeaponEquipmentCheck(1);
+                AddScheduledCallback(EnsureHeldWeaponEquipped, 1);
             return true;
         }
 
@@ -113,7 +104,7 @@ namespace Si.UtilityAI
             if (MyAPIGateway.Multiplayer != null && !MyAPIGateway.Multiplayer.IsServer)
                 return;
 
-            QueueHeldWeaponEquipmentCheck(1);
+            AddScheduledCallback(EnsureHeldWeaponEquipped, 1);
         }
 
         internal void ResetState()
@@ -184,18 +175,10 @@ namespace Si.UtilityAI
 
         internal bool TryEquipHeldWeapon()
         {
-            string ignored;
-            return TryEquipHeldWeapon(out ignored);
-        }
-
-        private bool TryEquipHeldWeapon(out string failure)
-        {
             if (!HeldItemId.HasValue || Entity == null)
-            {
-                failure = "The held item definition or NPC entity is missing.";
                 return false;
-            }
 
+            string failure;
             return SiNpcEquipmentHelper.TryEnsureEquipmentItemEquipped(
                 Entity,
                 HeldItemId.Value,
@@ -432,7 +415,6 @@ namespace Si.UtilityAI
         [Update(false)]
         private void EnsureHeldWeaponEquipped(long _)
         {
-            _heldWeaponEquipQueued = false;
             if (Entity == null || Entity.Closed || Entity.MarkedForClose || !HeldItemId.HasValue)
                 return;
 
@@ -441,55 +423,12 @@ namespace Si.UtilityAI
             var inventory = SiNpcEquipmentHelper.FindInventory(Entity, out ignored);
             var equipment = Entity.Components.Get<Sandbox.Entities.Components.MyEntityEquipmentComponent>();
             if (inventory == null)
-            {
-                LogEquipmentFailure(heldItemId, equipment, inventory, ignored, "inventory-missing", "Inventory lookup returned null.");
-                QueueHeldWeaponEquipmentCheck(InitialEquipmentRetryMilliseconds);
-                return;
-            }
-
-            var equippedBefore = SiNpcEquipmentHelper.IsEquipmentItemEquipped(equipment, inventory, heldItemId);
-            if (!equippedBefore)
-            {
-                string failure;
-                var equipCallSucceeded = TryEquipHeldWeapon(out failure);
-                var equippedAfterAttempt = SiNpcEquipmentHelper.IsEquipmentItemEquipped(equipment, inventory, heldItemId);
-                if (!equippedAfterAttempt)
-                    LogEquipmentFailure(heldItemId, equipment, inventory, ignored, "equip-failed", $"equipCallSucceeded={equipCallSucceeded}; failure={failure ?? "none"}");
-                else
-                    _log.Info($"entityId={Entity.EntityId} entityName={Entity.Name ?? "none"} weaponDefinition={Definition.Id.SubtypeName} heldItem={heldItemId.SubtypeName} branch=equipped-after-retry inventorySource={ignored} handGunBehavior={GetHeldGunBehavior() != null}"); // AGENT-DEBUG-LOG
-            }
-            else if (GetHeldGunBehavior() == null)
-                LogEquipmentFailure(heldItemId, equipment, inventory, ignored, "equipped-hand-behavior-missing", "The exact held item is equipped but MyPAX_HandheldGun is unavailable.");
-
-            QueueHeldWeaponEquipmentCheck(
-                SiNpcEquipmentHelper.IsEquipmentItemEquipped(equipment, inventory, heldItemId)
-                    ? EquipmentIntegrityCheckMilliseconds
-                    : InitialEquipmentRetryMilliseconds);
-        }
-
-        private void QueueHeldWeaponEquipmentCheck(long delayMilliseconds)
-        {
-            if (_heldWeaponEquipQueued || Entity == null || Entity.Closed || Entity.MarkedForClose)
                 return;
 
-            _heldWeaponEquipQueued = true;
-            AddScheduledCallback(EnsureHeldWeaponEquipped, delayMilliseconds);
-        }
-
-        private void LogEquipmentFailure(
-            MyDefinitionId heldItemId,
-            Sandbox.Entities.Components.MyEntityEquipmentComponent equipment,
-            MyInventoryBase inventory,
-            string inventorySource,
-            string branch,
-            string detail)
-        {
-            var now = CurrentTimeMilliseconds();
-            if (_lastEquipmentFailureLogTime != long.MinValue && now - _lastEquipmentFailureLogTime < EquipmentFailureLogCooldownMilliseconds)
+            if (SiNpcEquipmentHelper.IsEquipmentItemEquipped(equipment, inventory, heldItemId))
                 return;
 
-            _lastEquipmentFailureLogTime = now;
-            _log.Warning($"entityId={Entity?.EntityId ?? 0} entityName={Entity?.Name ?? "none"} weaponDefinition={Definition?.Id.SubtypeName ?? "none"} heldItem={heldItemId.SubtypeName} branch={branch} inventorySource={inventorySource ?? "none"} inventoryPresent={inventory != null} inventoryHasItem={inventory?.FindItem(heldItemId) != null} equipmentPresent={equipment != null} exactEquipped={equipment?.IsEquipped(heldItemId) == true} handGunBehavior={GetHeldGunBehavior() != null} detail={detail}"); // AGENT-DEBUG-LOG
+            TryEquipHeldWeapon();
         }
 
         private MyPAX_HandheldGun GetHeldGunBehavior()
