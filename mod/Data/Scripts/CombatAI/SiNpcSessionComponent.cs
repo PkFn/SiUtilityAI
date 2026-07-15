@@ -90,6 +90,7 @@ namespace Si.UtilityAI
         internal SiStaticDefenderSystem StaticDefenders { get; private set; }
         internal SiSpottingSystem Spotting { get; private set; }
         internal SiMarkerSystemDefinition MarkerSettings { get; private set; }
+        internal SiVehicleSystemDefinition VehicleSettings { get; private set; }
         internal bool ShowSquadChatter => _showSquadChatter;
         internal bool UtilityDecisionMakingEnabled => _utilityDecisionMakingEnabled;
 
@@ -102,6 +103,7 @@ namespace Si.UtilityAI
             StaticDefenders = new SiStaticDefenderSystem(this);
             Spotting = new SiSpottingSystem(this);
             MarkerSettings = SiMarkerSystemDefinition.Load();
+            VehicleSettings = SiVehicleSystemDefinition.Load();
             Npcs.WaypointSet += OnWaypointSet;
             Npcs.WaypointCleared += OnWaypointCleared;
             Npcs.NpcSpoke += OnNpcSpoke;
@@ -156,6 +158,7 @@ namespace Si.UtilityAI
             Spotting?.Clear();
             Spotting = null;
             MarkerSettings = null;
+            VehicleSettings = null;
             _savedNpcs = null;
             _savedSquadOrders = null;
             _savedAiSquadMoveOrders = null;

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <!-- Shared tuning for AI-controlled vehicles. -->
+  <Definition xsi:type="MyObjectBuilder_SiVehicleSystemDefinition">
+    <Id Type="MyObjectBuilder_SiVehicleSystemDefinition" Subtype="SiDefaultVehicleSystem" />
+    <!-- PAX handles each turn control as a unit impulse; this repeats it per AI tick. -->
+    <PaxHorseSteeringMultiplier>6</PaxHorseSteeringMultiplier>
+  </Definition>
+</Definitions>

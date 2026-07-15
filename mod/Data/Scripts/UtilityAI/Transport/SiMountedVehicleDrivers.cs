@@ -117,7 +117,8 @@ namespace Si.UtilityAI
         public bool CanDrive(MyEntity vehicle, EquiPlayerAttachmentComponent.Slot seat)
         {
             var horse = SeatEntity(seat);
-            return horse != null
+            return SiNpcSessionComponent.Instance?.VehicleSettings?.PaxHorseSteeringMultiplier > 0
+                   && horse != null
                    && horse.Components.Contains<MyPAX_Horse>()
                    && horse.Components.Contains<MyRemoteRopeControlComponent>();
         }
@@ -130,7 +131,8 @@ namespace Si.UtilityAI
         {
             var horse = SeatEntity(seat);
             var controls = horse?.Components.Get<MyRemoteRopeControlComponent>();
-            if (controls == null)
+            var steeringMultiplier = SiNpcSessionComponent.Instance?.VehicleSettings?.PaxHorseSteeringMultiplier ?? 0;
+            if (controls == null || steeringMultiplier <= 0)
                 return;
 
             var world = horse.WorldMatrix;
@@ -160,16 +162,18 @@ namespace Si.UtilityAI
             if (forwardAlignment < settings.MinimumForwardAlignment)
             {
                 Stop(controls);
-                controls.LocalAction(
+                SendTurnAction(
+                    controls,
                     lateral >= settings.TurnDeadZone ? TurnRightAction : TurnLeftAction,
-                    0,
-                    false,
-                    true);
+                    steeringMultiplier);
                 return;
             }
 
             if (Math.Abs(lateral) >= settings.TurnDeadZone)
-                controls.LocalAction(lateral > 0 ? TurnRightAction : TurnLeftAction, 0, false, true);
+                SendTurnAction(
+                    controls,
+                    lateral > 0 ? TurnRightAction : TurnLeftAction,
+                    steeringMultiplier);
 
             var repeatCount = distance >= settings.SlowDistance
                 ? settings.CatchUpActionRepeatCount
@@ -193,6 +197,16 @@ namespace Si.UtilityAI
         private static void Stop(MyRemoteRopeControlComponent controls)
         {
             controls.LocalAction(StopAction, 0, false, true);
+        }
+
+        private static void SendTurnAction(
+            MyRemoteRopeControlComponent controls,
+            short action,
+            float steeringMultiplier)
+        {
+            var repeatCount = Math.Max(1, (int)Math.Ceiling(steeringMultiplier));
+            for (var i = 0; i < repeatCount; i++)
+                controls.LocalAction(action, 0, false, true);
         }
 
         private static Vector3D NormalizedOrFallback(in Vector3D value, in Vector3D fallback)
