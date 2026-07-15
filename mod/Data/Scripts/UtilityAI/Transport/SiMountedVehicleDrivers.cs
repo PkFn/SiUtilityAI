@@ -126,7 +126,12 @@ namespace Si.UtilityAI
             var vehicleSettings = SiNpcSessionComponent.Instance?.VehicleSettings;
             var steeringMultiplier = vehicleSettings?.PaxHorseSteeringMultiplier ?? 0;
             var distanceThrottleCoefficient = vehicleSettings?.PaxHorseDistanceThrottleCoefficient ?? 0;
-            if (controls == null || steeringMultiplier <= 0 || distanceThrottleCoefficient <= 0)
+            var throttleMultiplier = vehicleSettings?.PaxHorseThrottleMultiplier ?? 0;
+            var throttleHysteresisRadius = vehicleSettings?.PaxHorseThrottleHysteresisRadius ?? 0;
+            if (controls == null
+                || steeringMultiplier <= 0
+                || distanceThrottleCoefficient <= 0
+                || throttleMultiplier <= 0)
                 return;
 
             var world = horse.WorldMatrix;
@@ -166,12 +171,13 @@ namespace Si.UtilityAI
                     lateral > 0 ? TurnRightAction : TurnLeftAction,
                     steeringMultiplier);
 
-            var desiredThrottle = Math.Max(0, leaderThrottle) + (float)distance * distanceThrottleCoefficient;
+            var catchUpDistance = Math.Max(0, (float)distance - throttleHysteresisRadius);
+            var desiredThrottle = Math.Max(0, leaderThrottle) + catchUpDistance * distanceThrottleCoefficient;
             var currentThrottle = (float)Vector3D.Dot(vehicle?.Physics?.LinearVelocity ?? Vector3D.Zero, forward);
             if (currentThrottle < desiredThrottle)
-                controls.LocalAction(ForwardAction, 0, false, true);
+                SendThrottleAction(controls, ForwardAction, throttleMultiplier);
             else if (currentThrottle > desiredThrottle)
-                controls.LocalAction(BackwardAction, 0, false, true);
+                SendThrottleAction(controls, BackwardAction, throttleMultiplier);
         }
 
         public void Stop(MyEntity vehicle, EquiPlayerAttachmentComponent.Slot seat)
@@ -197,6 +203,16 @@ namespace Si.UtilityAI
             float steeringMultiplier)
         {
             var repeatCount = Math.Max(1, (int)Math.Ceiling(steeringMultiplier));
+            for (var i = 0; i < repeatCount; i++)
+                controls.LocalAction(action, 0, false, true);
+        }
+
+        private static void SendThrottleAction(
+            MyRemoteRopeControlComponent controls,
+            short action,
+            float throttleMultiplier)
+        {
+            var repeatCount = Math.Max(1, (int)Math.Ceiling(throttleMultiplier));
             for (var i = 0; i < repeatCount; i++)
                 controls.LocalAction(action, 0, false, true);
         }

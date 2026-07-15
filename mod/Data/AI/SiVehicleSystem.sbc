@@ -7,5 +7,9 @@
     <PaxHorseSteeringMultiplier>6</PaxHorseSteeringMultiplier>
     <!-- Additional target speed in metres per second per metre behind formation position. -->
     <PaxHorseDistanceThrottleCoefficient>1</PaxHorseDistanceThrottleCoefficient>
+    <!-- PAX handles each throttle control as a unit impulse; this repeats it per AI tick. -->
+    <PaxHorseThrottleMultiplier>6</PaxHorseThrottleMultiplier>
+    <!-- Distance around the formation target that adds no catch-up throttle. -->
+    <PaxHorseThrottleHysteresisRadius>2</PaxHorseThrottleHysteresisRadius>
   </Definition>
 </Definitions>
