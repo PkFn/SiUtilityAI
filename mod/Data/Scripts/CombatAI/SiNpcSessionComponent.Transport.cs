@@ -278,7 +278,7 @@ namespace Si.UtilityAI
             if (_transportNpcStates.TryGetValue(npc.EntityId, out var existing)
                 && existing.VehicleEntityId == vehicleEntityId
                 && TryResolveTransportSeat(existing, out var currentSeat)
-                && (currentSeat.AttachedCharacter == null || currentSeat.AttachedCharacter == npc.Entity))
+                && IsSeatAvailableForNpc(npc, currentSeat))
             {
                 assignedState = existing;
                 return true;
@@ -290,9 +290,7 @@ namespace Si.UtilityAI
             {
                 if (seat?.Controllable?.Entity == null)
                     continue;
-                if (seat.AttachedCharacter != null && seat.AttachedCharacter != npc.Entity)
-                    continue;
-                if (IsSeatAssignedToOtherNpc(npc.EntityId, seat))
+                if (!IsSeatAvailableForNpc(npc, seat))
                     continue;
 
                 var distanceSquared = Vector3D.DistanceSquared(
@@ -359,6 +357,45 @@ namespace Si.UtilityAI
             }
 
             return false;
+        }
+
+        private bool IsSeatAvailableForNpc(SiNpc npc, EquiPlayerAttachmentComponent.Slot seat)
+        {
+            if (npc?.Entity == null || seat?.Controllable?.Entity == null)
+                return false;
+
+            if (seat.AttachedCharacter != null && seat.AttachedCharacter != npc.Entity)
+                return false;
+            if (IsSeatAssignedToOtherNpc(npc.EntityId, seat))
+                return false;
+
+            // Equi's attachment slot is authoritative once synchronized, but
+            // player controllers can precede that state for a replication tick.
+            // Check the controller relationship as well so a player-ridden
+            // horse can never be assigned to an NPC during that window.
+            if (MyPlayers.Static != null)
+            {
+                foreach (var entry in MyPlayers.Static.GetAllPlayers())
+                {
+                    var playerEntity = entry.Value?.ControlledEntity as MyEntity;
+                    var controlledSeat = playerEntity?.Components
+                        .Get<EquiEntityControllerComponent>()?.Controlled;
+                    if (SameSeat(controlledSeat, seat) && playerEntity != npc.Entity)
+                        return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool SameSeat(
+            EquiPlayerAttachmentComponent.Slot left,
+            EquiPlayerAttachmentComponent.Slot right)
+        {
+            return left != null
+                   && right != null
+                   && left.Controllable?.Entity?.EntityId == right.Controllable?.Entity?.EntityId
+                   && string.Equals(left.Definition.Name, right.Definition.Name, StringComparison.Ordinal);
         }
 
         private IEnumerable<EquiPlayerAttachmentComponent.Slot> EnumerateVehicleSeats(MyEntity vehicle)
