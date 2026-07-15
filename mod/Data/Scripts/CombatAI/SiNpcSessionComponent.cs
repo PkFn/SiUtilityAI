@@ -53,6 +53,9 @@ namespace Si.UtilityAI
             new Dictionary<long, SiNpcPositionCacheState>();
         private readonly Dictionary<long, SiTransportNpcState> _transportNpcStates =
             new Dictionary<long, SiTransportNpcState>();
+        private readonly SiNearbyEntityScanner _transportVehicleScanner = new SiNearbyEntityScanner();
+        private readonly List<SiNearbyEntityScanner.EntityCandidate> _nearbyTransportVehicleCandidates =
+            new List<SiNearbyEntityScanner.EntityCandidate>();
         private readonly Dictionary<long, SiCoverReservation> _coverReservations =
             new Dictionary<long, SiCoverReservation>();
         private readonly Dictionary<SiCoverScanCacheKey, SiCoverScanCacheEntry> _coverScanCache =
@@ -137,6 +140,7 @@ namespace Si.UtilityAI
             _pendingNpcSnapshots.Clear();
             _positionCache.Clear();
             _transportNpcStates.Clear();
+            _nearbyTransportVehicleCandidates.Clear();
             _coverReservations.Clear();
             ClearSquadMapMarkers();
             _coverScanCache.Clear();

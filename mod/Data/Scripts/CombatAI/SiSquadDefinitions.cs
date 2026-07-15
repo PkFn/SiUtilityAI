@@ -34,6 +34,7 @@ namespace Si.UtilityAI
         public double StaggeredColumnOffset { get; private set; }
         public double WaypointRefreshDistance { get; private set; }
         public double EnemyJoinRadius { get; private set; }
+        public double TransportVehicleSearchRadius { get; private set; }
 
         public SiRankDefinition PlayerRank => GetRank(PlayerRankId);
         public SiRankDefinition NpcRank => GetRank(NpcRankId);
@@ -79,6 +80,7 @@ namespace Si.UtilityAI
             StaggeredColumnOffset = Math.Max(0, ob.StaggeredColumnOffset);
             WaypointRefreshDistance = Math.Max(0, ob.WaypointRefreshDistance);
             EnemyJoinRadius = Math.Max(0, ob.EnemyJoinRadius);
+            TransportVehicleSearchRadius = Math.Max(0, ob.TransportVehicleSearchRadius);
 
             _fallBehindSpeedOverrides.Clear();
             if (ob.FallBehindSpeedOverrides != null)
@@ -236,6 +238,9 @@ namespace Si.UtilityAI
 
         [XmlElement]
         public double EnemyJoinRadius;
+
+        [XmlElement]
+        public double TransportVehicleSearchRadius;
 
         [XmlArrayItem("Override")]
         public List<FallBehindSpeedOverride> FallBehindSpeedOverrides;

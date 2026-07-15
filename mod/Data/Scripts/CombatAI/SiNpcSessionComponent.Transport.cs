@@ -93,10 +93,12 @@ namespace Si.UtilityAI
                 || order.TransportVehicleEntityId == 0)
                 return false;
 
-            if (!TryAssignTransportSeat(npc, order.TransportVehicleEntityId, out var state))
+            if (!_transportNpcStates.TryGetValue(npc.EntityId, out var state)
+                || !TryResolveTransportSeat(state, out slot)
+                || !IsSeatAvailableForNpc(npc, slot))
                 return false;
 
-            return TryResolveTransportSeat(state, out slot);
+            return true;
         }
 
         internal bool IsAssignedTransportSeat(SiNpc npc, EquiPlayerAttachmentComponent.Slot slot)
@@ -249,34 +251,53 @@ namespace Si.UtilityAI
             }
         }
 
-        private void TrimTransportStatesForLeader(long leaderIdentityId, long vehicleEntityId)
+        private IEnumerable<MyEntity> EnumerateNearbyMountVehicles(MyEntity anchorVehicle, double searchRadius)
         {
-            if (leaderIdentityId == 0 || vehicleEntityId == 0 || Squads == null || Npcs == null)
-                return;
+            if (anchorVehicle == null || anchorVehicle.Closed || anchorVehicle.MarkedForClose)
+                yield break;
 
-            foreach (var npc in Squads.GetLeaderNpcs(Npcs, leaderIdentityId))
+            var seenVehicleIds = new HashSet<long>();
+            if (seenVehicleIds.Add(anchorVehicle.EntityId))
+                yield return anchorVehicle;
+
+            if (searchRadius <= 0)
+                yield break;
+
+            _transportVehicleScanner.ScanEntities(
+                anchorVehicle.WorldMatrix.Translation,
+                searchRadius,
+                _nearbyTransportVehicleCandidates);
+            for (var i = 0; i < _nearbyTransportVehicleCandidates.Count; i++)
             {
-                if (npc == null)
+                var entity = _nearbyTransportVehicleCandidates[i].Entity;
+                if (entity == null || entity.Closed || entity.MarkedForClose)
                     continue;
-                if (_transportNpcStates.TryGetValue(npc.EntityId, out var state)
-                    && state.VehicleEntityId != vehicleEntityId)
-                    _transportNpcStates.Remove(npc.EntityId);
+
+                MyGridDataComponent gridData;
+                if (!entity.Components.TryGet(out gridData))
+                    continue;
+
+                var vehicle = gridData.Entity ?? entity;
+                if (vehicle == null
+                    || vehicle.Closed
+                    || vehicle.MarkedForClose
+                    || !seenVehicleIds.Add(vehicle.EntityId))
+                    continue;
+
+                yield return vehicle;
             }
         }
 
         private bool TryAssignTransportSeat(
             SiNpc npc,
-            long vehicleEntityId,
+            IEnumerable<MyEntity> vehicles,
             out SiTransportNpcState assignedState)
         {
             assignedState = null;
-            if (npc?.Entity == null || vehicleEntityId == 0)
-                return false;
-            if (!TryGetTransportVehicleEntity(vehicleEntityId, out var vehicle))
+            if (npc?.Entity == null || vehicles == null)
                 return false;
 
             if (_transportNpcStates.TryGetValue(npc.EntityId, out var existing)
-                && existing.VehicleEntityId == vehicleEntityId
                 && TryResolveTransportSeat(existing, out var currentSeat)
                 && IsSeatAvailableForNpc(npc, currentSeat))
             {
@@ -285,22 +306,27 @@ namespace Si.UtilityAI
             }
 
             EquiPlayerAttachmentComponent.Slot bestSeat = null;
+            MyEntity bestVehicle = null;
             var bestDistanceSquared = double.MaxValue;
-            foreach (var seat in EnumerateVehicleSeats(vehicle))
+            foreach (var vehicle in vehicles)
             {
-                if (seat?.Controllable?.Entity == null)
-                    continue;
-                if (!IsSeatAvailableForNpc(npc, seat))
-                    continue;
+                foreach (var seat in EnumerateVehicleSeats(vehicle))
+                {
+                    if (seat?.Controllable?.Entity == null
+                        || !SiMountedVehicleDrivers.CanDrive(vehicle, seat)
+                        || !IsSeatAvailableForNpc(npc, seat))
+                        continue;
 
-                var distanceSquared = Vector3D.DistanceSquared(
-                    npc.Entity.WorldMatrix.Translation,
-                    seat.Controllable.Entity.WorldMatrix.Translation);
-                if (distanceSquared >= bestDistanceSquared)
-                    continue;
+                    var distanceSquared = Vector3D.DistanceSquared(
+                        npc.Entity.WorldMatrix.Translation,
+                        seat.Controllable.Entity.WorldMatrix.Translation);
+                    if (distanceSquared >= bestDistanceSquared)
+                        continue;
 
-                bestDistanceSquared = distanceSquared;
-                bestSeat = seat;
+                    bestDistanceSquared = distanceSquared;
+                    bestSeat = seat;
+                    bestVehicle = vehicle;
+                }
             }
 
             if (bestSeat == null)
@@ -312,7 +338,7 @@ namespace Si.UtilityAI
                 _transportNpcStates[npc.EntityId] = existing;
             }
 
-            existing.VehicleEntityId = vehicleEntityId;
+            existing.VehicleEntityId = bestVehicle.EntityId;
             existing.SeatEntityId = bestSeat.Controllable.Entity.EntityId;
             existing.SeatSlotName = bestSeat.Definition.Name;
             assignedState = existing;
@@ -432,11 +458,16 @@ namespace Si.UtilityAI
             ResetTransportCadence(state);
 
             ClearLeaderWaypoints(leaderIdentityId);
-            TrimTransportStatesForLeader(leaderIdentityId, vehicle.EntityId);
+            ReleaseLeaderTransportSeats(leaderIdentityId);
+            RemoveTransportStatesForLeader(leaderIdentityId);
+
+            var vehicles = EnumerateNearbyMountVehicles(
+                vehicle,
+                Squads.Definition.TransportVehicleSearchRadius);
 
             var assigned = 0;
             for (var i = 0; i < troops.Count; i++)
-                if (TryAssignTransportSeat(troops[i], vehicle.EntityId, out var ignored))
+                if (TryAssignTransportSeat(troops[i], vehicles, out var ignored))
                     assigned++;
 
             if (assigned == 0)
@@ -444,7 +475,7 @@ namespace Si.UtilityAI
                 state.TransportMode = SiSquadTransportMode.None;
                 state.TransportVehicleEntityId = 0;
                 ResetTransportCadence(state);
-                Respond(sender, "No free transport seats were found on the current vehicle.");
+                Respond(sender, "No free compatible transport seats were found near your vehicle.");
                 return;
             }
         }

@@ -10,11 +10,56 @@ namespace Si.UtilityAI
 {
     internal sealed class SiNearbyEntityScanner
     {
+        internal struct EntityCandidate
+        {
+            public MyEntity Entity;
+            public double DistanceSquared;
+        }
+
         internal struct InventoryCandidate
         {
             public MyEntity Entity;
             public MyInventoryBase Inventory;
             public double DistanceSquared;
+        }
+
+        public void ScanEntities(
+            in Vector3D position,
+            double radius,
+            List<EntityCandidate> results,
+            Func<MyEntity, bool> filter = null)
+        {
+            results?.Clear();
+            if (results == null || radius <= 0 || MyAPIGateway.Entities == null)
+                return;
+
+            var sphere = new BoundingSphereD(position, radius);
+            var entities = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
+            if (entities == null)
+                return;
+
+            var radiusSquared = radius * radius;
+            for (var i = 0; i < entities.Count; i++)
+            {
+                var entity = entities[i];
+                if (entity == null
+                    || entity.Closed
+                    || entity.MarkedForClose
+                    || (filter != null && !filter(entity)))
+                    continue;
+
+                var distanceSquared = Vector3D.DistanceSquared(position, entity.WorldMatrix.Translation);
+                if (distanceSquared > radiusSquared)
+                    continue;
+
+                results.Add(new EntityCandidate
+                {
+                    Entity = entity,
+                    DistanceSquared = distanceSquared,
+                });
+            }
+
+            results.Sort((left, right) => left.DistanceSquared.CompareTo(right.DistanceSquared));
         }
 
         public void ScanInventories(

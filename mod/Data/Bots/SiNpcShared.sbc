@@ -103,6 +103,8 @@
     <StaggeredColumnOffset>0.75</StaggeredColumnOffset>
     <WaypointRefreshDistance>0.75</WaypointRefreshDistance>
     <EnemyJoinRadius>18</EnemyJoinRadius>
+    <!-- Radius around the player's mounted vehicle used to discover vacant NPC vehicles. -->
+    <TransportVehicleSearchRadius>30</TransportVehicleSearchRadius>
 
     <!-- Formation checkpoint speed / fall-behind table. DistanceLessThan=0 is the final row. -->
     <FallBehindSpeedOverrides>

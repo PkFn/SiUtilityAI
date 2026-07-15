@@ -59,6 +59,18 @@ namespace Si.UtilityAI
             new SiPaxHorseMountedVehicleDriver(),
         };
 
+        public static bool CanDrive(MyEntity vehicle, EquiPlayerAttachmentComponent.Slot seat)
+        {
+            for (var i = 0; i < Drivers.Length; i++)
+            {
+                var driver = Drivers[i];
+                if (driver != null && driver.CanDrive(vehicle, seat))
+                    return true;
+            }
+
+            return false;
+        }
+
         public static bool TryDrive(
             MyEntity vehicle,
             EquiPlayerAttachmentComponent.Slot seat,
