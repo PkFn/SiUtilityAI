@@ -4,8 +4,8 @@
   <Definition xsi:type="MyObjectBuilder_SiVehicleSystemDefinition">
     <Id Type="MyObjectBuilder_SiVehicleSystemDefinition" Subtype="SiDefaultVehicleSystem" />
     <!-- Fixed additional target speed while the horse is outside the formation hysteresis radius. -->
-    <PaxHorseCatchUpThrottle>0.25</PaxHorseCatchUpThrottle>
+    <PaxHorseCatchUpThrottle>1.0</PaxHorseCatchUpThrottle>
     <!-- Distance around the formation target that adds no catch-up throttle. -->
-    <PaxHorseThrottleHysteresisRadius>5</PaxHorseThrottleHysteresisRadius>
+    <PaxHorseThrottleHysteresisRadius>1</PaxHorseThrottleHysteresisRadius>
   </Definition>
 </Definitions>
