@@ -115,8 +115,6 @@ namespace Si.UtilityAI
             var horse = SeatEntity(seat);
             var horseController = horse?.Components.Get<MyPAX_Horse>();
             var vehicleSettings = SiNpcSessionComponent.Instance?.VehicleSettings;
-            var catchUpThrottle = vehicleSettings?.PaxHorseCatchUpThrottle ?? 0;
-            var throttleHysteresisRadius = vehicleSettings?.PaxHorseThrottleHysteresisRadius ?? 0;
             if (horseController == null || vehicleSettings == null)
                 return;
 
@@ -140,23 +138,23 @@ namespace Si.UtilityAI
             var lateral = Vector3D.Dot(direction, right);
             var forwardAlignment = Vector3D.Dot(direction, forward);
 
+            var desiredThrottle = leaderThrottle
+                                  + (distance > vehicleSettings.PaxHorseThrottleHysteresisRadius
+                                      ? vehicleSettings.PaxHorseCatchUpThrottle
+                                      : 0);
             float steering;
-            float desiredThrottle;
             if (distance > MinimumDirectionLengthSquared
                 && forwardAlignment < settings.MinimumForwardAlignment)
             {
-                // Turn in place until the horse faces the target.  PAX keeps
-                // this steering input active between AI ticks.
+                // PAX keeps this steering input active between AI ticks.
+                // Throttle deliberately remains the leader's exact input.
                 steering = lateral >= settings.TurnDeadZone ? -1f : 1f;
-                desiredThrottle = 0;
             }
             else
             {
                 steering = Math.Abs(lateral) >= settings.TurnDeadZone
                     ? -MathHelper.Clamp((float)lateral, -1f, 1f)
                     : 0;
-                desiredThrottle = Math.Max(0, leaderThrottle)
-                                  + (distance > throttleHysteresisRadius ? catchUpThrottle : 0);
             }
 
             horseController.SetThrottleAndSteering(desiredThrottle, steering);

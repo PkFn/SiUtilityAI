@@ -136,16 +136,22 @@ namespace Si.UtilityAI
             SiSquadCommandState order;
             if (!_squadOrders.TryGetValue(assignment.Leader.Id, out order)
                 || order.TransportMode != SiSquadTransportMode.Mount
-                || !TryGetTransportVehicleEntity(order.TransportVehicleEntityId, out var leaderVehicle))
+                || MyPlayers.Static == null)
                 return false;
 
-            foreach (var seat in EnumerateVehicleSeats(leaderVehicle))
+            foreach (var entry in MyPlayers.Static.GetAllPlayers())
             {
-                var horse = seat?.Controllable?.Entity?.Components.Get<MyPAX_Horse>();
-                if (horse == null)
+                var player = entry.Value;
+                if (player?.Identity == null || player.Identity.Id != assignment.Leader.Id)
                     continue;
 
-                throttle = Math.Max(0, horse.Throttle);
+                var controlledEntity = player.ControlledEntity as MyEntity;
+                var seat = controlledEntity?.Components.Get<EquiEntityControllerComponent>()?.Controlled;
+                var horse = seat?.Controllable?.Entity?.Components.Get<MyPAX_Horse>();
+                if (horse == null)
+                    return false;
+
+                throttle = horse.Throttle;
                 return true;
             }
 
