@@ -115,7 +115,7 @@ namespace Si.UtilityAI
             var horse = SeatEntity(seat);
             var horseController = horse?.Components.Get<MyPAX_Horse>();
             var vehicleSettings = SiNpcSessionComponent.Instance?.VehicleSettings;
-            var distanceThrottleCoefficient = vehicleSettings?.PaxHorseDistanceThrottleCoefficient ?? 0;
+            var catchUpThrottle = vehicleSettings?.PaxHorseCatchUpThrottle ?? 0;
             var throttleHysteresisRadius = vehicleSettings?.PaxHorseThrottleHysteresisRadius ?? 0;
             if (horseController == null || vehicleSettings == null)
                 return;
@@ -155,9 +155,8 @@ namespace Si.UtilityAI
                 steering = Math.Abs(lateral) >= settings.TurnDeadZone
                     ? -MathHelper.Clamp((float)lateral, -1f, 1f)
                     : 0;
-                var catchUpDistance = Math.Max(0, (float)distance - throttleHysteresisRadius);
                 desiredThrottle = Math.Max(0, leaderThrottle)
-                                  + catchUpDistance * distanceThrottleCoefficient;
+                                  + (distance > throttleHysteresisRadius ? catchUpThrottle : 0);
             }
 
             horseController.SetThrottleAndSteering(desiredThrottle, steering);
