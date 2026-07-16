@@ -11,13 +11,7 @@ namespace Si.UtilityAI
     public class MyObjectBuilder_SiVehicleSystemDefinition : MyObjectBuilder_DefinitionBase
     {
         [XmlElement]
-        public float PaxHorseSteeringMultiplier;
-
-        [XmlElement]
         public float PaxHorseDistanceThrottleCoefficient;
-
-        [XmlElement]
-        public float PaxHorseThrottleMultiplier;
 
         [XmlElement]
         public float PaxHorseThrottleHysteresisRadius;
@@ -29,18 +23,14 @@ namespace Si.UtilityAI
         private static readonly MyDefinitionId DefaultDefinitionId =
             new MyDefinitionId(typeof(MyObjectBuilder_SiVehicleSystemDefinition), "SiDefaultVehicleSystem");
 
-        public float PaxHorseSteeringMultiplier { get; private set; }
         public float PaxHorseDistanceThrottleCoefficient { get; private set; }
-        public float PaxHorseThrottleMultiplier { get; private set; }
         public float PaxHorseThrottleHysteresisRadius { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
         {
             base.Init(builder);
             var ob = (MyObjectBuilder_SiVehicleSystemDefinition)builder;
-            PaxHorseSteeringMultiplier = Math.Max(0, ob.PaxHorseSteeringMultiplier);
             PaxHorseDistanceThrottleCoefficient = Math.Max(0, ob.PaxHorseDistanceThrottleCoefficient);
-            PaxHorseThrottleMultiplier = Math.Max(0, ob.PaxHorseThrottleMultiplier);
             PaxHorseThrottleHysteresisRadius = Math.Max(0, ob.PaxHorseThrottleHysteresisRadius);
         }
 

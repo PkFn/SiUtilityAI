@@ -8,5 +8,10 @@ namespace Pax.Animals
     /// </summary>
     public class MyPAX_Horse : MyEntityComponent
     {
+        public float Throttle { get; }
+
+        public void SetThrottleAndSteering(float throttle, float steering)
+        {
+        }
     }
 }

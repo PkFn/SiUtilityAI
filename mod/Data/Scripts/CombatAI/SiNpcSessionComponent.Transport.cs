@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Equinox76561198048419394.Core.Controller;
+using Pax.Animals;
 using Sandbox.Game.Entities;
 using Sandbox.Game.Players;
 using SiCore.Core.Grid;
@@ -135,12 +136,20 @@ namespace Si.UtilityAI
             SiSquadCommandState order;
             if (!_squadOrders.TryGetValue(assignment.Leader.Id, out order)
                 || order.TransportMode != SiSquadTransportMode.Mount
-                || !TryGetTransportVehicleEntity(order.TransportVehicleEntityId, out var leaderVehicle)
-                || leaderVehicle.Physics == null)
+                || !TryGetTransportVehicleEntity(order.TransportVehicleEntityId, out var leaderVehicle))
                 return false;
 
-            throttle = Math.Max(0, leaderVehicle.Physics.LinearVelocity.Length());
-            return true;
+            foreach (var seat in EnumerateVehicleSeats(leaderVehicle))
+            {
+                var horse = seat?.Controllable?.Entity?.Components.Get<MyPAX_Horse>();
+                if (horse == null)
+                    continue;
+
+                throttle = Math.Max(0, horse.Throttle);
+                return true;
+            }
+
+            return false;
         }
 
         internal void RecordTransportExitPosition(SiNpc npc, in Vector3D worldPosition)

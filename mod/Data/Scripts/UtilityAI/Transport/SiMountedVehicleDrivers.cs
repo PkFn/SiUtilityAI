@@ -1,7 +1,6 @@
 ﻿using System;
 using Equinox76561198048419394.Core.Controller;
 using Pax.Animals;
-using Pax.RemoteRope;
 using VRage.Entities.Gravity;
 using VRage.Game.Entity;
 using VRageMath;
@@ -92,26 +91,18 @@ namespace Si.UtilityAI
     }
 
     /// <summary>
-    /// PAX horses receive their movement through the public RemoteRope action
-    /// surface.  Actions are sent directly on the authoritative server, while
-    /// PAX remains responsible for simulating and replicating the animal.
+    /// PAX horses expose a replicated direct-control surface.  This lets the
+    /// AI use a requested speed and signed steering rather than emulating a
+    /// player's repeated RemoteRope key actions.
     /// </summary>
     internal sealed class SiPaxHorseMountedVehicleDriver : ISiMountedVehicleDriver
     {
-        private const short ForwardAction = 0;
-        private const short BackwardAction = 1;
-        private const short TurnLeftAction = 2;
-        private const short TurnRightAction = 3;
-        private const short StopAction = 4;
         private const double MinimumDirectionLengthSquared = 0.0001;
 
         public bool CanDrive(MyEntity vehicle, EquiPlayerAttachmentComponent.Slot seat)
         {
             var horse = SeatEntity(seat);
-            return SiNpcSessionComponent.Instance?.VehicleSettings?.PaxHorseSteeringMultiplier > 0
-                   && horse != null
-                   && horse.Components.Contains<MyPAX_Horse>()
-                   && horse.Components.Contains<MyRemoteRopeControlComponent>();
+            return horse != null && horse.Components.Contains<MyPAX_Horse>();
         }
 
         public void Drive(
@@ -122,16 +113,11 @@ namespace Si.UtilityAI
             in SiMountedVehicleDriveSettings settings)
         {
             var horse = SeatEntity(seat);
-            var controls = horse?.Components.Get<MyRemoteRopeControlComponent>();
+            var horseController = horse?.Components.Get<MyPAX_Horse>();
             var vehicleSettings = SiNpcSessionComponent.Instance?.VehicleSettings;
-            var steeringMultiplier = vehicleSettings?.PaxHorseSteeringMultiplier ?? 0;
             var distanceThrottleCoefficient = vehicleSettings?.PaxHorseDistanceThrottleCoefficient ?? 0;
-            var throttleMultiplier = vehicleSettings?.PaxHorseThrottleMultiplier ?? 0;
             var throttleHysteresisRadius = vehicleSettings?.PaxHorseThrottleHysteresisRadius ?? 0;
-            if (controls == null
-                || steeringMultiplier <= 0
-                || distanceThrottleCoefficient <= 0
-                || throttleMultiplier <= 0)
+            if (horseController == null || vehicleSettings == null)
                 return;
 
             var world = horse.WorldMatrix;
@@ -154,67 +140,38 @@ namespace Si.UtilityAI
             var lateral = Vector3D.Dot(direction, right);
             var forwardAlignment = Vector3D.Dot(direction, forward);
 
+            float steering;
+            float desiredThrottle;
             if (distance > MinimumDirectionLengthSquared
                 && forwardAlignment < settings.MinimumForwardAlignment)
             {
-                Stop(controls);
-                SendTurnAction(
-                    controls,
-                    lateral >= settings.TurnDeadZone ? TurnRightAction : TurnLeftAction,
-                    steeringMultiplier);
-                return;
+                // Turn in place until the horse faces the target.  PAX keeps
+                // this steering input active between AI ticks.
+                steering = lateral >= settings.TurnDeadZone ? -1f : 1f;
+                desiredThrottle = 0;
+            }
+            else
+            {
+                steering = Math.Abs(lateral) >= settings.TurnDeadZone
+                    ? -MathHelper.Clamp((float)lateral, -1f, 1f)
+                    : 0;
+                var catchUpDistance = Math.Max(0, (float)distance - throttleHysteresisRadius);
+                desiredThrottle = Math.Max(0, leaderThrottle)
+                                  + catchUpDistance * distanceThrottleCoefficient;
             }
 
-            if (Math.Abs(lateral) >= settings.TurnDeadZone)
-                SendTurnAction(
-                    controls,
-                    lateral > 0 ? TurnRightAction : TurnLeftAction,
-                    steeringMultiplier);
-
-            var catchUpDistance = Math.Max(0, (float)distance - throttleHysteresisRadius);
-            var desiredThrottle = Math.Max(0, leaderThrottle) + catchUpDistance * distanceThrottleCoefficient;
-            var currentThrottle = (float)Vector3D.Dot(vehicle?.Physics?.LinearVelocity ?? Vector3D.Zero, forward);
-            if (currentThrottle < desiredThrottle)
-                SendThrottleAction(controls, ForwardAction, throttleMultiplier);
-            else if (currentThrottle > desiredThrottle)
-                SendThrottleAction(controls, BackwardAction, throttleMultiplier);
+            horseController.SetThrottleAndSteering(desiredThrottle, steering);
         }
 
         public void Stop(MyEntity vehicle, EquiPlayerAttachmentComponent.Slot seat)
         {
-            var controls = SeatEntity(seat)?.Components.Get<MyRemoteRopeControlComponent>();
-            if (controls != null)
-                Stop(controls);
+            var horseController = SeatEntity(seat)?.Components.Get<MyPAX_Horse>();
+            horseController?.SetThrottleAndSteering(0, 0);
         }
 
         private static MyEntity SeatEntity(EquiPlayerAttachmentComponent.Slot seat)
         {
             return seat?.Controllable?.Entity;
-        }
-
-        private static void Stop(MyRemoteRopeControlComponent controls)
-        {
-            controls.LocalAction(StopAction, 0, false, true);
-        }
-
-        private static void SendTurnAction(
-            MyRemoteRopeControlComponent controls,
-            short action,
-            float steeringMultiplier)
-        {
-            var repeatCount = Math.Max(1, (int)Math.Ceiling(steeringMultiplier));
-            for (var i = 0; i < repeatCount; i++)
-                controls.LocalAction(action, 0, false, true);
-        }
-
-        private static void SendThrottleAction(
-            MyRemoteRopeControlComponent controls,
-            short action,
-            float throttleMultiplier)
-        {
-            var repeatCount = Math.Max(1, (int)Math.Ceiling(throttleMultiplier));
-            for (var i = 0; i < repeatCount; i++)
-                controls.LocalAction(action, 0, false, true);
         }
 
         private static Vector3D NormalizedOrFallback(in Vector3D value, in Vector3D fallback)
