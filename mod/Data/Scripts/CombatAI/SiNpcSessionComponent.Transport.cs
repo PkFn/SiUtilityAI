@@ -215,7 +215,11 @@ namespace Si.UtilityAI
             RemoveTransportStatesForLeader(leaderIdentityId);
         }
 
-        private bool TryGetMountedVehicle(MyPlayer player, out MyEntity vehicle, out string failure)
+        private bool TryGetMountAnchorVehicle(
+            MyPlayer player,
+            double searchRadius,
+            out MyEntity vehicle,
+            out string failure)
         {
             vehicle = null;
             failure = null;
@@ -223,20 +227,57 @@ namespace Si.UtilityAI
             var controlledEntity = player?.ControlledEntity as MyEntity;
             var controller = controlledEntity?.Components.Get<EquiEntityControllerComponent>();
             var seat = controller?.Controlled;
-            if (seat == null)
+            if (seat != null)
             {
-                failure = "You must be sitting in a vehicle seat to issue Mount up.";
+                if (!SiTransportSeatHelpers.TryGetSeatBlockGrid(seat, out var seatBlockEntity, out var vehicleGrid))
+                {
+                    failure = "Failed to resolve the current vehicle grid.";
+                    return false;
+                }
+
+                vehicle = vehicleGrid.Entity ?? seatBlockEntity;
+                return true;
+            }
+
+            if (controlledEntity == null || searchRadius <= 0)
+            {
+                failure = "No compatible transport vehicle was found nearby.";
                 return false;
             }
 
-            if (!SiTransportSeatHelpers.TryGetSeatBlockGrid(seat, out var seatBlockEntity, out var vehicleGrid))
+            _transportVehicleScanner.ScanEntities(
+                controlledEntity.WorldMatrix.Translation,
+                searchRadius,
+                _nearbyTransportVehicleCandidates);
+            var seenVehicleIds = new HashSet<long>();
+            for (var i = 0; i < _nearbyTransportVehicleCandidates.Count; i++)
             {
-                failure = "Failed to resolve the current vehicle grid.";
-                return false;
+                var entity = _nearbyTransportVehicleCandidates[i].Entity;
+                if (entity == null || entity.Closed || entity.MarkedForClose)
+                    continue;
+
+                MyGridDataComponent gridData;
+                if (!entity.Components.TryGet(out gridData))
+                    continue;
+
+                var candidate = gridData.Entity ?? entity;
+                if (candidate == null
+                    || candidate.Closed
+                    || candidate.MarkedForClose
+                    || !seenVehicleIds.Add(candidate.EntityId))
+                    continue;
+
+                foreach (var candidateSeat in EnumerateVehicleSeats(candidate))
+                    if (candidateSeat?.Controllable?.Entity != null
+                        && SiMountedVehicleDrivers.CanDrive(candidate, candidateSeat))
+                    {
+                        vehicle = candidate;
+                        return true;
+                    }
             }
 
-            vehicle = vehicleGrid.Entity ?? seatBlockEntity;
-            return true;
+            failure = "No compatible transport vehicle was found nearby.";
+            return false;
         }
 
         private bool HasActiveTransportStateForLeader(long leaderIdentityId)
@@ -466,18 +507,22 @@ namespace Si.UtilityAI
 
         private void MountSquad(ulong sender, MyPlayer player, long leaderIdentityId)
         {
-            string failure;
-            MyEntity vehicle;
-            if (!TryGetMountedVehicle(player, out vehicle, out failure))
-            {
-                Respond(sender, failure ?? "You must sit in a vehicle seat to issue Mount up.");
-                return;
-            }
-
             var troops = Squads?.GetLeaderNpcs(Npcs, leaderIdentityId);
             if (troops == null || troops.Count == 0)
             {
                 Respond(sender, "Your squad has no utility AI troops.");
+                return;
+            }
+
+            string failure;
+            MyEntity vehicle;
+            if (!TryGetMountAnchorVehicle(
+                    player,
+                    Squads.Definition.TransportVehicleSearchRadius,
+                    out vehicle,
+                    out failure))
+            {
+                Respond(sender, failure ?? "No compatible transport vehicle was found nearby.");
                 return;
             }
 
