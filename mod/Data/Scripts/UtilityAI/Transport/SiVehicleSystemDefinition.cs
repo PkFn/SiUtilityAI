@@ -15,6 +15,9 @@ namespace Si.UtilityAI
 
         [XmlElement]
         public float PaxHorseThrottleHysteresisRadius;
+
+        [XmlElement]
+        public float PaxHorseCheckpointForwardOffset;
     }
 
     [MyDefinitionType(typeof(MyObjectBuilder_SiVehicleSystemDefinition))]
@@ -25,6 +28,7 @@ namespace Si.UtilityAI
 
         public float PaxHorseCatchUpThrottle { get; private set; }
         public float PaxHorseThrottleHysteresisRadius { get; private set; }
+        public float PaxHorseCheckpointForwardOffset { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
         {
@@ -32,6 +36,7 @@ namespace Si.UtilityAI
             var ob = (MyObjectBuilder_SiVehicleSystemDefinition)builder;
             PaxHorseCatchUpThrottle = Math.Max(0, ob.PaxHorseCatchUpThrottle);
             PaxHorseThrottleHysteresisRadius = Math.Max(0, ob.PaxHorseThrottleHysteresisRadius);
+            PaxHorseCheckpointForwardOffset = Math.Max(0, ob.PaxHorseCheckpointForwardOffset);
         }
 
         internal static SiVehicleSystemDefinition Load()

@@ -138,32 +138,31 @@ namespace Si.UtilityAI
             // driver accelerate away from it.
             var forward = NormalizedOrFallback(Vector3D.Reject(world.Backward, up), Vector3D.Backward);
             var right = NormalizedOrFallback(Vector3D.Cross(forward, up), world.Left);
-            var lateral = Vector3D.Dot(direction, right);
             var forwardAlignment = Vector3D.Dot(direction, forward);
+            var leaderTravel = Vector3D.Reject(leaderHeading, up);
+            var hasLeaderTravel = leaderTravel.LengthSquared() > MinimumDirectionLengthSquared;
+            if (hasLeaderTravel)
+                leaderTravel = Vector3D.Normalize(leaderTravel);
+
+            // The fake checkpoint only shapes steering.  Formation distance
+            // and throttle remain measured against the real checkpoint.
+            var steeringTarget = hasLeaderTravel
+                ? formationTarget + leaderTravel * vehicleSettings.PaxHorseCheckpointForwardOffset
+                : formationTarget;
+            var toSteeringTarget = Vector3D.Reject(steeringTarget - position, up);
+            var steeringDistance = toSteeringTarget.Length();
+            var steeringDirection = steeringDistance > MinimumDirectionLengthSquared
+                ? toSteeringTarget / steeringDistance
+                : Vector3D.Zero;
+            var steeringLateral = Vector3D.Dot(steeringDirection, right);
+            var steeringForwardAlignment = Vector3D.Dot(steeringDirection, forward);
 
             var withinHysteresis = distance <= vehicleSettings.PaxHorseThrottleHysteresisRadius;
             var aheadOfCheckpoint = forwardAlignment < 0;
-            float steering;
-            if (withinHysteresis)
-            {
-                var leaderTravel = Vector3D.Reject(leaderHeading, up);
-                if (leaderTravel.LengthSquared() > MinimumDirectionLengthSquared)
-                {
-                    leaderTravel = Vector3D.Normalize(leaderTravel);
-                    steering = SteeringToward(
-                        Vector3D.Dot(leaderTravel, right),
-                        Vector3D.Dot(leaderTravel, forward),
-                        settings);
-                }
-                else
-                {
-                    steering = 0;
-                }
-            }
-            else
-            {
-                steering = SteeringToward(lateral, forwardAlignment, settings);
-            }
+            // Always steer toward the offset target.  This keeps a close
+            // follower moving through its formation point instead of merely
+            // matching heading and orbiting around the real checkpoint.
+            var steering = SteeringToward(steeringLateral, steeringForwardAlignment, settings);
 
             float desiredThrottle;
 
