@@ -164,28 +164,21 @@ namespace Si.UtilityAI
             // matching heading and orbiting around the real checkpoint.
             var steering = SteeringToward(steeringLateral, steeringForwardAlignment, settings);
 
-            float desiredThrottle;
+            float desiredThrottle = leaderThrottle;
+            float normHysteresis = (float)MathHelper.Clamp(distance / vehicleSettings.PaxHorseThrottleHysteresisRadius, 0.0f, 1.0f);
 
-            float proximateThrottle()
+            if (aheadOfCheckpoint)
             {
-                var normHysteresis = distance / vehicleSettings.PaxHorseThrottleHysteresisRadius;
-                return (float)normHysteresis * vehicleSettings.PaxHorseCatchUpThrottle;
-            }
-
-            if (withinHysteresis && aheadOfCheckpoint)
-            {
-                // The target has slipped behind the horse, but only by a
-                // small amount.  Preserve the player horse heading while
-                // gently reducing requested speed.
-                desiredThrottle = leaderThrottle - vehicleSettings.PaxHorseCatchUpThrottle;
-            }
-            else if (!withinHysteresis)
-            {
-                desiredThrottle = leaderThrottle + vehicleSettings.PaxHorseCatchUpThrottle;
+                desiredThrottle -= vehicleSettings.PaxHorseCatchUpThrottle * normHysteresis;
             }
             else
             {
-                desiredThrottle = leaderThrottle + proximateThrottle();
+                desiredThrottle += vehicleSettings.PaxHorseCatchUpThrottle * normHysteresis;
+            }
+
+            if(desiredThrottle < 0)
+            {
+                desiredThrottle = 0;
             }
 
             horseController.SetThrottleAndSteering(desiredThrottle, steering);
