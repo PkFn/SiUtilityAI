@@ -138,10 +138,6 @@ namespace Si.UtilityAI
             var lateral = Vector3D.Dot(direction, right);
             var forwardAlignment = Vector3D.Dot(direction, forward);
 
-            var desiredThrottle = leaderThrottle
-                                  + (distance > vehicleSettings.PaxHorseThrottleHysteresisRadius
-                                      ? vehicleSettings.PaxHorseCatchUpThrottle
-                                      : 0);
             float steering;
             if (distance > MinimumDirectionLengthSquared
                 && forwardAlignment < settings.MinimumForwardAlignment)
@@ -155,6 +151,26 @@ namespace Si.UtilityAI
                 steering = Math.Abs(lateral) >= settings.TurnDeadZone
                     ? -MathHelper.Clamp((float)lateral, -1f, 1f)
                     : 0;
+            }
+
+            var withinHysteresis = distance <= vehicleSettings.PaxHorseThrottleHysteresisRadius;
+            var aheadOfCheckpoint = forwardAlignment < 0;
+            float desiredThrottle;
+            if (withinHysteresis && aheadOfCheckpoint)
+            {
+                // The target has slipped behind the horse, but only by a
+                // small amount.  Keep the riding heading stable by steering
+                // away from the target and gently reducing requested speed.
+                steering = -steering;
+                desiredThrottle = leaderThrottle - vehicleSettings.PaxHorseCatchUpThrottle;
+            }
+            else if (!withinHysteresis)
+            {
+                desiredThrottle = leaderThrottle + vehicleSettings.PaxHorseCatchUpThrottle;
+            }
+            else
+            {
+                desiredThrottle = leaderThrottle;
             }
 
             horseController.SetThrottleAndSteering(desiredThrottle, steering);
