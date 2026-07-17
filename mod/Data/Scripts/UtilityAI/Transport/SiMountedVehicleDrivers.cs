@@ -177,7 +177,7 @@ namespace Si.UtilityAI
                 // The target has slipped behind the horse, but only by a
                 // small amount.  Preserve the player horse heading while
                 // gently reducing requested speed.
-                desiredThrottle = leaderThrottle - proximateThrottle();
+                desiredThrottle = leaderThrottle - vehicleSettings.PaxHorseCatchUpThrottle;
             }
             else if (!withinHysteresis)
             {

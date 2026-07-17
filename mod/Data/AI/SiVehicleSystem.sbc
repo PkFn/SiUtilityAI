@@ -6,9 +6,9 @@
     <!-- Fixed additional target speed while the horse is outside the formation hysteresis radius. -->
     <PaxHorseCatchUpThrottle>1.0</PaxHorseCatchUpThrottle>
     <!-- Distance around the formation target that adds no catch-up throttle. -->
-    <PaxHorseThrottleHysteresisRadius>2</PaxHorseThrottleHysteresisRadius>
+    <PaxHorseThrottleHysteresisRadius>4</PaxHorseThrottleHysteresisRadius>
     <!-- Direction-only target offset in the player horse's travel direction. -->
-    <PaxHorseCheckpointForwardOffset>5</PaxHorseCheckpointForwardOffset>
+    <PaxHorseCheckpointForwardOffset>10</PaxHorseCheckpointForwardOffset>
     <!-- Mounted rider formation width multiplier. -->
     <MountedFormationWidthMultiplier>2</MountedFormationWidthMultiplier>
     <!-- Mounted rider formation depth multiplier. -->
