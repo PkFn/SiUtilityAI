@@ -21,6 +21,7 @@ namespace Si.UtilityAI
             EquiPlayerAttachmentComponent.Slot seat,
             in Vector3D formationTarget,
             float leaderThrottle,
+            in Vector3D leaderHeading,
             in SiMountedVehicleDriveSettings settings);
 
         void Stop(MyEntity vehicle, EquiPlayerAttachmentComponent.Slot seat);
@@ -64,6 +65,7 @@ namespace Si.UtilityAI
             EquiPlayerAttachmentComponent.Slot seat,
             in Vector3D formationTarget,
             float leaderThrottle,
+            in Vector3D leaderHeading,
             in SiMountedVehicleDriveSettings settings)
         {
             for (var i = 0; i < Drivers.Length; i++)
@@ -72,7 +74,7 @@ namespace Si.UtilityAI
                 if (driver == null || !driver.CanDrive(vehicle, seat))
                     continue;
 
-                driver.Drive(vehicle, seat, formationTarget, leaderThrottle, settings);
+                driver.Drive(vehicle, seat, formationTarget, leaderThrottle, leaderHeading, settings);
                 return true;
             }
 
@@ -110,6 +112,7 @@ namespace Si.UtilityAI
             EquiPlayerAttachmentComponent.Slot seat,
             in Vector3D formationTarget,
             float leaderThrottle,
+            in Vector3D leaderHeading,
             in SiMountedVehicleDriveSettings settings)
         {
             var horse = SeatEntity(seat);
@@ -138,23 +141,30 @@ namespace Si.UtilityAI
             var lateral = Vector3D.Dot(direction, right);
             var forwardAlignment = Vector3D.Dot(direction, forward);
 
+            var withinHysteresis = distance <= vehicleSettings.PaxHorseThrottleHysteresisRadius;
+            var aheadOfCheckpoint = forwardAlignment < 0;
             float steering;
-            if (distance > MinimumDirectionLengthSquared
-                && forwardAlignment < settings.MinimumForwardAlignment)
+            if (withinHysteresis)
             {
-                // PAX keeps this steering input active between AI ticks.
-                // Throttle deliberately remains the leader's exact input.
-                steering = lateral >= settings.TurnDeadZone ? -1f : 1f;
+                var leaderTravel = Vector3D.Reject(leaderHeading, up);
+                if (leaderTravel.LengthSquared() > MinimumDirectionLengthSquared)
+                {
+                    leaderTravel = Vector3D.Normalize(leaderTravel);
+                    steering = SteeringToward(
+                        Vector3D.Dot(leaderTravel, right),
+                        Vector3D.Dot(leaderTravel, forward),
+                        settings);
+                }
+                else
+                {
+                    steering = 0;
+                }
             }
             else
             {
-                steering = Math.Abs(lateral) >= settings.TurnDeadZone
-                    ? -MathHelper.Clamp((float)lateral, -1f, 1f)
-                    : 0;
+                steering = SteeringToward(lateral, forwardAlignment, settings);
             }
 
-            var withinHysteresis = distance <= vehicleSettings.PaxHorseThrottleHysteresisRadius;
-            var aheadOfCheckpoint = forwardAlignment < 0;
             float desiredThrottle;
 
             float proximateThrottle()
@@ -166,9 +176,8 @@ namespace Si.UtilityAI
             if (withinHysteresis && aheadOfCheckpoint)
             {
                 // The target has slipped behind the horse, but only by a
-                // small amount.  Keep the riding heading stable by not 
-                // steering and gently reducing requested speed.
-                steering = 0;
+                // small amount.  Preserve the player horse heading while
+                // gently reducing requested speed.
                 desiredThrottle = leaderThrottle - proximateThrottle();
             }
             else if (!withinHysteresis)
@@ -192,6 +201,19 @@ namespace Si.UtilityAI
         private static MyEntity SeatEntity(EquiPlayerAttachmentComponent.Slot seat)
         {
             return seat?.Controllable?.Entity;
+        }
+
+        private static float SteeringToward(
+            double lateral,
+            double forwardAlignment,
+            in SiMountedVehicleDriveSettings settings)
+        {
+            if (forwardAlignment < settings.MinimumForwardAlignment)
+                return lateral >= settings.TurnDeadZone ? -1f : 1f;
+
+            return Math.Abs(lateral) >= settings.TurnDeadZone
+                ? -MathHelper.Clamp((float)lateral, -1f, 1f)
+                : 0;
         }
 
         private static Vector3D NormalizedOrFallback(in Vector3D value, in Vector3D fallback)

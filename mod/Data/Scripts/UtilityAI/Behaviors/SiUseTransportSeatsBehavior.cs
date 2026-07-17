@@ -221,13 +221,17 @@ namespace Si.UtilityAI
                 return;
             }
 
-            session.TryGetTransportLeaderThrottle(context.Agent, out var leaderThrottle);
+            session.TryGetTransportLeaderControls(
+                context.Agent,
+                out var leaderThrottle,
+                out var leaderHeading);
 
             SiMountedVehicleDrivers.TryDrive(
                 vehicle,
                 seat,
                 formationTarget,
                 leaderThrottle,
+                leaderHeading,
                 _definition.VehicleDriveSettings);
         }
 

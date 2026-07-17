@@ -122,9 +122,13 @@ namespace Si.UtilityAI
             return TryGetTransportVehicleEntity(state.VehicleEntityId, out vehicle);
         }
 
-        internal bool TryGetTransportLeaderThrottle(SiNpc npc, out float throttle)
+        internal bool TryGetTransportLeaderControls(
+            SiNpc npc,
+            out float throttle,
+            out Vector3D heading)
         {
             throttle = 0;
+            heading = Vector3D.Zero;
             if (npc == null || Squads == null)
                 return false;
 
@@ -152,6 +156,8 @@ namespace Si.UtilityAI
                     return false;
 
                 throttle = horse.Throttle;
+                // PAX applies positive horse throttle along WorldMatrix.Backward.
+                heading = seat.Controllable.Entity.WorldMatrix.Backward;
                 return true;
             }
 
