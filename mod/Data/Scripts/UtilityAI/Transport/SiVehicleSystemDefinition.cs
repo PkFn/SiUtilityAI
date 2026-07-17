@@ -18,6 +18,12 @@ namespace Si.UtilityAI
 
         [XmlElement]
         public float PaxHorseCheckpointForwardOffset;
+
+        [XmlElement]
+        public float MountedFormationWidthMultiplier;
+
+        [XmlElement]
+        public float MountedFormationDepthMultiplier;
     }
 
     [MyDefinitionType(typeof(MyObjectBuilder_SiVehicleSystemDefinition))]
@@ -29,6 +35,8 @@ namespace Si.UtilityAI
         public float PaxHorseCatchUpThrottle { get; private set; }
         public float PaxHorseThrottleHysteresisRadius { get; private set; }
         public float PaxHorseCheckpointForwardOffset { get; private set; }
+        public float MountedFormationWidthMultiplier { get; private set; }
+        public float MountedFormationDepthMultiplier { get; private set; }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
         {
@@ -37,6 +45,8 @@ namespace Si.UtilityAI
             PaxHorseCatchUpThrottle = Math.Max(0, ob.PaxHorseCatchUpThrottle);
             PaxHorseThrottleHysteresisRadius = Math.Max(0, ob.PaxHorseThrottleHysteresisRadius);
             PaxHorseCheckpointForwardOffset = Math.Max(0, ob.PaxHorseCheckpointForwardOffset);
+            MountedFormationWidthMultiplier = Math.Max(0, ob.MountedFormationWidthMultiplier);
+            MountedFormationDepthMultiplier = Math.Max(0, ob.MountedFormationDepthMultiplier);
         }
 
         internal static SiVehicleSystemDefinition Load()

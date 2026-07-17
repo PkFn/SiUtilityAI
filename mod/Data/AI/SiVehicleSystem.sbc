@@ -9,5 +9,9 @@
     <PaxHorseThrottleHysteresisRadius>2</PaxHorseThrottleHysteresisRadius>
     <!-- Direction-only target offset in the player horse's travel direction. -->
     <PaxHorseCheckpointForwardOffset>5</PaxHorseCheckpointForwardOffset>
+    <!-- Mounted rider formation width multiplier. -->
+    <MountedFormationWidthMultiplier>2</MountedFormationWidthMultiplier>
+    <!-- Mounted rider formation depth multiplier. -->
+    <MountedFormationDepthMultiplier>3</MountedFormationDepthMultiplier>
   </Definition>
 </Definitions>

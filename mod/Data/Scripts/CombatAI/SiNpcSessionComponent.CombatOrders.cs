@@ -663,13 +663,15 @@ namespace Si.UtilityAI
             {
                 for (var i = 0; i < troops.Count; i++)
                 {
-                    var target = origin + FormationOffset(
+                    var localOffset = FormationOffset(
                         state.Formation,
                         i,
                         troops.Count,
                         forward,
                         right,
                         definition);
+                    localOffset = ApplyMountedFormationSpacing(troops[i], localOffset, forward, right);
+                    var target = origin + localOffset;
                     if (TryCacheAndIssueFollowWaypoint(
                             troops[i],
                             target,
@@ -703,16 +705,18 @@ namespace Si.UtilityAI
             for (var i = 0; i < troops.Count; i++)
             {
                 var gap = i == 0 ? definition.FollowDistance : followerGap;
-                var target = anchorPosition - anchorForward * gap;
+                var up = SurfaceUp(anchorPosition);
+                var right = NormalizedOrFallback(
+                    Vector3D.Cross(anchorForward, up),
+                    Vector3D.CalculatePerpendicularVector(anchorForward));
+                var localOffset = -anchorForward * gap;
                 if (formation == SiSquadFormation.StaggeredColumn && definition.StaggeredColumnOffset > 0)
                 {
-                    var up = SurfaceUp(anchorPosition);
-                    var right = NormalizedOrFallback(
-                        Vector3D.Cross(anchorForward, up),
-                        Vector3D.CalculatePerpendicularVector(anchorForward));
                     var side = i % 2 == 0 ? -1 : 1;
-                    target += right * (side * definition.StaggeredColumnOffset);
+                    localOffset += right * (side * definition.StaggeredColumnOffset);
                 }
+                localOffset = ApplyMountedFormationSpacing(troops[i], localOffset, anchorForward, right);
+                var target = anchorPosition + localOffset;
                 if (TryCacheAndIssueFollowWaypoint(
                         troops[i],
                         target,
@@ -1031,6 +1035,24 @@ namespace Si.UtilityAI
         {
             return TryGetTransportMode(npc, out var mode)
                    && mode == SiSquadTransportMode.Mount;
+        }
+
+        private Vector3D ApplyMountedFormationSpacing(
+            SiNpc npc,
+            in Vector3D localOffset,
+            in Vector3D forward,
+            in Vector3D right)
+        {
+            var settings = VehicleSettings;
+            if (!IsTransportMountOrder(npc) || settings == null)
+                return localOffset;
+
+            var depth = Vector3D.Dot(localOffset, forward);
+            var width = Vector3D.Dot(localOffset, right);
+            var vertical = localOffset - forward * depth - right * width;
+            return vertical
+                   + forward * (depth * settings.MountedFormationDepthMultiplier)
+                   + right * (width * settings.MountedFormationWidthMultiplier);
         }
 
         private static double CheckpointDistance(SiNpc npc, in Vector3D checkpoint)
