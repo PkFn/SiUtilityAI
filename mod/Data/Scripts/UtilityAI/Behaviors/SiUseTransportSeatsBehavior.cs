@@ -67,6 +67,9 @@ namespace Si.UtilityAI
     public class SiUseTransportSeatsBehaviorComponent : MyEntityComponent, ISiUtilityBehavior, ISiContinuousUtilityBehavior
     {
         private SiUseTransportSeatsBehaviorDefinition _definition;
+        private SiShootOpposingNpcBehaviorComponent _shootBehavior;
+        private SiShootOpposingNpcBehaviorComponent ShootBehavior =>
+            _shootBehavior ?? (_shootBehavior = Entity?.Components?.Get<SiShootOpposingNpcBehaviorComponent>());
 
         public string BehaviorName => DefinitionId.ToString();
 
@@ -76,6 +79,12 @@ namespace Si.UtilityAI
         {
             base.Init(definition);
             _definition = (SiUseTransportSeatsBehaviorDefinition)definition;
+        }
+
+        public override void OnAddedToContainer()
+        {
+            base.OnAddedToContainer();
+            _shootBehavior = Entity?.Components?.Get<SiShootOpposingNpcBehaviorComponent>();
         }
 
         float ISiUtilityBehavior.Evaluate(SiUtilityContext context)
@@ -95,16 +104,17 @@ namespace Si.UtilityAI
 
         void ISiUtilityBehavior.Begin(SiUtilityContext context)
         {
-            ApplyTransportOrder(context);
+            ApplyTransportOrder(context, 0);
         }
 
         void ISiUtilityBehavior.Tick(SiUtilityContext context, long elapsedMilliseconds)
         {
-            ApplyTransportOrder(context);
+            ApplyTransportOrder(context, elapsedMilliseconds);
         }
 
         void ISiUtilityBehavior.End(SiUtilityContext context)
         {
+            ShootBehavior?.StopMounted();
             StopMountedVehicle(context);
 
             if (context?.Agent == null)
@@ -122,7 +132,7 @@ namespace Si.UtilityAI
             context.TrySetCrouch(false);
         }
 
-        private void ApplyTransportOrder(SiUtilityContext context)
+        private void ApplyTransportOrder(SiUtilityContext context, long elapsedMilliseconds)
         {
             if (context?.Agent == null)
                 return;
@@ -141,15 +151,19 @@ namespace Si.UtilityAI
             switch (mode)
             {
                 case SiSquadTransportMode.Mount:
-                    ApplyMountOrder(session, context);
+                    ApplyMountOrder(session, context, elapsedMilliseconds);
                     break;
                 case SiSquadTransportMode.Disembark:
+                    ShootBehavior?.StopMounted();
                     ApplyDisembarkOrder(session, context);
                     break;
             }
         }
 
-        private void ApplyMountOrder(SiNpcSessionComponent session, SiUtilityContext context)
+        private void ApplyMountOrder(
+            SiNpcSessionComponent session,
+            SiUtilityContext context,
+            long elapsedMilliseconds)
         {
             var controller = Entity?.Components?.Get<EquiEntityControllerComponent>();
             if (controller == null)
@@ -169,7 +183,7 @@ namespace Si.UtilityAI
                 {
                     if (context.HasWaypoint)
                         context.TryClearWaypoint();
-                    DriveMountedVehicle(session, context, controller.Controlled);
+                    DriveMountedVehicle(session, context, controller.Controlled, elapsedMilliseconds);
                     return;
                 }
 
@@ -207,32 +221,39 @@ namespace Si.UtilityAI
         private void DriveMountedVehicle(
             SiNpcSessionComponent session,
             SiUtilityContext context,
-            EquiPlayerAttachmentComponent.Slot seat)
+            EquiPlayerAttachmentComponent.Slot seat,
+            long elapsedMilliseconds)
         {
+            MyEntity vehicle = null;
+            var hasVehicle = session.TryGetAssignedTransportVehicle(context.Agent, out vehicle);
             if (!session.TryGetFormationTarget(context.Agent, out var formationTarget))
             {
                 SiMountedVehicleDrivers.Stop(null, seat);
-                return;
             }
-
-            if (!session.TryGetAssignedTransportVehicle(context.Agent, out var vehicle))
+            else if (!hasVehicle)
             {
                 SiMountedVehicleDrivers.Stop(null, seat);
-                return;
+            }
+            else
+            {
+                session.TryGetTransportLeaderControls(
+                    context.Agent,
+                    out var leaderThrottle,
+                    out var leaderHeading);
+
+                SiMountedVehicleDrivers.TryDrive(
+                    vehicle,
+                    seat,
+                    formationTarget,
+                    leaderThrottle,
+                    leaderHeading,
+                    _definition.VehicleDriveSettings);
             }
 
-            session.TryGetTransportLeaderControls(
-                context.Agent,
-                out var leaderThrottle,
-                out var leaderHeading);
-
-            SiMountedVehicleDrivers.TryDrive(
-                vehicle,
-                seat,
-                formationTarget,
-                leaderThrottle,
-                leaderHeading,
-                _definition.VehicleDriveSettings);
+            if (hasVehicle && SiMountedVehicleDrivers.CanShoot(vehicle, seat))
+                ShootBehavior?.TickMounted(context, elapsedMilliseconds);
+            else
+                ShootBehavior?.StopMounted();
         }
 
         private static void StopMountedVehicle(SiUtilityContext context)

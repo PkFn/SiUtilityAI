@@ -226,7 +226,8 @@ namespace Si.UtilityAI
                     continue;
                 var leader = PlayerLeaderKey(entry.Key);
                 var combatStance = GetCombatStance(leader);
-                if (combatStance == SiSquadCombatStance.Combat)
+                if (combatStance == SiSquadCombatStance.Combat
+                    && state.TransportMode != SiSquadTransportMode.Mount)
                     continue;
 
                 string failure;

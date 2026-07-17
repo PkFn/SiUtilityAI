@@ -16,6 +16,8 @@ namespace Si.UtilityAI
     {
         bool CanDrive(MyEntity vehicle, EquiPlayerAttachmentComponent.Slot seat);
 
+        bool CanShoot(MyEntity vehicle, EquiPlayerAttachmentComponent.Slot seat);
+
         void Drive(
             MyEntity vehicle,
             EquiPlayerAttachmentComponent.Slot seat,
@@ -54,6 +56,18 @@ namespace Si.UtilityAI
             {
                 var driver = Drivers[i];
                 if (driver != null && driver.CanDrive(vehicle, seat))
+                    return true;
+            }
+
+            return false;
+        }
+
+        public static bool CanShoot(MyEntity vehicle, EquiPlayerAttachmentComponent.Slot seat)
+        {
+            for (var i = 0; i < Drivers.Length; i++)
+            {
+                var driver = Drivers[i];
+                if (driver != null && driver.CanShoot(vehicle, seat))
                     return true;
             }
 
@@ -105,6 +119,12 @@ namespace Si.UtilityAI
         {
             var horse = SeatEntity(seat);
             return horse != null && horse.Components.Contains<MyPAX_Horse>();
+        }
+
+        public bool CanShoot(MyEntity vehicle, EquiPlayerAttachmentComponent.Slot seat)
+        {
+            return CanDrive(vehicle, seat)
+                   && SiNpcSessionComponent.Instance?.VehicleSettings?.PaxHorseCanShoot == true;
         }
 
         public void Drive(

@@ -9,6 +9,8 @@
     <PaxHorseThrottleHysteresisRadius>4</PaxHorseThrottleHysteresisRadius>
     <!-- Direction-only target offset in the player horse's travel direction. -->
     <PaxHorseCheckpointForwardOffset>10</PaxHorseCheckpointForwardOffset>
+    <!-- Horse riders may use their selected infantry firearm while mounted. -->
+    <PaxHorseCanShoot>true</PaxHorseCanShoot>
     <!-- Mounted rider formation width multiplier. -->
     <MountedFormationWidthMultiplier>2</MountedFormationWidthMultiplier>
     <!-- Mounted rider formation depth multiplier. -->

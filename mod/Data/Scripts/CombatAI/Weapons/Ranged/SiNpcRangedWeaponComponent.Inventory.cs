@@ -17,7 +17,7 @@ namespace Si.UtilityAI
 
         private int GetLoadedRoundsFromEquippedItem()
         {
-            if (!Definition.HeldItem.HasValue)
+            if (!HeldItemId.HasValue)
                 return 0;
 
             string ignored;
@@ -25,7 +25,7 @@ namespace Si.UtilityAI
             if (inventory == null)
                 return 0;
 
-            var heldItemId = (MyDefinitionId)Definition.HeldItem.Value;
+            var heldItemId = HeldItemId.Value;
             var durable = inventory.FindItem(heldItemId) as MyDurableItem;
             return durable != null ? Math.Max(0, durable.Durability) : 0;
         }

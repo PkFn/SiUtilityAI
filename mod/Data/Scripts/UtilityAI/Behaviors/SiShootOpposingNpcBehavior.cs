@@ -289,6 +289,25 @@ namespace Si.UtilityAI
             _weaponSet = Entity?.Components?.Get<SiNpcWeaponSetComponent>();
         }
 
+        public override void OnAddedToScene()
+        {
+            base.OnAddedToScene();
+
+            if (MyAPIGateway.Multiplayer != null && !MyAPIGateway.Multiplayer.IsServer)
+                return;
+
+            AddScheduledCallback(PrepareWeaponForCombat, 1);
+        }
+
+        [Update(false)]
+        private void PrepareWeaponForCombat(long _)
+        {
+            EnsureMainFirearmActive();
+            var weapon = GetWeapon();
+            weapon?.TryEquipHeldWeapon();
+            weapon?.ReloadIfNeeded();
+        }
+
         float ISiUtilityBehavior.Evaluate(SiUtilityContext context)
         {
             var session = SiNpcSessionComponent.Instance;
@@ -343,6 +362,23 @@ namespace Si.UtilityAI
         }
 
         void ISiUtilityBehavior.Tick(SiUtilityContext context, long elapsedMilliseconds)
+        {
+            TickShooting(context, elapsedMilliseconds);
+        }
+
+        internal void TickMounted(SiUtilityContext context, long elapsedMilliseconds)
+        {
+            EnsureMountedFirearmActive();
+            TickShooting(context, elapsedMilliseconds);
+        }
+
+        internal void StopMounted()
+        {
+            _combatState?.SetFiring(false);
+            GetWeapon()?.ClearFireIntent();
+        }
+
+        private void TickShooting(SiUtilityContext context, long elapsedMilliseconds)
         {
             var session = SiNpcSessionComponent.Instance;
             if (session != null && session.IsRearming(context?.Agent))
@@ -441,8 +477,10 @@ namespace Si.UtilityAI
             _lastVisibleThreatPosition = Vector3D.Zero;
             _rememberedVehicleIds.Clear();
             _combatState?.SetFiring(false);
-            GetWeapon()?.ClearFireIntent();
-            GetWeapon()?.ResetState();
+            var weapon = GetWeapon();
+            weapon?.ClearFireIntent();
+            weapon?.ResetState();
+            weapon?.ReloadIfNeeded();
         }
 
         private void EnsureMainFirearmActive()
@@ -451,6 +489,15 @@ namespace Si.UtilityAI
                 return;
 
             if (_weaponSet?.ActiveSlot == SiNpcWeaponSlot.None)
+                _weaponSet.TryActivateMainFirearm();
+        }
+
+        private void EnsureMountedFirearmActive()
+        {
+            if (MyAPIGateway.Multiplayer != null && !MyAPIGateway.Multiplayer.IsServer)
+                return;
+
+            if (_weaponSet != null && _weaponSet.ActiveSlot != SiNpcWeaponSlot.MainFirearm)
                 _weaponSet.TryActivateMainFirearm();
         }
 

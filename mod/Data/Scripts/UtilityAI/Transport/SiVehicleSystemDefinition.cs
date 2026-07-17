@@ -20,6 +20,9 @@ namespace Si.UtilityAI
         public float PaxHorseCheckpointForwardOffset;
 
         [XmlElement]
+        public bool PaxHorseCanShoot;
+
+        [XmlElement]
         public float MountedFormationWidthMultiplier;
 
         [XmlElement]
@@ -35,6 +38,7 @@ namespace Si.UtilityAI
         public float PaxHorseCatchUpThrottle { get; private set; }
         public float PaxHorseThrottleHysteresisRadius { get; private set; }
         public float PaxHorseCheckpointForwardOffset { get; private set; }
+        public bool PaxHorseCanShoot { get; private set; }
         public float MountedFormationWidthMultiplier { get; private set; }
         public float MountedFormationDepthMultiplier { get; private set; }
 
@@ -45,6 +49,7 @@ namespace Si.UtilityAI
             PaxHorseCatchUpThrottle = Math.Max(0, ob.PaxHorseCatchUpThrottle);
             PaxHorseThrottleHysteresisRadius = Math.Max(0, ob.PaxHorseThrottleHysteresisRadius);
             PaxHorseCheckpointForwardOffset = Math.Max(0, ob.PaxHorseCheckpointForwardOffset);
+            PaxHorseCanShoot = ob.PaxHorseCanShoot;
             MountedFormationWidthMultiplier = Math.Max(0, ob.MountedFormationWidthMultiplier);
             MountedFormationDepthMultiplier = Math.Max(0, ob.MountedFormationDepthMultiplier);
         }

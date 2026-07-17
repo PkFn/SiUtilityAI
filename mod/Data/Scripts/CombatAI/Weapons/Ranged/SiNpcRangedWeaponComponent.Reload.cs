@@ -7,6 +7,28 @@ namespace Si.UtilityAI
 {
     public partial class SiNpcRangedWeaponComponent
     {
+        internal void ReloadIfNeeded()
+        {
+            if (Entity == null
+                || Entity.Closed
+                || Entity.MarkedForClose
+                || !IsOperational
+                || !Definition.ConsumeAmmo
+                || !Definition.NewMagazineMethod
+                || GetLoadedRoundsFromEquippedItem() > 0
+                || _reloadMaintenanceState != ReloadMaintenanceState.None)
+                return;
+
+            if (UsesDetachableMagazineMaintenance)
+            {
+                BeginReloadMaintenance();
+                return;
+            }
+
+            MyPAX_HandheldGun.RequestTertiary(Entity.EntityId, true);
+            _fireCooldown = Math.Max(_fireCooldown, EffectiveReloadIntervalMilliseconds);
+        }
+
         private void BeginReloadMaintenance()
         {
             if (!UsesDetachableMagazineMaintenance || Entity == null)
