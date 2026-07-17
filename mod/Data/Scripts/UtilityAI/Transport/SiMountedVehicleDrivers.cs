@@ -159,9 +159,9 @@ namespace Si.UtilityAI
             if (withinHysteresis && aheadOfCheckpoint)
             {
                 // The target has slipped behind the horse, but only by a
-                // small amount.  Keep the riding heading stable by steering
-                // away from the target and gently reducing requested speed.
-                steering = -steering;
+                // small amount.  Keep the riding heading stable by not 
+                // steering and gently reducing requested speed.
+                steering = 0;
                 desiredThrottle = leaderThrottle - vehicleSettings.PaxHorseCatchUpThrottle;
             }
             else if (!withinHysteresis)

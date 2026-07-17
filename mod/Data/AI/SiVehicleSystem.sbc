@@ -6,6 +6,6 @@
     <!-- Fixed additional target speed while the horse is outside the formation hysteresis radius. -->
     <PaxHorseCatchUpThrottle>1.0</PaxHorseCatchUpThrottle>
     <!-- Distance around the formation target that adds no catch-up throttle. -->
-    <PaxHorseThrottleHysteresisRadius>1</PaxHorseThrottleHysteresisRadius>
+    <PaxHorseThrottleHysteresisRadius>2</PaxHorseThrottleHysteresisRadius>
   </Definition>
 </Definitions>
