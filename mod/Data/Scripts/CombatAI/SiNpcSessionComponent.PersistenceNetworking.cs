@@ -248,8 +248,8 @@ namespace Si.UtilityAI
                     Formation = (SiSquadFormation)saved.Formation,
                     EngagementStance = (SiSquadEngagementStance)saved.EngagementStance,
                     RearmOverride = saved.RearmOverride,
-                    TransportMode = SiSquadTransportMode.None,
-                    TransportVehicleEntityId = 0,
+                    TransportMode = (SiSquadTransportMode)saved.TransportMode,
+                    TransportVehicleEntityId = saved.TransportVehicleEntityId,
                 };
                 _squadCombatStates[PlayerLeaderKey(saved.LeaderIdentityId)] = new SiSquadCombatState
                 {
