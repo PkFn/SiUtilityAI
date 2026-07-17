@@ -156,13 +156,20 @@ namespace Si.UtilityAI
             var withinHysteresis = distance <= vehicleSettings.PaxHorseThrottleHysteresisRadius;
             var aheadOfCheckpoint = forwardAlignment < 0;
             float desiredThrottle;
+
+            float proximateThrottle()
+            {
+                var normHysteresis = distance / vehicleSettings.PaxHorseThrottleHysteresisRadius;
+                return (float)normHysteresis * vehicleSettings.PaxHorseCatchUpThrottle;
+            }
+
             if (withinHysteresis && aheadOfCheckpoint)
             {
                 // The target has slipped behind the horse, but only by a
                 // small amount.  Keep the riding heading stable by not 
                 // steering and gently reducing requested speed.
                 steering = 0;
-                desiredThrottle = leaderThrottle - vehicleSettings.PaxHorseCatchUpThrottle;
+                desiredThrottle = leaderThrottle - proximateThrottle();
             }
             else if (!withinHysteresis)
             {
@@ -170,7 +177,7 @@ namespace Si.UtilityAI
             }
             else
             {
-                desiredThrottle = leaderThrottle;
+                desiredThrottle = leaderThrottle + proximateThrottle();
             }
 
             horseController.SetThrottleAndSteering(desiredThrottle, steering);
