@@ -146,9 +146,9 @@ namespace Si.UtilityAI
 
             // The fake checkpoint only shapes steering.  Formation distance
             // and throttle remain measured against the real checkpoint.
-            var steeringTarget = hasLeaderTravel
-                ? formationTarget + leaderTravel * vehicleSettings.PaxHorseCheckpointForwardOffset
-                : formationTarget;
+            var fakeCheckpointDirection = hasLeaderTravel ? leaderTravel : forward;
+            var steeringTarget = formationTarget
+                                 + fakeCheckpointDirection * vehicleSettings.PaxHorseCheckpointForwardOffset;
             var toSteeringTarget = Vector3D.Reject(steeringTarget - position, up);
             var steeringDistance = toSteeringTarget.Length();
             var steeringDirection = steeringDistance > MinimumDirectionLengthSquared
