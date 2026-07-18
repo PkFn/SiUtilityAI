@@ -464,6 +464,43 @@ namespace Si.UtilityAI
             return lines;
         }
 
+        internal List<SiSquadView> CreateNearbyAlliedSquads(
+            SiNpcManager npcManager,
+            long observerIdentityId,
+            in Vector3D position,
+            double radius)
+        {
+            var result = new List<SiSquadView>();
+            if (Definition == null || observerIdentityId == 0 || radius <= 0)
+                return result;
+
+            PurgeClosedNpcs(npcManager);
+            var observerArmy = ArmyForPlayerIdentity(observerIdentityId);
+            MyDiplomaticParty observerParty;
+            var hasObserverParty = TryCreateDiplomaticParty(observerArmy, out observerParty);
+            var squads = BuildSquads(npcManager);
+            var radiusSquared = radius * radius;
+            foreach (var squad in squads)
+            {
+                if (!ShouldShareLocationOnMap(
+                        observerArmy,
+                        hasObserverParty,
+                        observerParty,
+                        squad.Leader.Army))
+                    continue;
+
+                Vector3D leaderPosition;
+                if (!TryGetLeaderPosition(npcManager, squad.Leader, out leaderPosition)
+                    || Vector3D.DistanceSquared(position, leaderPosition) > radiusSquared)
+                    continue;
+
+                result.Add(squad);
+            }
+
+            result.Sort(CompareSquads);
+            return result;
+        }
+
         private static SiSquadSystemDefinition LoadDefinition()
         {
             SiSquadSystemDefinition definition;
