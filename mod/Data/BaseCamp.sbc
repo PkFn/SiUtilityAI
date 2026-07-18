@@ -60,8 +60,17 @@
   <Definition xsi:type="MyObjectBuilder_ContainerDefinition" Copy="Append">
     <Id Type="Block" Subtype="SiBaseCamp" />
     <CopyFrom Type="EntityBase" Subtype="BaseFatBlock" />
-    <Component Type="Inventory" Subtype="SiBaseCampRecruits" />
+    <Component Type="UseObjectsComponent" Subtype="SiBaseCamp" />
     <Component Type="Inventory" Subtype="SiBaseCampWebbings" />
+    <Component Type="Inventory" Subtype="SiBaseCampRecruits" />
     <Component Type="SiBaseCampComponent" Subtype="SiBaseCamp" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_UseObjectsComponentDefinition">
+    <Id Type="MyObjectBuilder_UseObjectsComponent" Subtype="SiBaseCamp" />
+    <LoadFromModel>false</LoadFromModel>
+    <UseObjects>
+      <UseObject Dummy="detector_inventory" Name="Generic" />
+    </UseObjects>
   </Definition>
 </Definitions>

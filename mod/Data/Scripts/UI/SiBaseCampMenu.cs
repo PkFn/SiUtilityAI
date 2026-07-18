@@ -126,14 +126,9 @@ namespace Si.UtilityAI
             return lines;
         }
 
-        public void OpenRecruitInventory()
+        public void OpenInventory()
         {
             OpenInventory(RecruitInventory);
-        }
-
-        public void OpenWebbingInventory()
-        {
-            OpenInventory(WebbingInventory);
         }
 
         public void SpawnAiSquad()
@@ -201,14 +196,9 @@ namespace Si.UtilityAI
                 () => _selectedSquadVersion));
         }
 
-        public void OpenRecruitInventory()
+        public void OpenInventory()
         {
-            _session?.OpenRecruitInventory();
-        }
-
-        public void OpenWebbingInventory()
-        {
-            _session?.OpenWebbingInventory();
+            _session?.OpenInventory();
         }
 
         public void BaseCampSpawnAiSquad()

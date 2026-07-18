@@ -27,12 +27,11 @@
   <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
     <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiBaseCampMenuRoot" />
     <Title>Si Utility AI Base Camp</Title>
-    <Columns>4</Columns>
+    <Columns>3</Columns>
     <Rows>1</Rows>
     <ButtonStyleId>ButtonListWide</ButtonStyleId>
     <Buttons>
-      <Button StyleName="ContextButtonSliced"><Text>Recruit inventory</Text><Tooltip>Open the recruit-only storage inventory.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="OpenRecruitInventory" /></Button>
-      <Button StyleName="ContextButtonSliced"><Text>Webbing inventory</Text><Tooltip>Open the storage inventory for up to 20 webbing stacks.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="OpenWebbingInventory" /></Button>
+      <Button StyleName="ContextButtonSliced"><Text>Inventory</Text><Tooltip>Open the recruit and webbing storage inventories.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="OpenInventory" /></Button>
       <Button StyleName="ContextButtonSliced"><Text>Spawn</Text><Tooltip>Prepare a squad from the webbings stored at this base camp.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiBaseCampSpawn" /></Action></Button>
       <Button StyleName="ContextButtonSliced"><Text>Refund</Text><Tooltip>Choose a nearby allied squad to refund later.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiBaseCampRefund" /></Action></Button>
     </Buttons>

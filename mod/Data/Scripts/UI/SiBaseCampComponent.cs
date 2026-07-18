@@ -1,5 +1,6 @@
 using System;
 using System.Xml.Serialization;
+using Equinox76561198048419394.Core.Util;
 using Medieval.GUI.ContextMenu;
 using Medieval.Entities.UseObject;
 using Sandbox.ModAPI;
@@ -44,19 +45,20 @@ namespace Si.UtilityAI
 
     [MyComponent(typeof(MyObjectBuilder_SiBaseCampComponent))]
     [MyDefinitionRequired(typeof(SiBaseCampComponentDefinition))]
-    public sealed class SiBaseCampComponent : MyEntityComponent, IMyGenericUseObjectInterface
+    public sealed class SiBaseCampComponent : MyEntityComponent, IMyGenericUseObjectInterfaceFiltered
     {
+        private const string InteractionDummy = "detector_inventory";
         private static readonly MyStringId InteractionText =
-            MyStringId.GetOrCompute("Open base camp");
+            MyStringId.GetOrCompute("Press [{0}] to open base camp");
 
         private MyUseObjectGeneric _useObject;
         private SiBaseCampComponentDefinition _definition;
 
         public float NearbySquadRadius => _definition?.NearbySquadRadius ?? 0;
 
-        public UseActionEnum SupportedActions => UseActionEnum.Manipulate;
-        public UseActionEnum PrimaryAction => UseActionEnum.Manipulate;
-        public UseActionEnum SecondaryAction => UseActionEnum.None;
+        public UseActionEnum SupportedActions => UseActionEnum.OpenTerminal;
+        public UseActionEnum PrimaryAction => UseActionEnum.OpenTerminal;
+        public UseActionEnum SecondaryAction => UseActionEnum.OpenTerminal;
         public bool ContinuousUsage => false;
 
         public override bool IsSerialized => false;
@@ -85,28 +87,33 @@ namespace Si.UtilityAI
             base.OnRemovedFromScene();
         }
 
-        public bool AppliesTo(string dummyName) => dummyName == "Generic";
+        public bool AppliesTo(string dummyName) => dummyName == InteractionDummy;
 
         public MyActionDescription GetActionInfo(string dummyName, UseActionEnum actionEnum)
         {
             return new MyActionDescription
             {
                 Text = InteractionText,
-                IsTextControlHint = false,
+                FormatParams = new object[]
+                {
+                    MyAPIGateway.Input.GetLocalizedInteractionButton(),
+                },
             };
         }
 
         public void Use(string dummyName, UseActionEnum actionEnum, MyEntity user)
         {
-            if (Entity == null || actionEnum != UseActionEnum.Manipulate || user == null)
+            if (Entity == null
+                || dummyName != InteractionDummy
+                || actionEnum != UseActionEnum.OpenTerminal
+                || user == null)
                 return;
 
-            var localPlayer = MySession.Static?.PlayerEntity;
-            if (localPlayer == null || user.EntityId != localPlayer.EntityId)
+            if (user != MyAPIGateway.Session?.ControlledObject)
                 return;
 
             MyContextMenuScreen.OpenMenu(
-                Entity,
+                user,
                 "SiBaseCampMenu",
                 new SiBaseCampMenuSession(Entity, NearbySquadRadius));
         }
