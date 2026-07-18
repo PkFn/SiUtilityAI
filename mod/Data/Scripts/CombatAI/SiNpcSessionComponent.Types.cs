@@ -14,23 +14,30 @@ namespace Si.UtilityAI
     {
         private readonly struct SiNpcSpawnRequest
         {
-            public SiNpcSpawnRequest(string webbingSubtype, bool isParatrooper, bool isEnemy)
+            public SiNpcSpawnRequest(
+                string webbingSubtype,
+                bool isParatrooper,
+                bool isEnemy,
+                bool isMounted = false)
             {
                 WebbingSubtype = string.IsNullOrWhiteSpace(webbingSubtype)
                     ? null
                     : webbingSubtype.Trim();
                 IsParatrooper = isParatrooper;
                 IsEnemy = isEnemy;
+                IsMounted = isMounted;
             }
 
             public string WebbingSubtype { get; }
             public bool IsParatrooper { get; }
             public bool IsEnemy { get; }
+            public bool IsMounted { get; }
             public string DisplayArchetype =>
                 string.IsNullOrWhiteSpace(WebbingSubtype)
                     ? "trooper"
                     : WebbingSubtype
                       + (IsParatrooper ? "-paratrooper" : string.Empty)
+                      + (IsMounted ? "-mounted" : string.Empty)
                       + (IsEnemy ? "-enemy" : string.Empty);
         }
 
@@ -42,6 +49,7 @@ namespace Si.UtilityAI
             public string WebbingSubtype;
             public bool IsParatrooper;
             public bool IsEnemy;
+            public bool IsMounted;
             public MatrixD Transform;
             public bool HasWaypoint;
             public Vector3D Waypoint;
@@ -84,6 +92,9 @@ namespace Si.UtilityAI
 
             [XmlAttribute]
             public bool IsEnemy;
+
+            [XmlAttribute]
+            public bool IsMounted;
 
             public MyPositionAndOrientation Transform;
 
@@ -132,6 +143,9 @@ namespace Si.UtilityAI
 
             [XmlAttribute]
             public bool WasInTransportSeat;
+
+            [XmlAttribute]
+            public bool OwnedTransportVehicle;
         }
 
         public class SquadOrder
@@ -285,6 +299,7 @@ namespace Si.UtilityAI
         public long VehicleEntityId { get; set; }
         public long SeatEntityId { get; set; }
         public string SeatSlotName { get; set; }
+        public bool OwnedByNpc { get; set; }
         public bool HasExitLocalPosition { get; set; }
         public Vector3D ExitLocalPosition { get; set; }
     }

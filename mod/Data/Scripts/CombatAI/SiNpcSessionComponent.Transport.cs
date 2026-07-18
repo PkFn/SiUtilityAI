@@ -6,14 +6,159 @@ using Sandbox.Game.Entities;
 using Sandbox.Game.Players;
 using SiCore.Core.Grid;
 using VRage.Components.Entity.CubeGrid;
+using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.Entity.EntityComponents;
+using VRage.ObjectBuilders;
+using VRage.Scene;
+using VRage.Session;
+using VRage.Utils;
 using VRageMath;
+using VRage;
 
 namespace Si.UtilityAI
 {
     public sealed partial class SiNpcSessionComponent
     {
+        private const string AdminHorseBlockSubtype = "PAX_Horse_Default";
+
+        private bool TryPrepareMountedNpc(SiNpc npc, out string failure)
+        {
+            failure = null;
+            if (npc?.Entity == null || Squads == null)
+            {
+                failure = "The mounted NPC could not be assigned to a squad.";
+                return false;
+            }
+
+            if (!TrySpawnAdminHorse(npc.Entity.WorldMatrix, out var horse, out failure))
+                return false;
+
+            if (!TryAssignTransportSeat(npc, new[] { horse }, out var assignedState))
+            {
+                horse.Close();
+                failure = "The spawned horse did not expose a compatible rider seat.";
+                return false;
+            }
+
+            assignedState.OwnedByNpc = true;
+            if (Squads.TryGetAssignment(npc.EntityId, out var assignment)
+                && assignment.Leader.Kind == SiSquadLeaderKind.Player)
+            {
+                var order = GetSquadOrder(assignment.Leader.Id);
+                order.Mode = SiSquadOrderMode.Follow;
+                order.TransportMode = SiSquadTransportMode.Mount;
+                order.TransportVehicleEntityId = horse.EntityId;
+                ResetTransportCadence(order);
+            }
+
+            var controller = npc.Entity.Components.Get<EquiEntityControllerComponent>();
+            var seat = ResolveAssignedSeat(assignedState);
+            if (controller != null && seat != null)
+                controller.RequestControl(seat);
+
+            return true;
+        }
+
+        private bool TrySpawnAdminHorse(
+            in MatrixD transform,
+            out MyEntity horse,
+            out string failure)
+        {
+            horse = null;
+            failure = null;
+            try
+            {
+                var gridBuilder = new MyObjectBuilder_CubeGrid
+                {
+                    EntityId = MyEntityIdentifier.AllocateId(),
+                    GridSizeEnum = MyCubeSize.Small,
+                    PersistentFlags = MyPersistentEntityFlags2.InScene,
+                    PositionAndOrientation = new MyPositionAndOrientation(transform),
+                    IsStatic = false,
+                    LinearVelocity = Vector3.Zero,
+                    AngularVelocity = Vector3.Zero,
+                    CreatePhysics = true,
+                    XMirroxPlane = null,
+                    YMirroxPlane = null,
+                    ZMirroxPlane = null,
+                };
+                gridBuilder.CubeBlocks.Add(new MyObjectBuilder_CubeBlock
+                {
+                    EntityId = MyEntityIdentifier.AllocateId(),
+                    SubtypeName = AdminHorseBlockSubtype,
+                    BuildPercent = 1f,
+                    IntegrityPercent = 1f,
+                    Min = Vector3I.Zero,
+                    BlockOrientation = new MyBlockOrientation(
+                        Base6Directions.Direction.Forward,
+                        Base6Directions.Direction.Up),
+                });
+
+                horse = MyEntities.CreateFromObjectBuilder(gridBuilder);
+                if (horse == null)
+                {
+                    failure = "The PAX horse definition could not be created. Is the horse mod loaded?";
+                    return false;
+                }
+
+                MyEntities.Add(horse, true);
+                return true;
+            }
+            catch (Exception exception)
+            {
+                horse?.Close();
+                horse = null;
+                failure = $"Failed to create a PAX horse: {exception.Message}";
+                return false;
+            }
+        }
+
+        private static EquiPlayerAttachmentComponent.Slot ResolveAssignedSeat(SiTransportNpcState state)
+        {
+            if (state == null || state.SeatEntityId == 0)
+                return null;
+
+            var entity = MyEntities.GetEntityByIdOrDefault(state.SeatEntityId);
+            return entity?.Components.Get<EquiPlayerAttachmentComponent>()?.GetSlotOrDefault(state.SeatSlotName);
+        }
+
+        private void CloseNpcWithOwnedTransport(long npcEntityId)
+        {
+            CloseNpcTransport(npcEntityId);
+            Npcs?.Close(npcEntityId);
+        }
+
+        private void CloseNpcTransport(long npcEntityId)
+        {
+            if (!_transportNpcStates.TryGetValue(npcEntityId, out var state))
+                return;
+
+            EquiEntityControllerComponent controller = null;
+            if (Npcs != null && Npcs.Npcs.ContainsKey(npcEntityId))
+            {
+                var npc = Npcs.Npcs[npcEntityId];
+                controller = npc?.Entity?.Components.Get<EquiEntityControllerComponent>();
+            }
+            if (controller?.Controlled != null)
+                controller.ReleaseControl();
+
+            _transportNpcStates.Remove(npcEntityId);
+            if (state.OwnedByNpc)
+                MyEntities.GetEntityByIdOrDefault(state.VehicleEntityId)?.Close();
+        }
+
+        private void CloseAllNpcTransports()
+        {
+            _staleCoverReservationIds.Clear();
+            foreach (var entry in _transportNpcStates)
+                _staleCoverReservationIds.Add(entry.Key);
+
+            for (var i = 0; i < _staleCoverReservationIds.Count; i++)
+                CloseNpcTransport(_staleCoverReservationIds[i]);
+            _staleCoverReservationIds.Clear();
+        }
+
         internal bool TryGetTransportMode(SiNpc npc, out SiSquadTransportMode mode)
         {
             mode = SiSquadTransportMode.None;
@@ -22,23 +167,32 @@ namespace Si.UtilityAI
 
             SiAssignedNpc assignment;
             if (!Squads.TryGetAssignment(npc.EntityId, out assignment)
-                || assignment.Leader.Kind != SiSquadLeaderKind.Player)
+                || !_transportNpcStates.TryGetValue(npc.EntityId, out var transportState))
                 return false;
 
-            SiSquadCommandState state;
-            if (!_squadOrders.TryGetValue(assignment.Leader.Id, out state)
-                || state.TransportMode == SiSquadTransportMode.None
-                || state.TransportVehicleEntityId == 0)
+            SiSquadCommandState state = null;
+            if (assignment.Leader.Kind == SiSquadLeaderKind.Player
+                && (!_squadOrders.TryGetValue(assignment.Leader.Id, out state)
+                    || state.TransportMode == SiSquadTransportMode.None
+                    || state.TransportVehicleEntityId == 0))
                 return false;
 
-            if (MyEntities.GetEntityByIdOrDefault(state.TransportVehicleEntityId) == null)
+            var vehicleEntityId = assignment.Leader.Kind == SiSquadLeaderKind.Player
+                ? state.TransportVehicleEntityId
+                : transportState.VehicleEntityId;
+            if (MyEntities.GetEntityByIdOrDefault(vehicleEntityId) == null)
             {
-                state.TransportMode = SiSquadTransportMode.None;
-                state.TransportVehicleEntityId = 0;
+                if (state != null)
+                {
+                    state.TransportMode = SiSquadTransportMode.None;
+                    state.TransportVehicleEntityId = 0;
+                }
                 return false;
             }
 
-            mode = state.TransportMode;
+            mode = assignment.Leader.Kind == SiSquadLeaderKind.Ai
+                ? SiSquadTransportMode.Mount
+                : state.TransportMode;
             return true;
         }
 
@@ -52,8 +206,13 @@ namespace Si.UtilityAI
 
             SiAssignedNpc assignment;
             if (!Squads.TryGetAssignment(npc.EntityId, out assignment)
-                || assignment.Leader.Kind != SiSquadLeaderKind.Player)
+                || (assignment.Leader.Kind != SiSquadLeaderKind.Player
+                    && assignment.Leader.Kind != SiSquadLeaderKind.Ai))
                 return false;
+
+            if (assignment.Leader.Kind == SiSquadLeaderKind.Ai)
+                return mode == SiSquadTransportMode.Mount
+                       && _transportNpcStates.ContainsKey(npc.EntityId);
 
             if (!_squadOrders.TryGetValue(assignment.Leader.Id, out var state)
                 || state == null
@@ -85,13 +244,17 @@ namespace Si.UtilityAI
 
             SiAssignedNpc assignment;
             if (!Squads.TryGetAssignment(npc.EntityId, out assignment)
-                || assignment.Leader.Kind != SiSquadLeaderKind.Player)
+                || (assignment.Leader.Kind != SiSquadLeaderKind.Player
+                    && assignment.Leader.Kind != SiSquadLeaderKind.Ai))
                 return false;
 
-            SiSquadCommandState order;
-            if (!_squadOrders.TryGetValue(assignment.Leader.Id, out order)
-                || order.TransportMode == SiSquadTransportMode.None
-                || order.TransportVehicleEntityId == 0)
+            if (assignment.Leader.Kind == SiSquadLeaderKind.Player
+                && (!_squadOrders.TryGetValue(assignment.Leader.Id, out var order)
+                    || order.TransportMode == SiSquadTransportMode.None
+                    || order.TransportVehicleEntityId == 0))
+                return false;
+
+            if (!_transportNpcStates.ContainsKey(npc.EntityId))
                 return false;
 
             if (!_transportNpcStates.TryGetValue(npc.EntityId, out var state)
@@ -134,14 +297,23 @@ namespace Si.UtilityAI
 
             SiAssignedNpc assignment;
             if (!Squads.TryGetAssignment(npc.EntityId, out assignment)
-                || assignment.Leader.Kind != SiSquadLeaderKind.Player)
+                || (assignment.Leader.Kind != SiSquadLeaderKind.Player
+                    && assignment.Leader.Kind != SiSquadLeaderKind.Ai))
                 return false;
 
-            SiSquadCommandState order;
-            if (!_squadOrders.TryGetValue(assignment.Leader.Id, out order)
-                || order.TransportMode != SiSquadTransportMode.Mount
-                || MyPlayers.Static == null)
+            if (assignment.Leader.Kind == SiSquadLeaderKind.Player
+                && (!_squadOrders.TryGetValue(assignment.Leader.Id, out var order)
+                    || order.TransportMode != SiSquadTransportMode.Mount
+                    || MyPlayers.Static == null))
                 return false;
+
+            if (assignment.Leader.Kind == SiSquadLeaderKind.Ai)
+            {
+                if (!Npcs.Npcs.TryGetValue(assignment.Leader.Id, out var leaderNpc))
+                    return false;
+
+                return TryGetHorseControls(leaderNpc?.Entity, out throttle, out heading);
+            }
 
             foreach (var entry in MyPlayers.Static.GetAllPlayers())
             {
@@ -150,18 +322,29 @@ namespace Si.UtilityAI
                     continue;
 
                 var controlledEntity = player.ControlledEntity as MyEntity;
-                var seat = controlledEntity?.Components.Get<EquiEntityControllerComponent>()?.Controlled;
-                var horse = seat?.Controllable?.Entity?.Components.Get<MyPAX_Horse>();
-                if (horse == null)
-                    return false;
-
-                throttle = horse.Throttle;
-                // PAX applies positive horse throttle along WorldMatrix.Backward.
-                heading = seat.Controllable.Entity.WorldMatrix.Backward;
-                return true;
+                return TryGetHorseControls(controlledEntity, out throttle, out heading);
             }
 
             return false;
+        }
+
+        private static bool TryGetHorseControls(
+            MyEntity rider,
+            out float throttle,
+            out Vector3D heading)
+        {
+            throttle = 0;
+            heading = Vector3D.Zero;
+            var seat = rider?.Components.Get<EquiEntityControllerComponent>()?.Controlled;
+            var horseEntity = seat?.Controllable?.Entity;
+            var horse = horseEntity?.Components.Get<MyPAX_Horse>();
+            if (horse == null || horseEntity == null)
+                return false;
+
+            throttle = horse.Throttle;
+            // PAX applies positive horse throttle along WorldMatrix.Backward.
+            heading = horseEntity.WorldMatrix.Backward;
+            return true;
         }
 
         internal void RecordTransportExitPosition(SiNpc npc, in Vector3D worldPosition)
@@ -319,7 +502,7 @@ namespace Si.UtilityAI
 
             foreach (var npc in Squads.GetLeaderNpcs(Npcs, leaderIdentityId))
                 if (npc != null)
-                    _transportNpcStates.Remove(npc.EntityId);
+                    CloseNpcTransport(npc.EntityId);
         }
 
         private void ReleaseLeaderTransportSeats(long leaderIdentityId)

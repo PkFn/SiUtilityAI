@@ -125,12 +125,18 @@ namespace Si.UtilityAI
         public string WebbingSubtype { get; private set; }
         public bool IsParatrooperSpawn { get; private set; }
         public bool IsEnemySpawn { get; private set; }
+        public bool IsMountedSpawn { get; private set; }
 
-        internal void SetSpawnMetadata(string webbingSubtype, bool isParatrooper, bool isEnemy)
+        internal void SetSpawnMetadata(
+            string webbingSubtype,
+            bool isParatrooper,
+            bool isEnemy,
+            bool isMounted = false)
         {
             WebbingSubtype = string.IsNullOrWhiteSpace(webbingSubtype) ? null : webbingSubtype.Trim();
             IsParatrooperSpawn = isParatrooper;
             IsEnemySpawn = isEnemy;
+            IsMountedSpawn = isMounted;
         }
     }
 }

@@ -774,11 +774,13 @@ namespace Si.UtilityAI
                 return false;
 
             var mover = npc as ISiWaypointMover;
-            if (mover == null || !mover.HasWaypoint)
-                return false;
+            if (mover != null && mover.HasWaypoint)
+            {
+                waypoint = mover.Waypoint;
+                return true;
+            }
 
-            waypoint = mover.Waypoint;
-            return true;
+            return SiNpcSessionComponent.Instance?.TryGetAiSquadMoveTarget(leader, out waypoint) == true;
         }
 
         private static bool ShouldShareLocationOnMap(

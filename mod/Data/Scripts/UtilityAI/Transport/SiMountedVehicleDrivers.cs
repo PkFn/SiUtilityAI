@@ -177,7 +177,6 @@ namespace Si.UtilityAI
             var steeringLateral = Vector3D.Dot(steeringDirection, right);
             var steeringForwardAlignment = Vector3D.Dot(steeringDirection, forward);
 
-            var withinHysteresis = distance <= vehicleSettings.PaxHorseThrottleHysteresisRadius;
             var aheadOfCheckpoint = forwardAlignment < 0;
             // Always steer toward the offset target.  This keeps a close
             // follower moving through its formation point instead of merely
@@ -185,7 +184,8 @@ namespace Si.UtilityAI
             var steering = SteeringToward(steeringLateral, steeringForwardAlignment, settings);
 
             float desiredThrottle = leaderThrottle;
-            float normHysteresis = (float)MathHelper.Clamp(distance / vehicleSettings.PaxHorseThrottleHysteresisRadius, 0.0f, 1.0f);
+            var hysteresisRadius = Math.Max(0.1f, vehicleSettings.PaxHorseThrottleHysteresisRadius);
+            float normHysteresis = (float)MathHelper.Clamp(distance / hysteresisRadius, 0.0f, 1.0f);
 
             if (aheadOfCheckpoint)
             {

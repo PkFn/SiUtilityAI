@@ -109,7 +109,8 @@ namespace Si.UtilityAI
             var request = new SiNpcSpawnRequest(
                 saved.WebbingSubtype,
                 saved.IsParatrooper,
-                saved.IsEnemy);
+                saved.IsEnemy,
+                saved.IsMounted);
             SiNpc npc;
             if (!Npcs.TrySpawnConfigured(
                     SiNpcManager.SoldierArchetype,
@@ -311,6 +312,7 @@ namespace Si.UtilityAI
                 WebbingSubtype = dataDrivenNpc?.WebbingSubtype,
                 IsParatrooper = dataDrivenNpc?.IsParatrooperSpawn ?? false,
                 IsEnemy = dataDrivenNpc?.IsEnemySpawn ?? false,
+                IsMounted = dataDrivenNpc?.IsMountedSpawn ?? false,
                 Transform = new MyPositionAndOrientation(npc.Transform),
                 HasWaypoint = mover?.HasWaypoint ?? false,
                 Waypoint = (SerializableVector3D)(mover?.Waypoint ?? Vector3D.Zero),
@@ -329,6 +331,7 @@ namespace Si.UtilityAI
                 HasTransportExitLocalPosition = transportState?.HasExitLocalPosition ?? false,
                 TransportExitLocalPosition = (SerializableVector3D)(transportState?.ExitLocalPosition ?? Vector3D.Zero),
                 WasInTransportSeat = _instance?.IsNpcMountedInAssignedTransportSeat(npc, transportState) ?? false,
+                OwnedTransportVehicle = transportState?.OwnedByNpc ?? false,
             };
         }
 
@@ -347,6 +350,7 @@ namespace Si.UtilityAI
                 VehicleEntityId = saved.TransportVehicleEntityId,
                 SeatEntityId = saved.SeatEntityId,
                 SeatSlotName = saved.SeatSlotName,
+                OwnedByNpc = saved.OwnedTransportVehicle,
                 HasExitLocalPosition = saved.HasTransportExitLocalPosition,
                 ExitLocalPosition = saved.TransportExitLocalPosition,
             };
@@ -432,6 +436,7 @@ namespace Si.UtilityAI
                 WebbingSubtype = dataDrivenNpc?.WebbingSubtype,
                 IsParatrooper = dataDrivenNpc?.IsParatrooperSpawn ?? false,
                 IsEnemy = dataDrivenNpc?.IsEnemySpawn ?? false,
+                IsMounted = dataDrivenNpc?.IsMountedSpawn ?? false,
                 Transform = npc.Transform,
                 HasWaypoint = mover?.HasWaypoint ?? false,
                 Waypoint = mover?.Waypoint ?? Vector3D.Zero,
@@ -715,7 +720,8 @@ namespace Si.UtilityAI
             var request = new SiNpcSpawnRequest(
                 snapshot.WebbingSubtype,
                 snapshot.IsParatrooper,
-                snapshot.IsEnemy);
+                snapshot.IsEnemy,
+                snapshot.IsMounted);
             string failure;
             if (!ApplySpawnRequest(npc, request, out failure))
                 return false;
@@ -807,17 +813,21 @@ namespace Si.UtilityAI
         }
 
         [Event, Reliable, Server]
-        private static void RequestAdminSpawnServer(string webbingSubtype, bool isParatrooper, bool isEnemy)
+        private static void RequestAdminSpawnServer(
+            string webbingSubtype,
+            bool isParatrooper,
+            bool isMounted,
+            bool isEnemy)
         {
             var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(MyEventContext.Current.Sender.Value, 0));
-            _instance?.ExecuteAdminSpawn(player, webbingSubtype, isParatrooper, isEnemy);
+            _instance?.ExecuteAdminSpawn(player, webbingSubtype, isParatrooper, isMounted, isEnemy);
         }
 
         [Event, Reliable, Server]
-        private static void RequestAdminSpawnSquadServer(string presetSubtype, bool isEnemy)
+        private static void RequestAdminSpawnSquadServer(string presetSubtype, bool isMounted, bool isEnemy)
         {
             var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(MyEventContext.Current.Sender.Value, 0));
-            _instance?.ExecuteAdminSpawnSquad(player, presetSubtype, isEnemy);
+            _instance?.ExecuteAdminSpawnSquad(player, presetSubtype, isMounted, isEnemy);
         }
 
         [Event, Reliable, Server]

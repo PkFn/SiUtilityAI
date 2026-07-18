@@ -16,6 +16,7 @@ namespace Si.UtilityAI
     {
         private static readonly MyStringId Webbings = MyStringId.GetOrCompute("AdminWebbings");
         private static readonly MyStringId SpawnParatrooper = MyStringId.GetOrCompute("AdminSpawnParatrooper");
+        private static readonly MyStringId SpawnMounted = MyStringId.GetOrCompute("AdminSpawnMounted");
         private static readonly MyStringId SpawnEnemy = MyStringId.GetOrCompute("AdminSpawnEnemy");
         private static readonly MyStringId Squads = MyStringId.GetOrCompute("AdminSquads");
         private static readonly MyStringId SquadEnemy = MyStringId.GetOrCompute("AdminSquadEnemy");
@@ -29,6 +30,7 @@ namespace Si.UtilityAI
         private string _selectedWebbing;
         private string _selectedSquad;
         private bool _spawnParatrooper;
+        private bool _spawnMounted;
         private bool _spawnEnemy;
         private bool _squadEnemy;
         private bool _spottingEnabled;
@@ -49,6 +51,9 @@ namespace Si.UtilityAI
             m_dataSources.Add(SpawnParatrooper, SimpleDataSources.Simple(
                 () => _spawnParatrooper,
                 value => _spawnParatrooper = value));
+            m_dataSources.Add(SpawnMounted, SimpleDataSources.Simple(
+                () => _spawnMounted,
+                value => _spawnMounted = value));
             m_dataSources.Add(SpawnEnemy, SimpleDataSources.Simple(
                 () => _spawnEnemy,
                 value => _spawnEnemy = value));
@@ -88,12 +93,12 @@ namespace Si.UtilityAI
 
         public void AdminSpawn()
         {
-            SiNpcSessionComponent.Instance?.RequestAdminSpawn(SelectedWebbing, _spawnParatrooper, _spawnEnemy);
+            SiNpcSessionComponent.Instance?.RequestAdminSpawn(SelectedWebbing, _spawnParatrooper, _spawnMounted, _spawnEnemy);
         }
 
         public void AdminSpawnSquad()
         {
-            SiNpcSessionComponent.Instance?.RequestAdminSpawnSquad(SelectedSquad, _squadEnemy);
+            SiNpcSessionComponent.Instance?.RequestAdminSpawnSquad(SelectedSquad, _spawnMounted, _squadEnemy);
         }
 
         public void AdminRearm()

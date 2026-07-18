@@ -459,7 +459,7 @@ namespace Si.UtilityAI
             }
 
             for (var i = 0; i < _staleCoverReservationIds.Count; i++)
-                _transportNpcStates.Remove(_staleCoverReservationIds[i]);
+                CloseNpcTransport(_staleCoverReservationIds[i]);
             _staleCoverReservationIds.Clear();
         }
 
@@ -893,8 +893,20 @@ namespace Si.UtilityAI
             {
                 _aiSquadMoveOrders.Remove(leader);
                 Npcs.TryClearWaypoint(leader.Id);
+                ClearCachedPosition(leader.Id, SiNpcCachedPositionKind.Formation);
                 ClearSquadMovementSpeed(leaderNpc);
                 return false;
+            }
+
+            if (IsTransportMountOrder(leaderNpc))
+            {
+                // Mounted leaders are driven by the transport behavior.  A
+                // character waypoint would be cleared by the seat behavior
+                // and would leave the horse with no checkpoint to steer to.
+                CacheFormationPosition(leaderNpc, state.Target);
+                Npcs.TryClearWaypoint(leader.Id);
+                ClearSquadMovementSpeed(leaderNpc);
+                return true;
             }
 
             var refreshDistanceSquared = refreshDistance * refreshDistance;
@@ -1030,6 +1042,18 @@ namespace Si.UtilityAI
                 npc?.EntityId ?? 0,
                 SiNpcCachedPositionKind.Formation,
                 out target);
+        }
+
+        internal bool TryGetAiSquadMoveTarget(SiSquadLeaderKey leader, out Vector3D target)
+        {
+            target = Vector3D.Zero;
+            if (leader.Kind != SiSquadLeaderKind.Ai
+                || !_aiSquadMoveOrders.TryGetValue(leader, out var state)
+                || state == null)
+                return false;
+
+            target = state.Target;
+            return true;
         }
 
         private bool IsTransportMountOrder(SiNpc npc)

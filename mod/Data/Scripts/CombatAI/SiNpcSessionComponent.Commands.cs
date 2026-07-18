@@ -182,7 +182,11 @@ namespace Si.UtilityAI
         internal bool AdminSpottingEnabled => _spottingEnabled;
         internal bool AdminGameLogEnabled => SiGameLog.Enabled;
 
-        internal void RequestAdminSpawn(string webbingSubtype, bool isParatrooper, bool isEnemy)
+        internal void RequestAdminSpawn(
+            string webbingSubtype,
+            bool isParatrooper,
+            bool isMounted,
+            bool isEnemy)
         {
             if (string.IsNullOrWhiteSpace(webbingSubtype))
                 return;
@@ -193,14 +197,15 @@ namespace Si.UtilityAI
                     x => RequestAdminSpawnServer,
                     webbingSubtype,
                     isParatrooper,
+                    isMounted,
                     isEnemy);
                 return;
             }
 
-            ExecuteAdminSpawn(LocalPlayer(), webbingSubtype, isParatrooper, isEnemy);
+            ExecuteAdminSpawn(LocalPlayer(), webbingSubtype, isParatrooper, isMounted, isEnemy);
         }
 
-        internal void RequestAdminSpawnSquad(string presetSubtype, bool isEnemy)
+        internal void RequestAdminSpawnSquad(string presetSubtype, bool isMounted, bool isEnemy)
         {
             if (string.IsNullOrWhiteSpace(presetSubtype))
                 return;
@@ -210,11 +215,12 @@ namespace Si.UtilityAI
                 MyMultiplayerModApi.Static.RaiseStaticEvent(
                     x => RequestAdminSpawnSquadServer,
                     presetSubtype,
+                    isMounted,
                     isEnemy);
                 return;
             }
 
-            ExecuteAdminSpawnSquad(LocalPlayer(), presetSubtype, isEnemy);
+            ExecuteAdminSpawnSquad(LocalPlayer(), presetSubtype, isMounted, isEnemy);
         }
 
         internal void RequestAdminRearm()
@@ -265,7 +271,12 @@ namespace Si.UtilityAI
             ExecuteAdminSetGameLog(LocalPlayer(), enabled);
         }
 
-        private void ExecuteAdminSpawn(MyPlayer player, string webbingSubtype, bool isParatrooper, bool isEnemy)
+        private void ExecuteAdminSpawn(
+            MyPlayer player,
+            string webbingSubtype,
+            bool isParatrooper,
+            bool isMounted,
+            bool isEnemy)
         {
             if (player == null
                 || string.IsNullOrWhiteSpace(webbingSubtype)
@@ -273,10 +284,14 @@ namespace Si.UtilityAI
                 || !CanManageNpcs(player.Id.SteamId))
                 return;
 
-            SpawnAdminNpc(player.Id.SteamId, new SiNpcSpawnRequest(webbingSubtype, isParatrooper, isEnemy));
+            SpawnAdminNpc(player.Id.SteamId, new SiNpcSpawnRequest(webbingSubtype, isParatrooper, isEnemy, isMounted));
         }
 
-        private void ExecuteAdminSpawnSquad(MyPlayer player, string presetSubtype, bool isEnemy)
+        private void ExecuteAdminSpawnSquad(
+            MyPlayer player,
+            string presetSubtype,
+            bool isMounted,
+            bool isEnemy)
         {
             if (player == null
                 || string.IsNullOrWhiteSpace(presetSubtype)
@@ -284,7 +299,7 @@ namespace Si.UtilityAI
                 || !CanManageNpcs(player.Id.SteamId))
                 return;
 
-            SpawnAdminSquad(player.Id.SteamId, presetSubtype, isEnemy);
+            SpawnAdminSquad(player.Id.SteamId, presetSubtype, isMounted, isEnemy);
         }
 
         private void ExecuteAdminRearm(MyPlayer player)
@@ -302,6 +317,7 @@ namespace Si.UtilityAI
                 return;
 
             var removed = Npcs.Npcs.Count;
+            CloseAllNpcTransports();
             Npcs.CloseAll();
             _squadOrders.Clear();
             _squadCombatStates.Clear();
@@ -705,7 +721,8 @@ namespace Si.UtilityAI
             dataDrivenNpc?.SetSpawnMetadata(
                 resolvedWebbingSubtype,
                 loadout.IsParatrooper || request.IsParatrooper,
-                request.IsEnemy);
+                request.IsEnemy,
+                request.IsMounted);
             return true;
         }
 
@@ -732,15 +749,20 @@ namespace Si.UtilityAI
             }
 
             if (ApplySpawnRequest(npc, request, out failure)
-                && ConfigureSpawnedNpc(request, npc, player, out failure))
+                && ConfigureSpawnedNpc(request, npc, player, out failure)
+                && (!request.IsMounted || TryPrepareMountedNpc(npc, out failure)))
                 return true;
 
-            Npcs.Close(entityId);
+            CloseNpcWithOwnedTransport(entityId);
             npc = null;
             return false;
         }
 
-        private bool SpawnAdminSquad(ulong sender, string presetSubtype, bool isEnemy)
+        private bool SpawnAdminSquad(
+            ulong sender,
+            string presetSubtype,
+            bool isMounted,
+            bool isEnemy)
         {
             if (!SiNpcSquadPresetCatalog.TryResolvePreset(
                     presetSubtype,
@@ -763,7 +785,8 @@ namespace Si.UtilityAI
                 var request = new SiNpcSpawnRequest(
                     members[i].WebbingSubtype,
                     members[i].IsParatrooper,
-                    isEnemy);
+                    isEnemy,
+                    isMounted);
                 if (!TrySpawnIndependentAiSquadMember(
                         player,
                         CreateSpawnTransform(playerPosition.WorldMatrix, i),
@@ -812,9 +835,10 @@ namespace Si.UtilityAI
             }
 
             if (!ApplySpawnRequest(npc, request, out failure)
-                || !ConfigureIndependentAiSquadMember(request, npc, player, ref squadContext, out failure))
+                || !ConfigureIndependentAiSquadMember(request, npc, player, ref squadContext, out failure)
+                || (request.IsMounted && !TryPrepareMountedNpc(npc, out failure)))
             {
-                Npcs.Close(entityId);
+                CloseNpcWithOwnedTransport(entityId);
                 npc = null;
                 return false;
             }
@@ -910,7 +934,7 @@ namespace Si.UtilityAI
                 return;
 
             for (var i = 0; i < entityIds.Count; i++)
-                _instance.Npcs.Close(entityIds[i]);
+                _instance.CloseNpcWithOwnedTransport(entityIds[i]);
         }
 
         private bool ConfigureFriendlyTrooper(SiNpc npc, MyPlayer player, out string failure)
