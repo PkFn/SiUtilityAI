@@ -1,6 +1,7 @@
 using System;
 using Pax.Cannons;
 using Sandbox.Game.EntityComponents.Character;
+using Sandbox.Game.Inventory;
 using Sandbox.ModAPI;
 using VRage.Components;
 using VRage.Game;
@@ -20,6 +21,9 @@ namespace Si.UtilityAI
     public partial class SiNpcRangedWeaponComponent : MyEntityComponent
     {
         private const long FireIntentGraceMilliseconds = 500;
+        private const long InitialEquipmentRetryMilliseconds = 100;
+        private const long EquipmentIntegrityCheckMilliseconds = 5000;
+        private const long HeldWeaponDuplicateCleanupDelayMilliseconds = 500;
 
         private SiNpcRangedWeaponComponentDefinition _definition;
         private SiNpcRangedWeaponComponentDefinition _runtimeDefinition;
@@ -30,6 +34,8 @@ namespace Si.UtilityAI
         private long _lastFireIntentTime = long.MinValue;
         private bool _scheduledFireQueued;
         private bool _maintenanceQueued;
+        private bool _heldWeaponEquipQueued;
+        private bool _heldWeaponDuplicateCleanupQueued;
         private ReloadMaintenanceState _reloadMaintenanceState;
         private AmmoSpeechState _lastAmmoSpeechState;
         private MyEntity _fireIntentTarget;
@@ -85,7 +91,10 @@ namespace Si.UtilityAI
             _runtimeHeldItemFallback = runtimeDefinition.HeldItem.HasValue ? null : heldItemFallback;
             ResetState();
             if (Entity != null && Entity.InScene && (MyAPIGateway.Multiplayer == null || MyAPIGateway.Multiplayer.IsServer))
-                AddScheduledCallback(EnsureHeldWeaponEquipped, 1);
+            {
+                QueueHeldWeaponEquipmentCheck(1);
+                QueueHeldWeaponDuplicateCleanup();
+            }
             return true;
         }
 
@@ -104,7 +113,8 @@ namespace Si.UtilityAI
             if (MyAPIGateway.Multiplayer != null && !MyAPIGateway.Multiplayer.IsServer)
                 return;
 
-            AddScheduledCallback(EnsureHeldWeaponEquipped, 1);
+            QueueHeldWeaponEquipmentCheck(1);
+            QueueHeldWeaponDuplicateCleanup();
         }
 
         internal void ResetState()
@@ -177,6 +187,18 @@ namespace Si.UtilityAI
         {
             if (!HeldItemId.HasValue || Entity == null)
                 return false;
+
+            if (!Definition.HeldItem.HasValue && _runtimeHeldItemFallback.HasValue)
+            {
+                string ignored;
+                var inventory = SiNpcEquipmentHelper.FindInventory(Entity, out ignored);
+                var item = inventory?.FindItem(HeldItemId.Value);
+                if (item == null)
+                    return false;
+
+                string existingItemFailure;
+                return SiNpcEquipmentHelper.TryEquipInventoryItem(Entity, item, out existingItemFailure, 2);
+            }
 
             string failure;
             return SiNpcEquipmentHelper.TryEnsureEquipmentItemEquipped(
@@ -415,6 +437,7 @@ namespace Si.UtilityAI
         [Update(false)]
         private void EnsureHeldWeaponEquipped(long _)
         {
+            _heldWeaponEquipQueued = false;
             if (Entity == null || Entity.Closed || Entity.MarkedForClose || !HeldItemId.HasValue)
                 return;
 
@@ -423,12 +446,96 @@ namespace Si.UtilityAI
             var inventory = SiNpcEquipmentHelper.FindInventory(Entity, out ignored);
             var equipment = Entity.Components.Get<Sandbox.Entities.Components.MyEntityEquipmentComponent>();
             if (inventory == null)
+            {
+                QueueHeldWeaponEquipmentCheck(InitialEquipmentRetryMilliseconds);
                 return;
+            }
 
             if (SiNpcEquipmentHelper.IsEquipmentItemEquipped(equipment, inventory, heldItemId))
+            {
+                QueueHeldWeaponEquipmentCheck(EquipmentIntegrityCheckMilliseconds);
                 return;
+            }
 
             TryEquipHeldWeapon();
+            QueueHeldWeaponEquipmentCheck(
+                SiNpcEquipmentHelper.IsEquipmentItemEquipped(equipment, inventory, heldItemId)
+                    ? EquipmentIntegrityCheckMilliseconds
+                    : InitialEquipmentRetryMilliseconds);
+        }
+
+        private void QueueHeldWeaponEquipmentCheck(long delayMilliseconds)
+        {
+            if (_heldWeaponEquipQueued || Entity == null || Entity.Closed || Entity.MarkedForClose)
+                return;
+
+            _heldWeaponEquipQueued = true;
+            AddScheduledCallback(EnsureHeldWeaponEquipped, delayMilliseconds);
+        }
+
+        private void QueueHeldWeaponDuplicateCleanup()
+        {
+            if (_heldWeaponDuplicateCleanupQueued || Entity == null || Entity.Closed || Entity.MarkedForClose)
+                return;
+
+            _heldWeaponDuplicateCleanupQueued = true;
+            AddScheduledCallback(RemoveUnusedHeldWeaponDuplicates, HeldWeaponDuplicateCleanupDelayMilliseconds);
+        }
+
+        [Update(false)]
+        private void RemoveUnusedHeldWeaponDuplicates(long _)
+        {
+            _heldWeaponDuplicateCleanupQueued = false;
+            if (Entity == null || Entity.Closed || Entity.MarkedForClose || !HeldItemId.HasValue)
+                return;
+
+            string ignored;
+            var inventory = SiNpcEquipmentHelper.FindInventory(Entity, out ignored);
+            var equipment = Entity.Components.Get<Sandbox.Entities.Components.MyEntityEquipmentComponent>();
+            if (inventory == null || equipment == null)
+                return;
+
+            var heldItemId = HeldItemId.Value;
+            var hasEquippedHeldItem = false;
+            for (var itemIndex = 0; itemIndex < inventory.Items.Count; itemIndex++)
+            {
+                var item = inventory.Items.ItemAt(itemIndex);
+                if (item != null
+                    && item.DefinitionId == heldItemId
+                    && IsEquippedInventoryItem(equipment, item))
+                {
+                    hasEquippedHeldItem = true;
+                    break;
+                }
+            }
+
+            if (!hasEquippedHeldItem)
+            {
+                QueueHeldWeaponDuplicateCleanup();
+                return;
+            }
+
+            for (var itemIndex = inventory.Items.Count - 1; itemIndex >= 0; itemIndex--)
+            {
+                var item = inventory.Items.ItemAt(itemIndex);
+                if (item == null || item.DefinitionId != heldItemId || IsEquippedInventoryItem(equipment, item))
+                    continue;
+
+                inventory.Remove(item);
+            }
+        }
+
+        private static bool IsEquippedInventoryItem(
+            Sandbox.Entities.Components.MyEntityEquipmentComponent equipment,
+            MyInventoryItem inventoryItem)
+        {
+            foreach (var equippedItem in equipment.EquippedItems)
+            {
+                if (equippedItem != null && equippedItem.ItemId == inventoryItem.ItemId)
+                    return true;
+            }
+
+            return false;
         }
 
         private MyPAX_HandheldGun GetHeldGunBehavior()
