@@ -17,7 +17,7 @@
   <Definition xsi:type="MyObjectBuilder_InventoryComponentDefinition">
     <Id Type="MyObjectBuilder_Inventory" Subtype="SiBaseCampWebbings" />
     <DisplayName>Webbing inventory</DisplayName>
-    <MaxItemCount>20</MaxItemCount>
+    <MaxItemCount>200</MaxItemCount>
     <MultiplierEnabled>false</MultiplierEnabled>
   </Definition>
 
