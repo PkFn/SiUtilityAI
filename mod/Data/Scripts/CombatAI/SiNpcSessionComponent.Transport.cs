@@ -85,24 +85,22 @@ namespace Si.UtilityAI
                 };
                 gridBuilder.CubeBlocks.Add(new MyObjectBuilder_CubeBlock
                 {
-                    EntityId = MyEntityIdentifier.AllocateId(),
                     SubtypeName = AdminHorseBlockSubtype,
-                    BuildPercent = 1f,
-                    IntegrityPercent = 1f,
+                    BuildPercent = 100f,
+                    IntegrityPercent = 100f,
                     Min = Vector3I.Zero,
                     BlockOrientation = new MyBlockOrientation(
                         Base6Directions.Direction.Forward,
                         Base6Directions.Direction.Up),
                 });
 
-                horse = MyEntities.CreateFromObjectBuilder(gridBuilder);
+                horse = MyEntities.CreateFromObjectBuilderAndAdd(gridBuilder);
                 if (horse == null)
                 {
-                    failure = "The PAX horse definition could not be created. Is the horse mod loaded?";
+                    failure = "The PAX horse block could not be initialized into a dynamic grid.";
                     return false;
                 }
 
-                MyEntities.Add(horse, true);
                 return true;
             }
             catch (Exception exception)
