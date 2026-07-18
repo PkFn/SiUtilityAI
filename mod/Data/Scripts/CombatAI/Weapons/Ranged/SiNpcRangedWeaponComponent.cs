@@ -35,6 +35,7 @@ namespace Si.UtilityAI
         private bool _scheduledFireQueued;
         private bool _maintenanceQueued;
         private bool _heldWeaponEquipQueued;
+        private bool _casualAmmoRestoreEnabled;
         private ReloadMaintenanceState _reloadMaintenanceState;
         private AmmoSpeechState _lastAmmoSpeechState;
         private MyEntity _fireIntentTarget;
@@ -79,7 +80,8 @@ namespace Si.UtilityAI
 
         internal bool ApplyRuntimeDefinition(
             SiNpcRangedWeaponComponentDefinition runtimeDefinition,
-            MyDefinitionId? heldItemFallback = null)
+            MyDefinitionId? heldItemFallback = null,
+            bool casualAmmoRestoreEnabled = true)
         {
             if (runtimeDefinition == null)
                 return false;
@@ -88,6 +90,7 @@ namespace Si.UtilityAI
             runtimeDefinition.ResolveWeaponBehavior();
             _runtimeDefinition = runtimeDefinition;
             _runtimeHeldItemFallback = runtimeDefinition.HeldItem.HasValue ? null : heldItemFallback;
+            _casualAmmoRestoreEnabled = casualAmmoRestoreEnabled;
             ResetState();
             if (Entity != null && Entity.InScene && (MyAPIGateway.Multiplayer == null || MyAPIGateway.Multiplayer.IsServer))
                 QueueHeldWeaponEquipmentCheck(HeldWeaponApplicationDelayMilliseconds);
@@ -99,6 +102,7 @@ namespace Si.UtilityAI
             SetAimDownSights(false);
             _runtimeDefinition = null;
             _runtimeHeldItemFallback = null;
+            _casualAmmoRestoreEnabled = false;
             ResetState();
         }
 
@@ -262,6 +266,8 @@ namespace Si.UtilityAI
             SiNpcSessionComponent.Instance?.Spotting?.ReportShot(shooter.EntityId, shooter);
             if (NeedsReloadMaintenanceAfterShot)
                 BeginReloadMaintenance();
+            else if (ShouldRestoreCasualAmmoAfterEmptyShot())
+                RestoreCasualAmmoAfterReload();
             UpdateAmmoSpeechState();
             return true;
         }

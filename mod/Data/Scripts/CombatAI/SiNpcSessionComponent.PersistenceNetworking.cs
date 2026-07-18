@@ -122,7 +122,7 @@ namespace Si.UtilityAI
             string failure;
             if (!ApplySpawnRequest(npc, request, out failure))
             {
-                Npcs.Close(saved.EntityId);
+                Npcs.Close(saved.EntityId, dropCasualLoot: false);
                 return;
             }
 
@@ -673,7 +673,7 @@ namespace Si.UtilityAI
                 return;
 
             for (var i = 0; i < entityIds.Length; i++)
-                _instance.Npcs.Close(entityIds[i]);
+                _instance.Npcs.Close(entityIds[i], dropCasualLoot: false);
         }
 
         [Event, Reliable, Broadcast]
@@ -886,6 +886,13 @@ namespace Si.UtilityAI
         {
             var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(MyEventContext.Current.Sender.Value, 0));
             _instance?.ExecuteAdminSetGameLog(player, enabled);
+        }
+
+        [Event, Reliable, Server]
+        private static void RequestAdminSetCasualModeServer(bool enabled)
+        {
+            var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(MyEventContext.Current.Sender.Value, 0));
+            _instance?.ExecuteAdminSetCasualMode(player, enabled);
         }
 
         [Event, Reliable, Server]

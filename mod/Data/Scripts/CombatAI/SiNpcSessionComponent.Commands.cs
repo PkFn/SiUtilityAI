@@ -190,6 +190,7 @@ namespace Si.UtilityAI
 
         internal bool AdminUtilityDecisionMakingEnabled => _utilityDecisionMakingEnabled;
         internal bool AdminGameLogEnabled => SiGameLog.Enabled;
+        internal bool AdminCasualModeEnabled => _casualModeEnabled;
 
         internal void RequestAdminSpawn(string webbingSubtype, bool isParatrooper, bool isEnemy)
         {
@@ -310,6 +311,19 @@ namespace Si.UtilityAI
             }
 
             ExecuteAdminSetGameLog(LocalPlayer(), enabled);
+        }
+
+        internal void RequestAdminSetCasualMode(bool enabled)
+        {
+            if (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer)
+            {
+                MyMultiplayerModApi.Static.RaiseStaticEvent(
+                    x => RequestAdminSetCasualModeServer,
+                    enabled);
+                return;
+            }
+
+            ExecuteAdminSetCasualMode(LocalPlayer(), enabled);
         }
 
         private void ExecuteAdminSpawn(MyPlayer player, string webbingSubtype, bool isParatrooper, bool isEnemy)
@@ -590,6 +604,9 @@ namespace Si.UtilityAI
             if (entity == null || entity.Closed || entity.MarkedForClose)
                 return false;
 
+            if (_instance?.CasualModeEnabled == true)
+                return DropCasualNpcWebbing(npc);
+
             var inventory = SiNpcEquipmentHelper.FindInventory(entity, out _) as MyInventory;
             if (inventory == null)
                 return false;
@@ -703,6 +720,15 @@ namespace Si.UtilityAI
 
             SiGameLog.SetEnabled(enabled);
             Respond(player.Id.SteamId, SiGameLog.StatusText());
+        }
+
+        private void ExecuteAdminSetCasualMode(MyPlayer player, bool enabled)
+        {
+            if (player == null || !CanManageNpcs(player.Id.SteamId))
+                return;
+
+            _casualModeEnabled = enabled;
+            Respond(player.Id.SteamId, $"Casual mode {(enabled ? "enabled" : "disabled")}");
         }
 
         private void SpeakPlayerCommand(MyPlayer player, SiUtilityCommandMenuCommand command)
@@ -1105,7 +1131,7 @@ namespace Si.UtilityAI
                 && ConfigureSpawnedNpc(request, npc, player, out failure))
                 return true;
 
-            Npcs.Close(entityId);
+            Npcs.Close(entityId, dropCasualLoot: false);
             npc = null;
             return false;
         }
@@ -1184,7 +1210,7 @@ namespace Si.UtilityAI
             if (!ApplySpawnRequest(npc, request, out failure)
                 || !ConfigureIndependentAiSquadMember(request, npc, player, ref squadContext, out failure))
             {
-                Npcs.Close(entityId);
+                Npcs.Close(entityId, dropCasualLoot: false);
                 npc = null;
                 return false;
             }
@@ -1280,7 +1306,7 @@ namespace Si.UtilityAI
                 return;
 
             for (var i = 0; i < entityIds.Count; i++)
-                _instance.Npcs.Close(entityIds[i]);
+                _instance.Npcs.Close(entityIds[i], dropCasualLoot: false);
         }
 
         private bool ConfigureFriendlyTrooper(SiNpc npc, MyPlayer player, out string failure)

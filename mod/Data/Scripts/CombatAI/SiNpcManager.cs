@@ -100,13 +100,13 @@ namespace Si.UtilityAI
             }
         }
 
-        public bool Close(long entityId)
+        public bool Close(long entityId, bool dropCasualLoot = true)
         {
             SiNpc npc;
             if (!_npcs.TryGetValue(entityId, out npc))
                 return false;
 
-            npc.Close();
+            npc.Close(dropCasualLoot: dropCasualLoot);
             _npcs.Remove(entityId);
             _closedNpcIds.Remove(entityId);
             return true;
@@ -286,10 +286,10 @@ namespace Si.UtilityAI
                 npc.ProcessBehaviorUpdate();
         }
 
-        public void CloseAll(bool deleteDiplomaticIdentities = true)
+        public void CloseAll(bool deleteDiplomaticIdentities = true, bool dropCasualLoot = true)
         {
             foreach (var npc in _npcs.Values)
-                npc.Close(deleteDiplomaticIdentities);
+                npc.Close(deleteDiplomaticIdentities, dropCasualLoot);
             _npcs.Clear();
             _behaviorNpcIds.Clear();
             _behaviorNpcIndex = 0;

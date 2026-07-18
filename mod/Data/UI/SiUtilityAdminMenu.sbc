@@ -28,7 +28,7 @@
         <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityAdminMenuRoot" />
         <Title>Si Utility AI Admin</Title>
         <Columns>4</Columns>
-        <Rows>2</Rows>
+        <Rows>3</Rows>
         <ButtonStyleId>ButtonListWide</ButtonStyleId>
         <Buttons>
             <Button StyleName="ContextButtonSliced"><Text>Spawn Trooper</Text><Tooltip>Choose a loaded webbing and spawn one NPC.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuSpawn" /></Action></Button>
@@ -39,6 +39,7 @@
             <Button StyleName="ContextButtonSliced"><Text>Clear NPCs</Text><Tooltip>Remove every custom NPC and squad assignment.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuClear" /></Action></Button>
             <Button StyleName="ContextButtonSliced"><Text>Utility AI</Text><Tooltip>Enable or disable UtilityAI decision making.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuUtilityAi" /></Action></Button>
             <Button StyleName="ContextButtonSliced"><Text>Game Log</Text><Tooltip>Enable or disable Si Utility AI game logging.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuGameLog" /></Action></Button>
+            <Button StyleName="ContextButtonSliced"><Text>Settings</Text><Tooltip>Change persistent gameplay rules for custom NPCs.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuSettings" /></Action></Button>
         </Buttons>
     </Definition>
 
@@ -145,5 +146,11 @@
         <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuGameLog" />
         <Title>Si Utility AI Game Log</Title><Width>650</Width><AutoCommit>true</AutoCommit>
         <Checkbox DataId="AdminGameLog"><Text>Enabled</Text><Tooltip>Write Si Utility AI diagnostics to the game log.</Tooltip></Checkbox>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+        <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuSettings" />
+        <Title>Gameplay Settings</Title><Width>800</Width><AutoCommit>true</AutoCommit>
+        <Checkbox DataId="AdminCasualMode"><Text>Casual mode</Text><Tooltip>Unlimited firearm ammunition: reloads add ammunition and replace spent magazines. Grenades and bandages remain limited, AT ammunition is not restored, and removed or dead bots drop only one intact webbing.</Tooltip></Checkbox>
     </Definition>
 </Definitions>

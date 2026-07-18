@@ -25,6 +25,7 @@ namespace Si.UtilityAI
         private static readonly MyStringId SquadRoster = MyStringId.GetOrCompute("AdminSquadRoster");
         private static readonly MyStringId UtilityDecisionMaking = MyStringId.GetOrCompute("AdminUtilityDecisionMaking");
         private static readonly MyStringId GameLog = MyStringId.GetOrCompute("AdminGameLog");
+        private static readonly MyStringId CasualMode = MyStringId.GetOrCompute("AdminCasualMode");
 
         private string _selectedWebbing;
         private string _selectedSquad;
@@ -33,12 +34,14 @@ namespace Si.UtilityAI
         private bool _squadEnemy;
         private bool _utilityDecisionMakingEnabled;
         private bool _gameLogEnabled;
+        private bool _casualModeEnabled;
         private long _selectedSquadMembersVersion;
 
         public override void Init(object[] contextParams)
         {
             _utilityDecisionMakingEnabled = SiNpcSessionComponent.Instance?.AdminUtilityDecisionMakingEnabled ?? false;
             _gameLogEnabled = SiNpcSessionComponent.Instance?.AdminGameLogEnabled ?? false;
+            _casualModeEnabled = SiNpcSessionComponent.Instance?.AdminCasualModeEnabled ?? false;
 
             m_dataSources.Add(Webbings, new DynamicListDataSource<string>(
                 SiNpcTrooperCatalog.GetKnownWebbings,
@@ -84,6 +87,9 @@ namespace Si.UtilityAI
             m_dataSources.Add(GameLog, SimpleDataSources.Simple(
                 () => _gameLogEnabled,
                 SetGameLog));
+            m_dataSources.Add(CasualMode, SimpleDataSources.Simple(
+                () => _casualModeEnabled,
+                SetCasualMode));
         }
 
         public void AdminSpawn()
@@ -116,6 +122,12 @@ namespace Si.UtilityAI
         {
             _gameLogEnabled = enabled;
             SiNpcSessionComponent.Instance?.RequestAdminSetGameLog(enabled);
+        }
+
+        private void SetCasualMode(bool enabled)
+        {
+            _casualModeEnabled = enabled;
+            SiNpcSessionComponent.Instance?.RequestAdminSetCasualMode(enabled);
         }
 
         private void SetSelectedSquad(string squadSubtype)

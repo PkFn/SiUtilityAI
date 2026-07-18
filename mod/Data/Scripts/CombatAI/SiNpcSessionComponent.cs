@@ -77,6 +77,7 @@ namespace Si.UtilityAI
         private bool _showTroopMarkers;
         private bool _showSquadChatter;
         private bool _utilityDecisionMakingEnabled = true;
+        private bool _casualModeEnabled;
         private readonly SiGameLog _log = new SiGameLog(nameof(SiNpcSessionComponent), "[SiCover]");
         private long _lastCoverCleanupLogTime = long.MinValue;
         private bool _restoreSavedStatePending;
@@ -89,6 +90,7 @@ namespace Si.UtilityAI
         internal SiMarkerSystemDefinition MarkerSettings { get; private set; }
         internal bool ShowSquadChatter => _showSquadChatter;
         internal bool UtilityDecisionMakingEnabled => _utilityDecisionMakingEnabled;
+        internal bool CasualModeEnabled => _casualModeEnabled;
 
         protected override void OnLoad()
         {
@@ -126,7 +128,7 @@ namespace Si.UtilityAI
                 Npcs.NpcSpoke -= OnNpcSpoke;
             }
 
-            Npcs?.CloseAll(false);
+            Npcs?.CloseAll(false, false);
             Npcs = null;
             _squadOrders.Clear();
             _squadCombatStates.Clear();
@@ -207,7 +209,8 @@ namespace Si.UtilityAI
         }
 
         protected override bool IsSerialized =>
-            (Npcs != null && Npcs.Npcs.Count > 0)
+            _casualModeEnabled
+            || (Npcs != null && Npcs.Npcs.Count > 0)
             || (_savedNpcs != null && _savedNpcs.Count > 0)
             || _squadOrders.Count > 0
             || (_savedSquadOrders != null && _savedSquadOrders.Count > 0)
@@ -230,6 +233,7 @@ namespace Si.UtilityAI
             ob.AiSquadMoveOrders = aiMoveOrders != null && aiMoveOrders.Count > 0
                 ? aiMoveOrders
                 : null;
+            ob.CasualModeEnabled = _casualModeEnabled;
             return ob;
         }
 
@@ -240,6 +244,7 @@ namespace Si.UtilityAI
             _savedNpcs = ob.Npcs;
             _savedSquadOrders = ob.SquadOrders;
             _savedAiSquadMoveOrders = ob.AiSquadMoveOrders;
+            _casualModeEnabled = ob.CasualModeEnabled;
         }
 
         internal void RequestUtilityCommand(SiUtilityCommandMenuCommand command)

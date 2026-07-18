@@ -78,7 +78,10 @@ namespace Si.UtilityAI
             {
                 _meleeWeapon?.ClearRuntimeDefinition();
                 var heldItemFallback = slot == SiNpcWeaponSlot.MainFirearm ? _primaryRangedWeaponItem : null;
-                if (_rangedWeapon == null || !_rangedWeapon.ApplyRuntimeDefinition(rangedDefinition, heldItemFallback))
+                if (_rangedWeapon == null || !_rangedWeapon.ApplyRuntimeDefinition(
+                    rangedDefinition,
+                    heldItemFallback,
+                    slot != SiNpcWeaponSlot.AtFirearm))
                     return false;
 
                 if (binding.ShootBehaviorDefinitionId.HasValue && _shootBehavior != null)

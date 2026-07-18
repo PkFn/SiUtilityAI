@@ -1,6 +1,13 @@
 using System;
 using Pax.Cannons;
+using Sandbox.Game.EntityComponents;
+using Sandbox.Game.Inventory;
 using VRage.Components;
+using VRage.Game;
+using VRage.Game.Entity;
+using VRage.Inventory;
+using VRage.ObjectBuilders;
+using VRage.ObjectBuilders.Inventory;
 using VRageMath;
 
 namespace Si.UtilityAI
@@ -50,6 +57,7 @@ namespace Si.UtilityAI
                 switch (_reloadMaintenanceState)
                 {
                     case ReloadMaintenanceState.RemovingEmptyMagazine:
+                        AddCasualReplacementMagazine();
                         if (HasCompatibleLoadedMagazine())
                         {
                             TriggerMagazineLoad();
@@ -88,6 +96,7 @@ namespace Si.UtilityAI
                         return;
 
                     case ReloadMaintenanceState.LoadingMagazine:
+                        RestoreCasualAmmoAfterReload();
                         _reloadMaintenanceState = ReloadMaintenanceState.None;
                         return;
                 }
@@ -130,6 +139,90 @@ namespace Si.UtilityAI
         private bool NeedsReloadMaintenanceNow =>
             UsesDetachableMagazineMaintenance
             && GetLoadedRoundsFromEquippedItem() <= 0;
+
+        private bool ShouldRestoreCasualAmmoAfterEmptyShot()
+        {
+            return _casualAmmoRestoreEnabled
+                   && SiNpcSessionComponent.Instance?.CasualModeEnabled == true
+                   && Definition != null
+                   && Definition.ConsumeAmmo
+                   && !UsesDetachableMagazineMaintenance
+                   && Definition.InternallyLoaded
+                   && GetLoadedRoundsFromEquippedItem() <= 0;
+        }
+
+        private void AddCasualReplacementMagazine()
+        {
+            if (!_casualAmmoRestoreEnabled
+                || SiNpcSessionComponent.Instance?.CasualModeEnabled != true
+                || !UsesDetachableMagazineMaintenance
+                || Definition.AcceptedMagazines == null)
+                return;
+
+            string ignored;
+            var inventory = SiNpcEquipmentHelper.FindInventory(Entity, out ignored);
+            if (inventory == null)
+                return;
+
+            var fallbackSubtype = (string)null;
+            for (var i = 0; i < Definition.AcceptedMagazines.Length; i++)
+            {
+                var subtype = Definition.AcceptedMagazines[i];
+                if (string.IsNullOrWhiteSpace(subtype))
+                    continue;
+
+                if (fallbackSubtype == null)
+                    fallbackSubtype = subtype;
+                if (subtype.IndexOf("_full_", StringComparison.OrdinalIgnoreCase) < 0)
+                    continue;
+
+                var magazineId = new MyDefinitionId(
+                    typeof(MyObjectBuilder_MagazineItem),
+                    subtype);
+                var magazine = MyInventoryItem.Create(magazineId, 1);
+                if (magazine == null)
+                    continue;
+
+                if (inventory.Add(magazine, MyInventoryBase.NewItemParams.ForcedInsertion))
+                    return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(fallbackSubtype))
+            {
+                var magazine = MyInventoryItem.Create(
+                    new MyDefinitionId(typeof(MyObjectBuilder_MagazineItem), fallbackSubtype),
+                    1);
+                if (magazine is MyDurableItem durable)
+                    durable.Durability = durable.GetDefinition().MaxDurability;
+                if (magazine != null)
+                    inventory.Add(magazine, MyInventoryBase.NewItemParams.ForcedInsertion);
+            }
+        }
+
+        private void RestoreCasualAmmoAfterReload()
+        {
+            if (!_casualAmmoRestoreEnabled
+                || SiNpcSessionComponent.Instance?.CasualModeEnabled != true
+                || Definition == null
+                || !Definition.ConsumeAmmo)
+                return;
+
+            string ignored;
+            var inventory = SiNpcEquipmentHelper.FindInventory(Entity, out ignored);
+            if (inventory == null || Definition.AcceptedCartridges == null)
+                return;
+
+            var amount = Math.Max(1, Definition.MagazineCount);
+            for (var i = 0; i < Definition.AcceptedCartridges.Length; i++)
+            {
+                var subtype = Definition.AcceptedCartridges[i];
+                if (!string.IsNullOrWhiteSpace(subtype))
+                    inventory.AddItems(
+                        new MyDefinitionId(typeof(MyObjectBuilder_InventoryItem), subtype),
+                        amount,
+                        MyInventoryBase.NewItemParams.ForcedInsertion);
+            }
+        }
 
         private void UpdateAmmoSpeechState()
         {

@@ -26,6 +26,7 @@ namespace Si.UtilityAI
         private SiUtilityBrainComponent _utilityBrain;
         private bool _deleteDiplomaticIdentityOnClose;
         private bool _deathStarted;
+        private bool _casualLootHandled;
         private long _pendingBehaviorElapsedMilliseconds;
         private long _combatMovementRoleToken = long.MinValue;
         private SiCombatMovementRole _combatMovementRole;
@@ -40,6 +41,11 @@ namespace Si.UtilityAI
         public long DiplomaticIdentityId { get; private set; }
         public MatrixD Transform { get; protected set; }
         public MyEntity Entity { get; private set; }
+        internal bool CasualLootHandled
+        {
+            get { return _casualLootHandled; }
+            set { _casualLootHandled = value; }
+        }
         public bool IsDead
         {
             get
@@ -174,10 +180,13 @@ namespace Si.UtilityAI
             return max > 0;
         }
 
-        public void Close(bool deleteDiplomaticIdentity = true)
+        public void Close(bool deleteDiplomaticIdentity = true, bool dropCasualLoot = true)
         {
             if (Entity == null)
                 return;
+
+            if (dropCasualLoot)
+                SiNpcSessionComponent.Instance?.HandleNpcClosing(this);
 
             _utilityBrain?.Unbind();
             _utilityBrain = null;
@@ -204,6 +213,7 @@ namespace Si.UtilityAI
 
         protected virtual void OnKilled()
         {
+            SiNpcSessionComponent.Instance?.HandleNpcKilled(this);
         }
 
         protected virtual void PrepareActivatedEntity(MyEntity entity)

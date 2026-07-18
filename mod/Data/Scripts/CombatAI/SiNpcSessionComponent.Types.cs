@@ -68,6 +68,9 @@ namespace Si.UtilityAI
         [XmlElement("AiSquadMoveOrder")]
         public List<AiSquadMoveOrder> AiSquadMoveOrders;
 
+        [XmlAttribute]
+        public bool CasualModeEnabled;
+
         public class SavedNpc
         {
             [XmlAttribute]
