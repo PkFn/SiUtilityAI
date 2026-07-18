@@ -85,6 +85,7 @@ namespace Si.UtilityAI
                 };
                 gridBuilder.CubeBlocks.Add(new MyObjectBuilder_CubeBlock
                 {
+                    EntityId = MyEntityIdentifier.AllocateId(),
                     SubtypeName = AdminHorseBlockSubtype,
                     BuildPercent = 100f,
                     IntegrityPercent = 100f,
@@ -95,6 +96,8 @@ namespace Si.UtilityAI
                 });
 
                 horse = MyEntities.CreateFromObjectBuilderAndAdd(gridBuilder);
+                if (horse == null)
+                    horse = TryCloneLoadedHorse(transform);
                 if (horse == null)
                 {
                     failure = "The PAX horse block could not be initialized into a dynamic grid.";
@@ -110,6 +113,59 @@ namespace Si.UtilityAI
                 failure = $"Failed to create a PAX horse: {exception.Message}";
                 return false;
             }
+        }
+
+        private static MyEntity TryCloneLoadedHorse(in MatrixD transform)
+        {
+            foreach (var entity in MyEntities.GetEntities())
+            {
+                if (entity == null || entity.Closed || entity.MarkedForClose
+                    || !entity.Components.TryGet(out MyGridDataComponent gridData))
+                    continue;
+
+                var hasHorseBlock = false;
+                foreach (var block in gridData.Blocks)
+                {
+                    if (block != null
+                        && string.Equals(block.DefinitionId.SubtypeName, AdminHorseBlockSubtype, StringComparison.Ordinal))
+                    {
+                        hasHorseBlock = true;
+                        break;
+                    }
+                }
+
+                if (!hasHorseBlock)
+                    continue;
+
+                var source = entity.GetObjectBuilder(false) as MyObjectBuilder_CubeGrid;
+                var clone = source?.Clone() as MyObjectBuilder_CubeGrid;
+                if (clone == null || clone.CubeBlocks == null)
+                    continue;
+
+                clone.EntityId = MyEntityIdentifier.AllocateId();
+                clone.PersistentFlags |= MyPersistentEntityFlags2.InScene;
+                clone.PositionAndOrientation = new MyPositionAndOrientation(transform);
+                clone.IsStatic = false;
+                clone.CreatePhysics = true;
+
+                foreach (var block in clone.CubeBlocks)
+                {
+                    if (block == null)
+                        continue;
+
+                    block.EntityId = MyEntityIdentifier.AllocateId();
+                    block.ComponentContainer = null;
+                    block.ConstructionStockpile = null;
+                    block.BuildPercent = 100f;
+                    block.IntegrityPercent = 100f;
+                }
+
+                var horse = MyEntities.CreateFromObjectBuilderAndAdd(clone);
+                if (horse != null)
+                    return horse;
+            }
+
+            return null;
         }
 
         private static EquiPlayerAttachmentComponent.Slot ResolveAssignedSeat(SiTransportNpcState state)
