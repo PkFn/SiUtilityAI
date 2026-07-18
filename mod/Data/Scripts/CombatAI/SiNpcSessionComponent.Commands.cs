@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Equinox76561198048419394.Core.Inventory;
 using Equinox76561198048419394.Core.Util;
-using Medieval.Entities.Components;
 using Medieval.GameSystems;
 using Medieval.GameSystems.Factions;
 using Sandbox.Game;
@@ -12,9 +12,12 @@ using Sandbox.Game.Players;
 using Sandbox.ModAPI;
 using SiCore.Core.Debug;
 using VRage;
+using VRage.Collections;
+using VRage.Components.Physics;
 using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.Entity;
+using VRage.Game.ObjectBuilders;
 using VRage.Inventory;
 using VRage.ObjectBuilders;
 using VRage.ObjectBuilders.Inventory;
@@ -601,8 +604,23 @@ namespace Si.UtilityAI
                     MyInventoryBase.NewItemParams.ForcedInsertion))
                 return false;
 
-            var inventorySpawn = entity.Components.Get<MyEntityInventorySpawnComponent>();
-            return inventorySpawn != null && inventorySpawn.SpawnInventoryContainer(false);
+            var items = new List<MyInventoryItem>();
+            foreach (var item in inventory.Items)
+                if (item != null)
+                    items.Add(item.Clone());
+
+            if (items.Count == 0)
+                return false;
+
+            var characterBagId = new MyDefinitionId(
+                typeof(MyObjectBuilder_InventoryBagEntity),
+                "CharacterBag");
+            var bag = InventoryDropper.DropItemsInBag(
+                new ListReader<MyInventoryItem>(items),
+                entity.WorldMatrix.Translation,
+                characterBagId,
+                entity.Get<MyPhysicsComponentBase>());
+            return bag != null;
         }
 
         private static void RestoreBaseCampInventory(

@@ -12,7 +12,6 @@
     <Component Type="EntityOwnershipComponent" />
     <Component Type="EntityStateComponent" Subtype="CharacterStances" />
     <Component Type="Inventory" Subtype="Internal" />
-    <Component Type="InventorySpawnComponent" Subtype="CharacterBag" />
     <Component Type="SiNpcInventoryShareComponent" />
     <Component Type="RagdollComponent" Subtype="Humanoid" />
     <Component Type="CharacterMovementComponent" Subtype="SiTrooperMovement" />
