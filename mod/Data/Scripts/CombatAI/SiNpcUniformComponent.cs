@@ -80,6 +80,8 @@ namespace Si.UtilityAI
     [MyDefinitionRequired(typeof(SiNpcUniformComponentDefinition))]
     public class SiNpcUniformComponent : MyEntityComponent
     {
+        private const long UniformApplicationDelayMilliseconds = 200;
+
         private SiNpcUniformComponentDefinition _definition;
         private SiNpcUniformComponentDefinition _runtimeDefinition;
 
@@ -101,7 +103,7 @@ namespace Si.UtilityAI
             if (MyAPIGateway.Multiplayer != null && !MyAPIGateway.Multiplayer.IsServer)
                 return;
 
-            AddScheduledCallback(ApplyUniform, 16);
+            AddScheduledCallback(ApplyUniform, UniformApplicationDelayMilliseconds);
         }
 
         internal bool ApplyRuntimeDefinition(MyDefinitionId definitionId)
@@ -112,7 +114,7 @@ namespace Si.UtilityAI
 
             _runtimeDefinition = runtimeDefinition;
             if (Entity != null && Entity.InScene)
-                AddScheduledCallback(ApplyUniform, 1);
+                AddScheduledCallback(ApplyUniform, UniformApplicationDelayMilliseconds);
             return true;
         }
 
