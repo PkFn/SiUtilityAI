@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Equinox76561198048419394.Core.Controller;
 using Pax.Animals;
-using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using Sandbox.Game.Players;
 using SiCore.Core.Grid;
@@ -17,7 +16,6 @@ using VRage.Game.Entity;
 using VRage.Game.Entity.EntityComponents;
 using VRage.ObjectBuilders;
 using VRage.ObjectBuilders.Block;
-using VRage.ObjectBuilders.Scene;
 using VRage.Scene;
 using VRage.Session;
 using VRage.Utils;
@@ -44,7 +42,6 @@ namespace Si.UtilityAI
 
             if (!TryAssignTransportSeat(npc, new[] { horse }, out var assignedState))
             {
-                _log.Warning($"entityId={npc.EntityId} entityName={npc.Entity.Name ?? "null"} keyDefinition={AdminHorseBlockSubtype} branch=seat-assignment-failed horseId={horse?.EntityId ?? 0}"); // AGENT-DEBUG-LOG
                 horse.Close();
                 failure = "The spawned horse did not expose a compatible rider seat.";
                 return false;
@@ -66,8 +63,6 @@ namespace Si.UtilityAI
             if (controller != null && seat != null)
                 controller.RequestControl(seat);
 
-            _log.Info($"entityId={npc.EntityId} entityName={npc.Entity.Name ?? "null"} keyDefinition={AdminHorseBlockSubtype} branch=mounted-prepared horseId={horse.EntityId} seatEntityId={assignedState.SeatEntityId} seatSlot={assignedState.SeatSlotName ?? "null"}"); // AGENT-DEBUG-LOG
-
             return true;
         }
 
@@ -79,51 +74,19 @@ namespace Si.UtilityAI
             horse = null;
             failure = null;
             var anchor = npc?.Entity;
-            var anchorId = anchor?.EntityId ?? 0;
-            var anchorName = anchor?.Name ?? "null";
             var transform = anchor?.WorldMatrix ?? MatrixD.Identity;
             try
             {
-                _log.Info($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=spawn-start"); // AGENT-DEBUG-LOG
                 MyDefinitionId horseDefinitionId;
-                var hasHorseDefinition = TryGetHorseDefinitionId(anchorId, anchorName, out horseDefinitionId);
-                if (hasHorseDefinition)
+                if (!TryGetHorseDefinitionId(out horseDefinitionId))
                 {
-                    horse = MyEntities.CreateFromComponentContainerDefinitionAndAdd(
-                        horseDefinitionId,
-                        transform,
-                        true);
-                    _log.Info($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=container-create result={(horse == null ? "null" : "success")} horseId={horse?.EntityId ?? 0} definitionId={horseDefinitionId}"); // AGENT-DEBUG-LOG
-
-                    if (horse == null)
-                    {
-                        horse = MyEntities.CreateEntityAndAdd(
-                            horseDefinitionId,
-                            true,
-                            transform.Translation,
-                            (Vector3)transform.Up,
-                            (Vector3)transform.Forward);
-                        _log.Info($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=entity-container-create result={(horse == null ? "null" : "success")} horseId={horse?.EntityId ?? 0} definitionId={horseDefinitionId}"); // AGENT-DEBUG-LOG
-                    }
+                    failure = "The PAX horse block definition is not loaded.";
+                    return false;
                 }
 
-                if (horse != null)
-                    return true;
-
-                horse = TryCreateHorseGridUsingPlacementPipeline(
-                    transform,
-                    horseDefinitionId,
-                    anchorId,
-                    anchorName);
+                horse = TryCreateHorseGrid(transform, horseDefinitionId);
                 if (horse == null)
                 {
-                    _log.Warning($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=placement-pipeline-failed invoking-loaded-horse-fallback"); // AGENT-DEBUG-LOG
-                    horse = TryCloneLoadedHorse(transform, anchorId, anchorName);
-                    _log.Info($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=loaded-horse-fallback-result result={(horse == null ? "null" : "success")} horseId={horse?.EntityId ?? 0}"); // AGENT-DEBUG-LOG
-                }
-                if (horse == null)
-                {
-                    _log.Warning($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=spawn-failed reason=dynamic-grid-initialization"); // AGENT-DEBUG-LOG
                     failure = "The PAX horse block could not be initialized into a dynamic grid.";
                     return false;
                 }
@@ -132,7 +95,6 @@ namespace Si.UtilityAI
             }
             catch (Exception exception)
             {
-                _log.Error($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=spawn-exception exception={exception}"); // AGENT-DEBUG-LOG
                 horse?.Close();
                 horse = null;
                 failure = $"Failed to create a PAX horse: {exception.Message}";
@@ -140,108 +102,67 @@ namespace Si.UtilityAI
             }
         }
 
-        private MyEntity TryCreateHorseGridUsingPlacementPipeline(
-            in MatrixD transform,
-            MyDefinitionId horseDefinitionId,
-            long anchorId,
-            string anchorName)
+        private MyEntity TryCreateHorseGrid(in MatrixD transform, MyDefinitionId horseDefinitionId)
         {
+            // Match MyGridPlacer.ProcessBlockPlacement: create the final grid,
+            // deserialize the block, add it server-side, then activate the grid.
             var session = MySession.Static;
             if (session?.Scene == null)
-            {
-                _log.Warning($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=placement-scene-lookup result=missing scene=null"); // AGENT-DEBUG-LOG
                 return null;
-            }
 
-            MyContainerDefinition gridContainer;
-            MyGridDataComponentDefinition gridDataDefinition;
             MyGridFamilyDefinition gridFamily;
-            if (!TryGetSmallGridPlacementDefinitions(
-                    anchorId,
-                    anchorName,
-                    out gridContainer,
-                    out gridDataDefinition,
-                    out gridFamily))
-            {
-                _log.Warning($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=placement-grid-definition result=missing"); // AGENT-DEBUG-LOG
+            if (!TryGetSmallGridFamily(out gridFamily))
                 return null;
-            }
 
-            _log.Info($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=placement-grid-definition result=success container={gridContainer.Id} gridData={gridDataDefinition.Id} size={gridDataDefinition.Size} family={gridFamily.Id} finalGrid={gridFamily.FinalGridDefinitionId}"); // AGENT-DEBUG-LOG
             var grid = session.Scene.CreateEntity(
                 gridFamily.FinalGridDefinitionId,
                 MyEntityIdentifier.AllocateId());
-            _log.Info($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=placement-grid-create result={(grid == null ? "null" : "success")} gridId={grid?.EntityId ?? 0} definition={gridFamily.FinalGridDefinitionId}"); // AGENT-DEBUG-LOG
             if (grid == null)
                 return null;
 
-            grid.PositionComp.SetWorldMatrix(transform, null, true);
-
-            MyGridDataComponent gridData;
-            if (!grid.Components.TryGet(out gridData) || gridData == null)
+            try
             {
-                _log.Warning($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=placement-grid-components result=missing gridId={grid.EntityId}"); // AGENT-DEBUG-LOG
-                grid.Close();
-                return null;
+                grid.PositionComp.SetWorldMatrix(transform, null, true);
+
+                MyGridDataComponent gridData;
+                if (!grid.Components.TryGet(out gridData) || gridData == null)
+                {
+                    grid.Close();
+                    return null;
+                }
+
+                var horseBuilder = new MyObjectBuilder_Block
+                {
+                    Id = (ulong)MyEntityIdentifier.AllocateId(),
+                    DefinitionId = new SerializableDefinitionId(
+                        horseDefinitionId.TypeId,
+                        horseDefinitionId.SubtypeName),
+                    Min = Vector3I.Zero,
+                    Orientation = new SerializableBlockOrientation(
+                        Base6Directions.Direction.Forward,
+                        Base6Directions.Direction.Up),
+                };
+
+                var horseBlock = MyBlock.Factory.CreateAndDeserialize(horseBuilder);
+                if (horseBlock == null || !gridData.AddBlock(horseBlock, false))
+                {
+                    grid.Close();
+                    return null;
+                }
+
+                session.Scene.ActivateEntity(grid);
+                return grid;
             }
-
-            var horseBuilder = new MyObjectBuilder_Block
-            {
-                Id = (ulong)MyEntityIdentifier.AllocateId(),
-                DefinitionId = new SerializableDefinitionId(
-                    horseDefinitionId.TypeId,
-                    horseDefinitionId.SubtypeName),
-                Min = Vector3I.Zero,
-                Orientation = new SerializableBlockOrientation(
-                    Base6Directions.Direction.Forward,
-                    Base6Directions.Direction.Up),
-            };
-            _log.Info($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=placement-add-block-start gridId={grid.EntityId} blockId={horseBuilder.Id} blockCountBefore={gridData.BlockCount}"); // AGENT-DEBUG-LOG
-
-            var horseBlockData = MyBlock.Factory.CreateAndDeserialize(horseBuilder);
-            if (horseBlockData == null)
-            {
-                _log.Warning($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=placement-block-factory result=null gridId={grid.EntityId}"); // AGENT-DEBUG-LOG
-                grid.Close();
-                return null;
-            }
-            var addResult = gridData.AddBlock(horseBlockData, false);
-
-            MyBlock horseBlock = null;
-            foreach (var block in gridData.Blocks)
-            {
-                if (block == null)
-                    continue;
-                if (string.Equals(block.DefinitionId.SubtypeName, AdminHorseBlockSubtype, StringComparison.Ordinal))
-                    horseBlock = block;
-            }
-
-            _log.Info($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=placement-add-block-result addResult={addResult} horseBlock={(horseBlock == null ? "missing" : "success")} blockCountAfter={gridData.BlockCount}"); // AGENT-DEBUG-LOG
-            if (!addResult || horseBlock == null)
+            catch
             {
                 grid.Close();
-                return null;
+                throw;
             }
-
-            session.Scene.ActivateEntity(grid);
-
-            _log.Info($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=placement-grid-ready gridId={grid.EntityId} blockCount={gridData.BlockCount}"); // AGENT-DEBUG-LOG
-            return grid;
         }
 
-        private bool TryGetSmallGridPlacementDefinitions(
-            long anchorId,
-            string anchorName,
-            out MyContainerDefinition gridContainer,
-            out MyGridDataComponentDefinition gridDataDefinition,
-            out MyGridFamilyDefinition gridFamily)
+        private static bool TryGetSmallGridFamily(out MyGridFamilyDefinition gridFamily)
         {
-            gridContainer = null;
-            gridDataDefinition = null;
             gridFamily = null;
-            MyContainerDefinition fallbackContainer = null;
-            MyGridDataComponentDefinition fallbackGridData = null;
-            MyGridFamilyDefinition fallbackFamily = null;
 
             foreach (var candidate in MyDefinitionManager.GetOfType<MyContainerDefinition>())
             {
@@ -256,132 +177,31 @@ namespace Si.UtilityAI
                         || candidateFamily == null)
                         continue;
 
-                    if (fallbackContainer == null)
-                    {
-                        fallbackContainer = candidate;
-                        fallbackGridData = candidateGridData;
-                        fallbackFamily = candidateFamily;
-                    }
-
                     if (candidateGridData.Size <= 0.25f)
                     {
-                        gridContainer = candidate;
-                        gridDataDefinition = candidateGridData;
                         gridFamily = candidateFamily;
-                        _log.Info($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=placement-grid-definition-candidate container={candidate.Id} gridData={candidateGridData.Id} size={candidateGridData.Size} family={candidateFamily.Id}"); // AGENT-DEBUG-LOG
                         return true;
                     }
                 }
             }
 
-            gridContainer = fallbackContainer;
-            gridDataDefinition = fallbackGridData;
-            gridFamily = fallbackFamily;
-            if (gridContainer != null)
-                _log.Warning($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=placement-grid-definition-fallback container={gridContainer.Id} gridData={gridDataDefinition.Id} size={gridDataDefinition.Size} family={gridFamily.Id}"); // AGENT-DEBUG-LOG
-            return gridContainer != null;
+            return false;
         }
 
-        private bool TryGetHorseDefinitionId(
-            long entityId,
-            string entityName,
-            out MyDefinitionId definitionId)
+        private static bool TryGetHorseDefinitionId(out MyDefinitionId definitionId)
         {
             definitionId = default(MyDefinitionId);
-            var found = false;
-            var typeName = "none";
             foreach (var container in MyDefinitionManager.GetOfType<MyContainerDefinition>())
             {
                 if (container == null
                     || !string.Equals(container.Id.SubtypeName, AdminHorseBlockSubtype, StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                found = true;
                 definitionId = container.Id;
-                typeName = container.Id.TypeId.ToString();
-                break;
+                return true;
             }
 
-            _log.Info($"entityId={entityId} entityName={entityName} keyDefinition={AdminHorseBlockSubtype} branch=definition-scan found={found} type={typeName}"); // AGENT-DEBUG-LOG
-            return found;
-        }
-
-        private MyEntity TryCloneLoadedHorse(in MatrixD transform, long anchorId, string anchorName)
-        {
-            _log.Info($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=loaded-horse-scan-start"); // AGENT-DEBUG-LOG
-            var scannedGridIds = new HashSet<long>();
-            foreach (var entity in MyEntities.GetEntities())
-            {
-                if (entity == null || entity.Closed || entity.MarkedForClose
-                    || !entity.Components.TryGet(out MyGridDataComponent gridData))
-                    continue;
-
-                var hasHorseBlock = false;
-                foreach (var block in gridData.Blocks)
-                {
-                    if (block != null
-                        && string.Equals(block.DefinitionId.SubtypeName, AdminHorseBlockSubtype, StringComparison.Ordinal))
-                    {
-                        hasHorseBlock = true;
-                        break;
-                    }
-                }
-
-                if (!hasHorseBlock)
-                    continue;
-
-                _log.Info($"entityId={entity.EntityId} entityName={entity.Name ?? "null"} keyDefinition={AdminHorseBlockSubtype} branch=loaded-horse-candidate"); // AGENT-DEBUG-LOG
-
-                var sourceEntity = gridData.Entity ?? entity;
-                if (sourceEntity == null || !scannedGridIds.Add(sourceEntity.EntityId))
-                    continue;
-
-                _log.Info($"entityId={entity.EntityId} entityName={entity.Name ?? "null"} keyDefinition={AdminHorseBlockSubtype} branch=loaded-horse-grid-resolution gridEntityId={sourceEntity.EntityId} gridEntityName={sourceEntity.Name ?? "null"} entityType={sourceEntity.GetType().FullName} parentId={sourceEntity.Parent?.EntityId ?? 0}"); // AGENT-DEBUG-LOG
-
-                var sourceBuilder = ((VRage.Core.IMyObject)sourceEntity).Serialize();
-                var source = sourceBuilder as MyObjectBuilder_CubeGrid;
-                _log.Info($"entityId={entity.EntityId} entityName={entity.Name ?? "null"} keyDefinition={AdminHorseBlockSubtype} branch=loaded-horse-source-builder gridEntityId={sourceEntity.EntityId} result={(source == null ? "null" : "success")} builderType={sourceBuilder?.GetType().FullName ?? "null"} blockCount={source?.CubeBlocks?.Count ?? 0}"); // AGENT-DEBUG-LOG
-                var clone = source?.Clone() as MyObjectBuilder_CubeGrid;
-                if (clone == null || clone.CubeBlocks == null)
-                {
-                    _log.Warning($"entityId={entity.EntityId} entityName={entity.Name ?? "null"} keyDefinition={AdminHorseBlockSubtype} branch=loaded-horse-clone-failed gridEntityId={sourceEntity.EntityId} reason=builder-clone-null"); // AGENT-DEBUG-LOG
-                    continue;
-                }
-
-                clone.EntityId = MyEntityIdentifier.AllocateId();
-                clone.PersistentFlags |= MyPersistentEntityFlags2.InScene;
-                clone.PositionAndOrientation = new MyPositionAndOrientation(transform);
-                clone.IsStatic = false;
-                clone.CreatePhysics = false;
-
-                foreach (var block in clone.CubeBlocks)
-                {
-                    if (block == null)
-                        continue;
-
-                    block.EntityId = MyEntityIdentifier.AllocateId();
-                    block.ComponentContainer = null;
-                    block.ConstructionStockpile = null;
-                    block.BuildPercent = 100f;
-                    block.IntegrityPercent = 100f;
-                }
-
-                _log.Info($"entityId={entity.EntityId} entityName={entity.Name ?? "null"} keyDefinition={AdminHorseBlockSubtype} branch=loaded-horse-clone-builder gridId={clone.EntityId} blockCount={clone.CubeBlocks.Count} gridStatic={clone.IsStatic} createPhysics={clone.CreatePhysics}"); // AGENT-DEBUG-LOG
-
-                var horse = MyEntities.CreateFromObjectBuilder(clone);
-                _log.Info($"entityId={entity.EntityId} entityName={entity.Name ?? "null"} keyDefinition={AdminHorseBlockSubtype} branch=loaded-horse-clone-create result={(horse == null ? "null" : "success")} horseId={horse?.EntityId ?? 0}"); // AGENT-DEBUG-LOG
-                if (horse != null)
-                {
-                    if (horse.EntityId == 0)
-                        horse.EntityId = clone.EntityId;
-                    MyEntities.Add(horse, true);
-                    _log.Info($"entityId={entity.EntityId} entityName={entity.Name ?? "null"} keyDefinition={AdminHorseBlockSubtype} branch=loaded-horse-clone-add result=success horseId={horse.EntityId}"); // AGENT-DEBUG-LOG
-                    return horse;
-                }
-            }
-
-            _log.Warning($"entityId={anchorId} entityName={anchorName} keyDefinition={AdminHorseBlockSubtype} branch=loaded-horse-scan-result result=no-candidate"); // AGENT-DEBUG-LOG
-            return null;
+            return false;
         }
 
         private static EquiPlayerAttachmentComponent.Slot ResolveAssignedSeat(SiTransportNpcState state)
