@@ -588,6 +588,16 @@ namespace Si.UtilityAI
                 MyMultiplayerModApi.Static.RaiseStaticEvent(x => ClearNpcsClient);
         }
 
+        private static void BroadcastNpcClose(List<long> entityIds)
+        {
+            if (MyMultiplayerModApi.Static == null || entityIds == null || entityIds.Count == 0)
+                return;
+
+            MyMultiplayerModApi.Static.RaiseStaticEvent(
+                x => CloseNpcsClient,
+                entityIds.ToArray());
+        }
+
         internal static void ReportNpcDamageBridgeHit(long entityId, MyDamageInformation damageInformation)
         {
             if (entityId == 0
@@ -651,6 +661,19 @@ namespace Si.UtilityAI
             _instance?.Squads?.ClearNpcs();
             _instance?._squadOrders.Clear();
             _instance?._squadCombatStates.Clear();
+        }
+
+        [Event, Reliable, Broadcast]
+        private static void CloseNpcsClient(long[] entityIds)
+        {
+            if (MyMultiplayerModApi.Static != null && MyMultiplayerModApi.Static.IsServer)
+                return;
+
+            if (_instance?.Npcs == null || entityIds == null)
+                return;
+
+            for (var i = 0; i < entityIds.Length; i++)
+                _instance.Npcs.Close(entityIds[i]);
         }
 
         [Event, Reliable, Broadcast]
@@ -825,6 +848,16 @@ namespace Si.UtilityAI
         {
             var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(MyEventContext.Current.Sender.Value, 0));
             _instance?.ExecuteBaseCampSpawn(player, baseCampEntityId, aiLed);
+        }
+
+        [Event, Reliable, Server]
+        private static void RequestBaseCampRefundServer(
+            long baseCampEntityId,
+            byte leaderKind,
+            long leaderId)
+        {
+            var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(MyEventContext.Current.Sender.Value, 0));
+            _instance?.ExecuteBaseCampRefund(player, baseCampEntityId, leaderKind, leaderId);
         }
 
         [Event, Reliable, Server]

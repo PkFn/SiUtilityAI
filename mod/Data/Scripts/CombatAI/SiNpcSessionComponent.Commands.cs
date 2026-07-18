@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Equinox76561198048419394.Core.Util;
+using Medieval.Entities.Components;
 using Medieval.GameSystems;
 using Medieval.GameSystems.Factions;
 using Sandbox.Game;
@@ -239,6 +240,27 @@ namespace Si.UtilityAI
             ExecuteBaseCampSpawn(LocalPlayer(), baseCampEntityId, aiLed);
         }
 
+        internal void RequestBaseCampRefund(
+            long baseCampEntityId,
+            SiSquadLeaderKind leaderKind,
+            long leaderId)
+        {
+            if (baseCampEntityId == 0 || leaderId == 0)
+                return;
+
+            if (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer)
+            {
+                MyMultiplayerModApi.Static.RaiseStaticEvent(
+                    x => RequestBaseCampRefundServer,
+                    baseCampEntityId,
+                    (byte)leaderKind,
+                    leaderId);
+                return;
+            }
+
+            ExecuteBaseCampRefund(LocalPlayer(), baseCampEntityId, (byte)leaderKind, leaderId);
+        }
+
         internal void RequestAdminRearm()
         {
             if (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer)
@@ -470,6 +492,117 @@ namespace Si.UtilityAI
             }
 
             return reservations;
+        }
+
+        private void ExecuteBaseCampRefund(
+            MyPlayer player,
+            long baseCampEntityId,
+            byte leaderKind,
+            long leaderId)
+        {
+            if (player?.Identity == null
+                || baseCampEntityId == 0
+                || !Enum.IsDefined(typeof(SiSquadLeaderKind), (int)leaderKind)
+                || leaderId == 0)
+                return;
+
+            var baseCamp = MyEntities.GetEntityByIdOrDefault(baseCampEntityId);
+            var baseCampComponent = baseCamp?.Components.Get<SiBaseCampComponent>();
+            if (baseCampComponent == null || Squads == null || Npcs == null)
+            {
+                Respond(player.Id.SteamId, "The base camp or squad system is not available.");
+                return;
+            }
+
+            var nearbySquads = Squads.CreateNearbyAlliedSquads(
+                Npcs,
+                player.Identity.Id,
+                baseCamp.WorldMatrix.Translation,
+                baseCampComponent.NearbySquadRadius);
+            SiSquadView selectedSquad = null;
+            for (var i = 0; i < nearbySquads.Count; i++)
+            {
+                if (nearbySquads[i].Leader.Kind != (SiSquadLeaderKind)leaderKind
+                    || nearbySquads[i].Leader.Id != leaderId)
+                    continue;
+
+                selectedSquad = nearbySquads[i];
+                break;
+            }
+
+            if (selectedSquad == null)
+            {
+                Respond(player.Id.SteamId, "The selected allied squad is no longer nearby.");
+                return;
+            }
+
+            var npcIds = new List<long>();
+            for (var i = 0; i < selectedSquad.Members.Count; i++)
+            {
+                var member = selectedSquad.Members[i];
+                if (member.Kind == SiSquadMemberKind.Npc && member.Id != 0)
+                    npcIds.Add(member.Id);
+            }
+
+            if (npcIds.Count == 0)
+            {
+                Respond(player.Id.SteamId, "The selected squad has no NPC members to refund.");
+                return;
+            }
+
+            var refundedCount = 0;
+            var refundedNpcIds = new List<long>();
+            for (var i = 0; i < npcIds.Count; i++)
+            {
+                SiNpc npc;
+                if (!Npcs.Npcs.TryGetValue(npcIds[i], out npc)
+                    || npc?.Entity == null
+                    || npc.Entity.Closed
+                    || npc.Entity.MarkedForClose)
+                    continue;
+
+                if (!DropNpcInventoryToSack(npc))
+                    continue;
+
+                if (Npcs.Close(npc.EntityId))
+                {
+                    refundedCount++;
+                    refundedNpcIds.Add(npc.EntityId);
+                }
+            }
+
+            if (refundedNpcIds.Count > 0)
+                BroadcastNpcClose(refundedNpcIds);
+
+            Respond(
+                player.Id.SteamId,
+                refundedCount == npcIds.Count
+                    ? $"Refunded squad with {refundedCount} trooper(s)."
+                    : $"Refunded {refundedCount} of {npcIds.Count} trooper(s); unavailable members were left untouched.");
+        }
+
+        private static bool DropNpcInventoryToSack(SiNpc npc)
+        {
+            var entity = npc?.Entity;
+            if (entity == null || entity.Closed || entity.MarkedForClose)
+                return false;
+
+            var inventory = SiNpcEquipmentHelper.FindInventory(entity, out _) as MyInventory;
+            if (inventory == null)
+                return false;
+
+            var recruitId = new MyDefinitionId(
+                typeof(MyObjectBuilder_InventoryItem),
+                "DefenderRecruit");
+            if (inventory.GetItemAmount(recruitId) <= 0
+                && !inventory.AddItems(
+                    recruitId,
+                    1,
+                    MyInventoryBase.NewItemParams.ForcedInsertion))
+                return false;
+
+            var inventorySpawn = entity.Components.Get<MyEntityInventorySpawnComponent>();
+            return inventorySpawn != null && inventorySpawn.SpawnInventoryContainer(false);
         }
 
         private static void RestoreBaseCampInventory(

@@ -86,6 +86,6 @@
   <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
     <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiBaseCampRefundButtons" />
     <Columns>1</Columns><Rows>1</Rows><ButtonStyleId>ButtonListWide</ButtonStyleId>
-    <Buttons><Button StyleName="ContextButtonSliced"><Text>Refund</Text><Tooltip>Despawn the selected squad and return its equipment to this base camp.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="BaseCampRefundSquad" /></Button></Buttons>
+    <Buttons><Button StyleName="ContextButtonSliced"><Text>Refund</Text><Tooltip>Despawn the selected squad and drop each recruit and inventory in an item sack.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="BaseCampRefundSquad" /></Button></Buttons>
   </Definition>
 </Definitions>

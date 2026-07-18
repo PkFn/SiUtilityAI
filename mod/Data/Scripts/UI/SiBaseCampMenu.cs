@@ -147,7 +147,14 @@ namespace Si.UtilityAI
 
         public void RefundSquad()
         {
-            // Menu contract only; squad despawn/equipment refund is intentionally not wired yet.
+            var squad = GetSelectedRefundSquad();
+            if (squad == null)
+                return;
+
+            SiNpcSessionComponent.Instance?.RequestBaseCampRefund(
+                _baseCamp?.EntityId ?? 0,
+                squad.Leader.Kind,
+                squad.Leader.Id);
         }
 
         private void OpenInventory(string subtype)
