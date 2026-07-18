@@ -133,12 +133,16 @@ namespace Si.UtilityAI
 
         public void SpawnAiSquad()
         {
-            // Menu contract only; NPC conversion/spawn is intentionally not wired yet.
+            SiNpcSessionComponent.Instance?.RequestBaseCampSpawn(
+                _baseCamp?.EntityId ?? 0,
+                true);
         }
 
         public void SpawnPlayerSquad()
         {
-            // Menu contract only; NPC conversion/spawn is intentionally not wired yet.
+            SiNpcSessionComponent.Instance?.RequestBaseCampSpawn(
+                _baseCamp?.EntityId ?? 0,
+                false);
         }
 
         public void RefundSquad()

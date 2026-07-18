@@ -821,6 +821,13 @@ namespace Si.UtilityAI
         }
 
         [Event, Reliable, Server]
+        private static void RequestBaseCampSpawnServer(long baseCampEntityId, bool aiLed)
+        {
+            var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(MyEventContext.Current.Sender.Value, 0));
+            _instance?.ExecuteBaseCampSpawn(player, baseCampEntityId, aiLed);
+        }
+
+        [Event, Reliable, Server]
         private static void RequestAdminRearmServer()
         {
             var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(MyEventContext.Current.Sender.Value, 0));

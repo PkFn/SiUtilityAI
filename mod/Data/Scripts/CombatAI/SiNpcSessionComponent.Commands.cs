@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using Equinox76561198048419394.Core.Util;
 using Medieval.GameSystems;
 using Medieval.GameSystems.Factions;
+using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.Game.GameSystems.Chat;
+using Sandbox.Game.Inventory;
 using Sandbox.Game.Players;
 using Sandbox.ModAPI;
 using SiCore.Core.Debug;
@@ -12,6 +14,9 @@ using VRage;
 using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.Entity;
+using VRage.Inventory;
+using VRage.ObjectBuilders;
+using VRage.ObjectBuilders.Inventory;
 using VRage.Scene;
 using VRage.Utils;
 using VRageMath;
@@ -217,6 +222,23 @@ namespace Si.UtilityAI
             ExecuteAdminSpawnSquad(LocalPlayer(), presetSubtype, isEnemy);
         }
 
+        internal void RequestBaseCampSpawn(long baseCampEntityId, bool aiLed)
+        {
+            if (baseCampEntityId == 0)
+                return;
+
+            if (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer)
+            {
+                MyMultiplayerModApi.Static.RaiseStaticEvent(
+                    x => RequestBaseCampSpawnServer,
+                    baseCampEntityId,
+                    aiLed);
+                return;
+            }
+
+            ExecuteBaseCampSpawn(LocalPlayer(), baseCampEntityId, aiLed);
+        }
+
         internal void RequestAdminRearm()
         {
             if (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer)
@@ -285,6 +307,209 @@ namespace Si.UtilityAI
                 return;
 
             SpawnAdminSquad(player.Id.SteamId, presetSubtype, isEnemy);
+        }
+
+        private void ExecuteBaseCampSpawn(MyPlayer player, long baseCampEntityId, bool aiLed)
+        {
+            if (player?.Identity == null || baseCampEntityId == 0)
+                return;
+
+            if (!TryGetBaseCampInventories(
+                    baseCampEntityId,
+                    out var recruits,
+                    out var webbings))
+            {
+                Respond(player.Id.SteamId, "The base camp inventories are not available.");
+                return;
+            }
+
+            var webbingReservations = BuildBaseCampWebbingReservations(webbings, recruits);
+            var memberCount = 0;
+            for (var i = 0; i < webbingReservations.Count; i++)
+                memberCount += webbingReservations[i].Amount;
+
+            if (memberCount <= 0)
+            {
+                Respond(player.Id.SteamId, "Store at least one recruit and compatible webbing in the base camp.");
+                return;
+            }
+
+            var recruitId = new MyDefinitionId(
+                typeof(MyObjectBuilder_InventoryItem),
+                "DefenderRecruit");
+            if (!recruits.RemoveItems(recruitId, memberCount))
+            {
+                Respond(player.Id.SteamId, "The recruit inventory changed before spawning could begin.");
+                return;
+            }
+
+            var removedWebbing = new List<SiBaseCampWebbingReservation>();
+            for (var i = 0; i < webbingReservations.Count; i++)
+            {
+                var reservation = webbingReservations[i];
+                if (!webbings.RemoveItems(reservation.DefinitionId, reservation.Amount))
+                {
+                    RestoreBaseCampInventory(recruits, webbings, recruitId, memberCount, removedWebbing);
+                    Respond(player.Id.SteamId, "The webbing inventory changed before spawning could begin.");
+                    return;
+                }
+
+                removedWebbing.Add(reservation);
+            }
+
+            var playerPosition = player.ControlledEntity?.Get<MyPositionComponentBase>();
+            if (playerPosition == null)
+            {
+                RestoreBaseCampInventory(recruits, webbings, recruitId, memberCount, removedWebbing);
+                Respond(player.Id.SteamId, "You must control a character to spawn a squad.");
+                return;
+            }
+
+            var pendingBroadcasts = new List<SiPendingNpcSpawn>();
+            var spawnedEntityIds = new List<long>();
+            var squadContext = default(SiIndependentSquadSpawnContext);
+            var memberIndex = 0;
+            string failure;
+            for (var reservationIndex = 0; reservationIndex < removedWebbing.Count; reservationIndex++)
+            {
+                var reservation = removedWebbing[reservationIndex];
+                for (var count = 0; count < reservation.Amount; count++)
+                {
+                    var request = new SiNpcSpawnRequest(
+                        reservation.WebbingSubtype,
+                        false,
+                        false);
+                    SiNpc npc;
+                    var spawned = aiLed
+                        ? TrySpawnIndependentAiSquadMember(
+                            player,
+                            CreateSpawnTransform(playerPosition.WorldMatrix, memberIndex),
+                            request,
+                            ref squadContext,
+                            out npc,
+                            out failure)
+                        : TrySpawnConfiguredNpc(
+                            player,
+                            CreateSpawnTransform(playerPosition.WorldMatrix, memberIndex),
+                            request,
+                            out npc,
+                            out failure);
+                    if (!spawned)
+                    {
+                        CloseSpawnedNpcs(spawnedEntityIds);
+                        RestoreBaseCampInventory(recruits, webbings, recruitId, memberCount, removedWebbing);
+                        Respond(player.Id.SteamId, failure ?? "Failed to spawn the base camp squad.");
+                        return;
+                    }
+
+                    spawnedEntityIds.Add(npc.EntityId);
+                    pendingBroadcasts.Add(new SiPendingNpcSpawn(npc, request));
+                    memberIndex++;
+                }
+            }
+
+            for (var i = 0; i < pendingBroadcasts.Count; i++)
+                BroadcastSpawn(pendingBroadcasts[i].Npc, pendingBroadcasts[i].Request);
+
+            Respond(
+                player.Id.SteamId,
+                $"Spawned {(aiLed ? "AI-led" : "player-led")} squad with {memberCount} trooper(s).");
+        }
+
+        private static bool TryGetBaseCampInventories(
+            long baseCampEntityId,
+            out MyInventory recruits,
+            out MyInventory webbings)
+        {
+            recruits = null;
+            webbings = null;
+
+            var entity = MyEntities.GetEntityByIdOrDefault(baseCampEntityId);
+            if (entity?.Components.Get<SiBaseCampComponent>() == null)
+                return false;
+
+            recruits = entity.Components.Get<MyInventoryBase>(
+                MyStringHash.GetOrCompute("SiBaseCampRecruits")) as MyInventory;
+            webbings = entity.Components.Get<MyInventoryBase>(
+                MyStringHash.GetOrCompute("SiBaseCampWebbings")) as MyInventory;
+            return recruits != null && webbings != null;
+        }
+
+        private static List<SiBaseCampWebbingReservation> BuildBaseCampWebbingReservations(
+            MyInventory webbings,
+            MyInventory recruits)
+        {
+            var reservations = new List<SiBaseCampWebbingReservation>();
+            if (webbings == null || recruits == null)
+                return reservations;
+
+            var recruitId = new MyDefinitionId(
+                typeof(MyObjectBuilder_InventoryItem),
+                "DefenderRecruit");
+            var remaining = Math.Max(0, recruits.GetItemAmount(recruitId));
+            for (var i = 0; i < webbings.Items.Count && remaining > 0; i++)
+            {
+                var item = webbings.Items.ItemAt(i);
+                if (!SiNpcTrooperCatalog.TryResolveLoadout(
+                        item.DefinitionId.SubtypeName,
+                        false,
+                        out var resolvedWebbingSubtype,
+                        out _))
+                    continue;
+
+                var amount = Math.Max(0, item.Amount);
+                var reservedAmount = Math.Min(amount, remaining);
+                if (reservedAmount <= 0)
+                    continue;
+
+                reservations.Add(new SiBaseCampWebbingReservation(
+                    item.DefinitionId,
+                    resolvedWebbingSubtype,
+                    reservedAmount));
+                remaining -= reservedAmount;
+            }
+
+            return reservations;
+        }
+
+        private static void RestoreBaseCampInventory(
+            MyInventory recruits,
+            MyInventory webbings,
+            MyDefinitionId recruitId,
+            int recruitAmount,
+            List<SiBaseCampWebbingReservation> removedWebbing)
+        {
+            if (recruits != null && recruitAmount > 0)
+                recruits.AddItems(recruitId, recruitAmount, MyInventoryBase.NewItemParams.ForcedInsertion);
+
+            if (webbings == null || removedWebbing == null)
+                return;
+
+            for (var i = 0; i < removedWebbing.Count; i++)
+            {
+                var reservation = removedWebbing[i];
+                webbings.AddItems(
+                    reservation.DefinitionId,
+                    reservation.Amount,
+                    MyInventoryBase.NewItemParams.ForcedInsertion);
+            }
+        }
+
+        private sealed class SiBaseCampWebbingReservation
+        {
+            public SiBaseCampWebbingReservation(
+                MyDefinitionId definitionId,
+                string webbingSubtype,
+                int amount)
+            {
+                DefinitionId = definitionId;
+                WebbingSubtype = webbingSubtype;
+                Amount = amount;
+            }
+
+            public MyDefinitionId DefinitionId { get; }
+            public string WebbingSubtype { get; }
+            public int Amount { get; }
         }
 
         private void ExecuteAdminRearm(MyPlayer player)
