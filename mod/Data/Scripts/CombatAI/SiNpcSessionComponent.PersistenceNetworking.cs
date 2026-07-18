@@ -110,7 +110,8 @@ namespace Si.UtilityAI
                 saved.WebbingSubtype,
                 saved.IsParatrooper,
                 saved.IsEnemy,
-                saved.IsMounted);
+                saved.IsMounted,
+                SavedSquadType(saved.SquadType, saved.IsMounted));
             SiNpc npc;
             if (!Npcs.TrySpawnConfigured(
                     SiNpcManager.SoldierArchetype,
@@ -136,7 +137,10 @@ namespace Si.UtilityAI
                 else if (saved.HasSquadAssignment)
                     RestoreSquadAssignment(saved, npc);
                 else
-                    AssignNpcToEnemySquad(npc, enemyFaction);
+                    AssignNpcToEnemySquad(
+                        npc,
+                        enemyFaction,
+                        SavedSquadType(saved.SquadType, saved.IsMounted));
             }
             else
                 RestoreSquadAssignment(saved, npc);
@@ -220,7 +224,18 @@ namespace Si.UtilityAI
                 (SiArmyKind)saved.SquadArmyKind,
                 saved.SquadArmyId,
                 saved.LeaderName,
-                saved.IsSquadLeader);
+                saved.IsSquadLeader,
+                SavedSquadType(saved.SquadType, saved.IsMounted));
+        }
+
+        private static SiSquadType SavedSquadType(byte value, bool isMounted)
+        {
+            if (isMounted && value == (byte)SiSquadType.Infantry)
+                return SiSquadType.Cavalry;
+
+            return Enum.IsDefined(typeof(SiSquadType), (int)value)
+                ? (SiSquadType)value
+                : SiSquadType.Infantry;
         }
 
         private void RestoreSavedSquadOrders()
@@ -288,7 +303,9 @@ namespace Si.UtilityAI
                 if (!HasSquadMembers(leader))
                     continue;
 
-                _aiSquadMoveOrders[leader] = new SiAiSquadMoveOrderState(saved.Target)
+                _aiSquadMoveOrders[leader] = new SiAiSquadMoveOrderState(
+                    saved.Target,
+                    (SiSquadFormation)saved.Formation)
                 {
                     Formation = (SiSquadFormation)saved.Formation,
                     HasCheckpointSpeed = saved.HasCheckpointSpeed,
@@ -317,6 +334,7 @@ namespace Si.UtilityAI
                 HasWaypoint = mover?.HasWaypoint ?? false,
                 Waypoint = (SerializableVector3D)(mover?.Waypoint ?? Vector3D.Zero),
                 HasSquadAssignment = hasAssignment,
+                SquadType = hasAssignment ? (byte)assignment.SquadType : (byte)SiSquadType.Infantry,
                 SquadLeaderKind = hasAssignment ? (byte)assignment.Leader.Kind : (byte)0,
                 SquadLeaderId = hasAssignment ? assignment.Leader.Id : 0,
                 SquadArmyKind = hasAssignment ? (byte)assignment.Leader.Army.Kind : (byte)0,
@@ -437,6 +455,9 @@ namespace Si.UtilityAI
                 IsParatrooper = dataDrivenNpc?.IsParatrooperSpawn ?? false,
                 IsEnemy = dataDrivenNpc?.IsEnemySpawn ?? false,
                 IsMounted = dataDrivenNpc?.IsMountedSpawn ?? false,
+                SquadType = hasAssignment
+                    ? (SiSquadType)assignment.SquadType
+                    : SiSquadTypeDefaults.ForMounted(dataDrivenNpc?.IsMountedSpawn ?? false),
                 Transform = npc.Transform,
                 HasWaypoint = mover?.HasWaypoint ?? false,
                 Waypoint = mover?.Waypoint ?? Vector3D.Zero,
@@ -721,7 +742,8 @@ namespace Si.UtilityAI
                 snapshot.WebbingSubtype,
                 snapshot.IsParatrooper,
                 snapshot.IsEnemy,
-                snapshot.IsMounted);
+                snapshot.IsMounted,
+                snapshot.SquadType);
             string failure;
             if (!ApplySpawnRequest(npc, request, out failure))
                 return false;
@@ -734,7 +756,8 @@ namespace Si.UtilityAI
                     (SiArmyKind)snapshot.SquadArmyKind,
                     snapshot.SquadArmyId,
                     snapshot.LeaderName,
-                    snapshot.IsSquadLeader);
+                    snapshot.IsSquadLeader,
+                    request.SquadType);
             if (snapshot.HasWaypoint)
                 Npcs.ApplyWaypoint(snapshot.EntityId, snapshot.Waypoint);
             return true;

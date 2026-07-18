@@ -73,7 +73,7 @@
             <RebuildReference Id="AdminSelectedSquadMembersVersion" />
         </Embedded>
         <Checkbox DataId="AdminSquadEnemy"><Text>Enemy</Text><Tooltip>Spawn this squad as hostile.</Tooltip></Checkbox>
-        <Checkbox DataId="AdminSpawnMounted"><Text>Mounted</Text><Tooltip>Spawn every squad member on a horse without changing squad or inventory definitions.</Tooltip></Checkbox>
+        <Checkbox DataId="AdminSpawnMounted"><Text>Mounted (Cavalry)</Text><Tooltip>Spawn every squad member on a horse and use Cavalry squad defaults, including a long box formation and cavalry map icon.</Tooltip></Checkbox>
         <Embedded><Id Type="MyObjectBuilder_ButtonListController" Subtype="SiUtilityAdminMenuSquadButton" /></Embedded>
     </Definition>
 

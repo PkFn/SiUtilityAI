@@ -29,7 +29,10 @@ namespace Si.UtilityAI
 
         public SiSquadSystemDefinition Definition { get; }
 
-        public void AssignNpcToPlayer(SiNpc npc, MyPlayer player)
+        public void AssignNpcToPlayer(
+            SiNpc npc,
+            MyPlayer player,
+            SiSquadType squadType = SiSquadType.Infantry)
         {
             if (npc == null || player?.Identity == null)
                 return;
@@ -38,7 +41,8 @@ namespace Si.UtilityAI
                 npc,
                 CreatePlayerLeader(player.Identity.Id),
                 PlayerName(player),
-                false);
+                false,
+                squadType);
         }
 
         public void ClearNpcs()
@@ -47,7 +51,11 @@ namespace Si.UtilityAI
             _staleNpcIds.Clear();
         }
 
-        public void AssignNpcToPlayerIdentity(SiNpc npc, long identityId, string leaderName)
+        public void AssignNpcToPlayerIdentity(
+            SiNpc npc,
+            long identityId,
+            string leaderName,
+            SiSquadType squadType = SiSquadType.Infantry)
         {
             if (npc == null || identityId == 0)
                 return;
@@ -56,10 +64,15 @@ namespace Si.UtilityAI
                 npc,
                 CreatePlayerLeader(identityId),
                 string.IsNullOrWhiteSpace(leaderName) ? "Player " + identityId : leaderName,
-                false);
+                false,
+                squadType);
         }
 
-        public void AssignNpcAsAiLeader(SiNpc npc, string leaderName, long enemyArmyId)
+        public void AssignNpcAsAiLeader(
+            SiNpc npc,
+            string leaderName,
+            long enemyArmyId,
+            SiSquadType squadType = SiSquadType.Infantry)
         {
             if (npc == null)
                 return;
@@ -71,14 +84,16 @@ namespace Si.UtilityAI
                 SiArmyKind.Enemy,
                 enemyArmyId,
                 string.IsNullOrWhiteSpace(leaderName) ? NpcName(npc, null) : leaderName,
-                true);
+                true,
+                squadType);
         }
 
         public void AssignNpcAsAiLeader(
             SiNpc npc,
             string leaderName,
             SiArmyKind armyKind,
-            long armyId)
+            long armyId,
+            SiSquadType squadType = SiSquadType.Infantry)
         {
             if (npc == null)
                 return;
@@ -90,7 +105,8 @@ namespace Si.UtilityAI
                 armyKind,
                 armyId,
                 string.IsNullOrWhiteSpace(leaderName) ? NpcName(npc, null) : leaderName,
-                true);
+                true,
+                squadType);
         }
 
         public void AssignNpcToLeader(
@@ -100,7 +116,8 @@ namespace Si.UtilityAI
             SiArmyKind armyKind,
             long armyId,
             string leaderName,
-            bool isLeader)
+            bool isLeader,
+            SiSquadType squadType = SiSquadType.Infantry)
         {
             if (npc == null || leaderId == 0)
                 return;
@@ -112,20 +129,32 @@ namespace Si.UtilityAI
                     leaderId,
                     new SiArmyKey(armyKind, armyId)),
                 leaderName,
-                isLeader);
+                isLeader,
+                squadType);
         }
 
         private void AssignNpcToLeader(
             SiNpc npc,
             SiSquadLeaderKey leader,
             string leaderName,
-            bool isLeader)
+            bool isLeader,
+            SiSquadType squadType)
         {
             _assignedNpcs[npc.EntityId] = new SiAssignedNpc(
                 leader,
                 string.IsNullOrWhiteSpace(leaderName) ? NpcName(npc, null) : leaderName,
                 npc.Archetype,
-                isLeader);
+                isLeader,
+                SiSquadTypeDefaults.Normalize(squadType));
+        }
+
+        public SiSquadType GetSquadType(SiSquadLeaderKey leader)
+        {
+            foreach (var assignment in _assignedNpcs.Values)
+                if (assignment != null && assignment.Leader.Equals(leader))
+                    return assignment.SquadType;
+
+            return SiSquadType.Infantry;
         }
 
         public bool TryGetAssignment(long npcId, out SiAssignedNpc assignment) =>
@@ -227,7 +256,8 @@ namespace Si.UtilityAI
                         replacementLeader,
                         replacementLeaderName,
                         memberAssignment.Archetype,
-                        memberId == replacementNpc.EntityId);
+                        memberId == replacementNpc.EntityId,
+                        memberAssignment.SquadType);
                 }
             }
 
@@ -425,7 +455,8 @@ namespace Si.UtilityAI
                         observerArmy,
                         hasObserverParty,
                         observerParty,
-                        squad.Leader.Army)));
+                        squad.Leader.Army,
+                        squad.SquadType)));
             }
 
             return markers;
@@ -487,7 +518,7 @@ namespace Si.UtilityAI
                     continue;
 
                 var leader = CreatePlayerLeader(player.Identity.Id);
-                var squad = GetSquad(byLeader, leader, PlayerName(player));
+                var squad = GetSquad(byLeader, leader, PlayerName(player), SiSquadType.Infantry);
                 squad.Members.Add(new SiSquadMemberView(
                     SiSquadMemberKind.Player,
                     player.Identity.Id,
@@ -503,7 +534,11 @@ namespace Si.UtilityAI
                     if (!_assignedNpcs.TryGetValue(npc.EntityId, out assignment))
                         continue;
 
-                    var squad = GetSquad(byLeader, assignment.Leader, assignment.LeaderName);
+                    var squad = GetSquad(
+                        byLeader,
+                        assignment.Leader,
+                        assignment.LeaderName,
+                        assignment.SquadType);
                     squad.Members.Add(new SiSquadMemberView(
                         SiSquadMemberKind.Npc,
                         npc.EntityId,
@@ -521,7 +556,8 @@ namespace Si.UtilityAI
         private SiSquadView GetSquad(
             Dictionary<SiSquadLeaderKey, SiSquadView> squads,
             SiSquadLeaderKey leader,
-            string leaderName)
+            string leaderName,
+            SiSquadType squadType)
         {
             SiSquadView squad;
             if (squads.TryGetValue(leader, out squad))
@@ -531,7 +567,8 @@ namespace Si.UtilityAI
             squad = new SiSquadView(
                 leader,
                 ArmyName(leader.Army, displayLeaderName),
-                displayLeaderName);
+                displayLeaderName,
+                squadType);
             squads.Add(leader, squad);
             return squad;
         }
@@ -836,14 +873,18 @@ namespace Si.UtilityAI
             SiArmyKey observerArmy,
             bool hasObserverParty,
             MyDiplomaticParty observerParty,
-            SiArmyKey squadArmy)
+            SiArmyKey squadArmy,
+            SiSquadType squadType)
         {
+            string relationshipStyle;
             if (ShouldShareLocationOnMap(observerArmy, hasObserverParty, observerParty, squadArmy))
-                return "friendly";
+                relationshipStyle = "friendly";
+            else
+                relationshipStyle = HasHostileRelationship(hasObserverParty, observerParty, squadArmy)
+                    ? "enemy"
+                    : "independent";
 
-            return HasHostileRelationship(hasObserverParty, observerParty, squadArmy)
-                ? "enemy"
-                : "independent";
+            return SiSquadTypeDefaults.MapMarkerStyleId(squadType, relationshipStyle);
         }
 
         private static bool HasHostileRelationship(
@@ -1215,18 +1256,25 @@ namespace Si.UtilityAI
 
     internal sealed class SiAssignedNpc
     {
-        public SiAssignedNpc(SiSquadLeaderKey leader, string leaderName, string archetype, bool isLeader)
+        public SiAssignedNpc(
+            SiSquadLeaderKey leader,
+            string leaderName,
+            string archetype,
+            bool isLeader,
+            SiSquadType squadType = SiSquadType.Infantry)
         {
             Leader = leader;
             LeaderName = leaderName;
             Archetype = archetype;
             IsLeader = isLeader;
+            SquadType = SiSquadTypeDefaults.Normalize(squadType);
         }
 
         public SiSquadLeaderKey Leader { get; }
         public string LeaderName { get; }
         public string Archetype { get; }
         public bool IsLeader { get; }
+        public SiSquadType SquadType { get; }
     }
 
     internal sealed class SiSquadLeadershipChange
@@ -1301,11 +1349,13 @@ namespace Si.UtilityAI
         public SiSquadView(
             SiSquadLeaderKey leader,
             string armyName,
-            string leaderName)
+            string leaderName,
+            SiSquadType squadType)
         {
             Leader = leader;
             ArmyName = armyName;
             LeaderName = leaderName;
+            SquadType = SiSquadTypeDefaults.Normalize(squadType);
         }
 
         public SiSquadLeaderKey Leader { get; }
@@ -1313,6 +1363,7 @@ namespace Si.UtilityAI
         public SiSquadLetterDefinition Letter { get; private set; }
         public string ArmyName { get; }
         public string LeaderName { get; }
+        public SiSquadType SquadType { get; }
         public List<SiSquadMemberView> Members { get; } = new List<SiSquadMemberView>();
 
         public void SetLetter(int index, SiSquadLetterDefinition letter)

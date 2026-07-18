@@ -37,6 +37,11 @@
           <FriendlyMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Friendly.png</FriendlyMarkerImage>
           <EnemyMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Enemy.png</EnemyMarkerImage>
           <IndependentMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Independent.png</IndependentMarkerImage>
+          <CavalryPlayerLedMarkerImage>Textures\GUI\Map\SiUtilityAI_Cavalry_Friendly.png</CavalryPlayerLedMarkerImage>
+          <CavalryAlliedMarkerImage>Textures\GUI\Map\SiUtilityAI_Cavalry_Friendly.png</CavalryAlliedMarkerImage>
+          <CavalryFriendlyMarkerImage>Textures\GUI\Map\SiUtilityAI_Cavalry_Friendly.png</CavalryFriendlyMarkerImage>
+          <CavalryEnemyMarkerImage>Textures\GUI\Map\SiUtilityAI_Cavalry_Enemy.png</CavalryEnemyMarkerImage>
+          <CavalryIndependentMarkerImage>Textures\GUI\Map\SiUtilityAI_Cavalry_Independent.png</CavalryIndependentMarkerImage>
           <WaypointImage>Textures\GUI\Map\SiUtilityAI_SquadWaypoint.png</WaypointImage>
           <WaypointLineImage>Textures\GUI\Map\SiUtilityAI_SquadWaypointLine.png</WaypointLineImage>
         </Layer>
@@ -85,6 +90,11 @@
           <FriendlyMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Friendly.png</FriendlyMarkerImage>
           <EnemyMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Enemy.png</EnemyMarkerImage>
           <IndependentMarkerImage>Textures\GUI\Map\SiUtilityAI_Infantry_Independent.png</IndependentMarkerImage>
+          <CavalryPlayerLedMarkerImage>Textures\GUI\Map\SiUtilityAI_Cavalry_Friendly.png</CavalryPlayerLedMarkerImage>
+          <CavalryAlliedMarkerImage>Textures\GUI\Map\SiUtilityAI_Cavalry_Friendly.png</CavalryAlliedMarkerImage>
+          <CavalryFriendlyMarkerImage>Textures\GUI\Map\SiUtilityAI_Cavalry_Friendly.png</CavalryFriendlyMarkerImage>
+          <CavalryEnemyMarkerImage>Textures\GUI\Map\SiUtilityAI_Cavalry_Enemy.png</CavalryEnemyMarkerImage>
+          <CavalryIndependentMarkerImage>Textures\GUI\Map\SiUtilityAI_Cavalry_Independent.png</CavalryIndependentMarkerImage>
           <WaypointImage>Textures\GUI\Map\SiUtilityAI_SquadWaypoint.png</WaypointImage>
           <WaypointLineImage>Textures\GUI\Map\SiUtilityAI_SquadWaypointLine.dds</WaypointLineImage>
         </Layer>

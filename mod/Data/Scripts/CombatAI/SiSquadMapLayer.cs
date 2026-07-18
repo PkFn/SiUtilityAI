@@ -28,6 +28,11 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
         public string FriendlyMarkerImage;
         public string EnemyMarkerImage;
         public string IndependentMarkerImage;
+        public string CavalryPlayerLedMarkerImage;
+        public string CavalryAlliedMarkerImage;
+        public string CavalryFriendlyMarkerImage;
+        public string CavalryEnemyMarkerImage;
+        public string CavalryIndependentMarkerImage;
         public string WaypointImage;
         public string WaypointLineImage;
     }
@@ -89,6 +94,26 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 ob?.IndependentMarkerImage,
                 ob?.DefaultMarkerImage,
                 ob?.FriendlyMarkerImage);
+            _markerImages["cavalry-player"] = FirstNonEmpty(
+                ob?.CavalryPlayerLedMarkerImage,
+                _markerImages["player"]);
+            _markerImages["cavalry-ally"] = FirstNonEmpty(
+                ob?.CavalryAlliedMarkerImage,
+                _markerImages["ally"]);
+            _markerImages["cavalry-friendly"] = FirstNonEmpty(
+                ob?.CavalryFriendlyMarkerImage,
+                _markerImages["friendly"]);
+            _markerImages["cavalry-enemy"] = FirstNonEmpty(
+                ob?.CavalryEnemyMarkerImage,
+                _markerImages["enemy"]);
+            _markerImages["cavalry-independent"] = FirstNonEmpty(
+                ob?.CavalryIndependentMarkerImage,
+                _markerImages["independent"]);
+            _markerImages["infantry-player"] = _markerImages["player"];
+            _markerImages["infantry-ally"] = _markerImages["ally"];
+            _markerImages["infantry-friendly"] = _markerImages["friendly"];
+            _markerImages["infantry-enemy"] = _markerImages["enemy"];
+            _markerImages["infantry-independent"] = _markerImages["independent"];
             _waypointImage = FirstNonEmpty(
                 ob?.WaypointImage,
                 "Textures/GUI/Map/SiUtilityAI_SquadWaypoint.png");

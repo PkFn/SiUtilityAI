@@ -340,7 +340,7 @@ namespace Si.UtilityAI
             var formation = _aiSquadMoveOrders.TryGetValue(leader, out var moveOrder)
                             && moveOrder != null
                 ? moveOrder.Formation
-                : SiSquadFormation.Column;
+                : SiSquadTypeDefaults.Formation(Squads.GetSquadType(leader));
             if (formation == SiSquadFormation.File
                 || formation == SiSquadFormation.Column
                 || formation == SiSquadFormation.StaggeredColumn)
@@ -821,7 +821,9 @@ namespace Si.UtilityAI
                 || !HasSquadMembers(leader))
                 return;
 
-            _aiSquadMoveOrders[leader] = new SiAiSquadMoveOrderState(target);
+            _aiSquadMoveOrders[leader] = new SiAiSquadMoveOrderState(
+                target,
+                SiSquadTypeDefaults.Formation(Squads.GetSquadType(leader)));
             SpeakAiMapMoveOrder(issuer, leader, target);
             MaintainAiLeaderMoveOrder(leader);
         }
@@ -993,7 +995,16 @@ namespace Si.UtilityAI
         {
             SiSquadCommandState state;
             if (!_squadOrders.TryGetValue(leaderIdentityId, out state))
-                _squadOrders.Add(leaderIdentityId, state = new SiSquadCommandState());
+            {
+                var leader = PlayerLeaderKey(leaderIdentityId);
+                _squadOrders.Add(
+                    leaderIdentityId,
+                    state = new SiSquadCommandState
+                    {
+                        Formation = SiSquadTypeDefaults.Formation(
+                            Squads?.GetSquadType(leader) ?? SiSquadType.Infantry),
+                    });
+            }
             return state;
         }
 

@@ -667,12 +667,12 @@ namespace Si.UtilityAI
         {
             failure = null;
             if (request.IsEnemy)
-                return ConfigureEnemyTrooper(npc, player, out failure);
+                return ConfigureEnemyTrooper(npc, player, request.SquadType, out failure);
 
             if (!ConfigureFriendlyTrooper(npc, player, out failure))
                 return false;
 
-            Squads?.AssignNpcToPlayer(npc, player);
+            Squads?.AssignNpcToPlayer(npc, player, request.SquadType);
             return true;
         }
 
@@ -769,6 +769,7 @@ namespace Si.UtilityAI
                     out var resolvedPresetSubtype,
                     out _,
                     out var members,
+                    out var presetSquadType,
                     out var failure))
                 return Respond(sender, failure ?? $"Unknown squad preset '{presetSubtype}'.");
 
@@ -777,6 +778,7 @@ namespace Si.UtilityAI
             if (playerPosition == null)
                 return Respond(sender, "You must control a character to spawn an AI squad.");
 
+            var squadType = isMounted ? SiSquadType.Cavalry : presetSquadType;
             var pendingBroadcasts = new List<SiPendingNpcSpawn>();
             var spawnedEntityIds = new List<long>();
             var squadContext = default(SiIndependentSquadSpawnContext);
@@ -786,7 +788,8 @@ namespace Si.UtilityAI
                     members[i].WebbingSubtype,
                     members[i].IsParatrooper,
                     isEnemy,
-                    isMounted);
+                    isMounted,
+                    squadType);
                 if (!TrySpawnIndependentAiSquadMember(
                         player,
                         CreateSpawnTransform(playerPosition.WorldMatrix, i),
@@ -866,6 +869,7 @@ namespace Si.UtilityAI
                     request,
                     enemyArmy,
                     EnemyTrooperName(npc),
+                    request.SquadType,
                     ref squadContext,
                     out failure);
             }
@@ -878,6 +882,7 @@ namespace Si.UtilityAI
                 request,
                 SiSquadBook.ArmyForPlayerIdentity(player.Identity.Id),
                 FriendlyTrooperName(npc),
+                request.SquadType,
                 ref squadContext,
                 out failure);
         }
@@ -887,6 +892,7 @@ namespace Si.UtilityAI
             SiNpcSpawnRequest request,
             SiArmyKey army,
             string defaultLeaderName,
+            SiSquadType squadType,
             ref SiIndependentSquadSpawnContext squadContext,
             out string failure)
         {
@@ -907,7 +913,7 @@ namespace Si.UtilityAI
             if (!squadContext.HasLeader)
             {
                 var leaderName = string.IsNullOrWhiteSpace(defaultLeaderName) ? request.DisplayArchetype : defaultLeaderName;
-                squads.AssignNpcAsAiLeader(npc, leaderName, army.Kind, army.Id);
+                squads.AssignNpcAsAiLeader(npc, leaderName, army.Kind, army.Id, squadType);
                 squadContext = new SiIndependentSquadSpawnContext
                 {
                     HasLeader = true,
@@ -924,7 +930,8 @@ namespace Si.UtilityAI
                 squadContext.Leader.Army.Kind,
                 squadContext.Leader.Army.Id,
                 squadContext.LeaderName,
-                false);
+                false,
+                squadType);
             return true;
         }
 
@@ -960,12 +967,16 @@ namespace Si.UtilityAI
             return true;
         }
 
-        private bool ConfigureEnemyTrooper(SiNpc npc, MyPlayer player, out string failure)
+        private bool ConfigureEnemyTrooper(
+            SiNpc npc,
+            MyPlayer player,
+            SiSquadType squadType,
+            out string failure)
         {
             if (!TryPrepareEnemyTrooper(npc, player, out var enemyFaction, out failure))
                 return false;
 
-            AssignNpcToEnemySquad(npc, enemyFaction);
+            AssignNpcToEnemySquad(npc, enemyFaction, squadType);
             return true;
         }
 
@@ -1032,7 +1043,10 @@ namespace Si.UtilityAI
             return true;
         }
 
-        private void AssignNpcToEnemySquad(SiNpc npc, MyFaction enemyFaction)
+        private void AssignNpcToEnemySquad(
+            SiNpc npc,
+            MyFaction enemyFaction,
+            SiSquadType squadType = SiSquadType.Infantry)
         {
             if (npc == null || enemyFaction == null)
                 return;
@@ -1059,7 +1073,8 @@ namespace Si.UtilityAI
                     nearbyAssignment.Leader.Army.Kind,
                     nearbyAssignment.Leader.Army.Id,
                     nearbyAssignment.LeaderName,
-                    false);
+                    false,
+                    nearbyAssignment.SquadType);
                 return;
             }
 
@@ -1070,7 +1085,8 @@ namespace Si.UtilityAI
                 army.Kind,
                 army.Id,
                 EnemyTrooperName(npc),
-                true);
+                true,
+                squadType);
         }
 
         private static MyFaction EnemyFaction()

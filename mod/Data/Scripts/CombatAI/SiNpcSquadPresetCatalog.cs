@@ -17,6 +17,9 @@ namespace Si.UtilityAI
         [XmlElement]
         public string Description;
 
+        [XmlElement]
+        public SiSquadType SquadType;
+
         [XmlArrayItem("Member")]
         public List<Member> Members;
 
@@ -41,6 +44,7 @@ namespace Si.UtilityAI
 
         public string DisplayName { get; private set; }
         public string Description { get; private set; }
+        public SiSquadType SquadType { get; private set; }
         public IReadOnlyList<SiNpcSquadPresetMemberDefinition> Members => _members;
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
@@ -49,6 +53,7 @@ namespace Si.UtilityAI
             var ob = (MyObjectBuilder_SiNpcSquadPresetDefinition)builder;
             DisplayName = string.IsNullOrWhiteSpace(ob.DisplayName) ? null : ob.DisplayName.Trim();
             Description = string.IsNullOrWhiteSpace(ob.Description) ? null : ob.Description.Trim();
+            SquadType = SiSquadTypeDefaults.Normalize(ob.SquadType);
 
             _members.Clear();
             if (ob.Members == null)
@@ -100,11 +105,13 @@ namespace Si.UtilityAI
             out string resolvedPresetSubtype,
             out SiNpcSquadPresetDefinition preset,
             out List<SiNpcSquadPresetSpawnEntry> members,
+            out SiSquadType squadType,
             out string failure)
         {
             resolvedPresetSubtype = null;
             preset = null;
             members = null;
+            squadType = SiSquadType.Infantry;
             failure = null;
 
             if (!TryGetPreset(presetSubtype, out preset) || preset == null)
@@ -114,6 +121,7 @@ namespace Si.UtilityAI
             }
 
             resolvedPresetSubtype = preset.Id.SubtypeName;
+            squadType = preset.SquadType;
             if (preset.Members == null || preset.Members.Count == 0)
             {
                 failure = $"Squad preset '{resolvedPresetSubtype}' does not define any members.";
@@ -155,7 +163,7 @@ namespace Si.UtilityAI
                 if (preset == null || string.IsNullOrWhiteSpace(preset.Id.SubtypeName))
                     continue;
 
-                if (!TryResolvePreset(preset.Id.SubtypeName, out _, out _, out _, out _))
+                if (!TryResolvePreset(preset.Id.SubtypeName, out _, out _, out _, out _, out _))
                     continue;
 
                 presets.Add(preset);

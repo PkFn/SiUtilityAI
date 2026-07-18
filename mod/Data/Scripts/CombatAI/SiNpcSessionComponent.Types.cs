@@ -18,7 +18,8 @@ namespace Si.UtilityAI
                 string webbingSubtype,
                 bool isParatrooper,
                 bool isEnemy,
-                bool isMounted = false)
+                bool isMounted = false,
+                SiSquadType squadType = SiSquadType.Infantry)
             {
                 WebbingSubtype = string.IsNullOrWhiteSpace(webbingSubtype)
                     ? null
@@ -26,12 +27,16 @@ namespace Si.UtilityAI
                 IsParatrooper = isParatrooper;
                 IsEnemy = isEnemy;
                 IsMounted = isMounted;
+                SquadType = isMounted
+                    ? SiSquadType.Cavalry
+                    : SiSquadTypeDefaults.Normalize(squadType);
             }
 
             public string WebbingSubtype { get; }
             public bool IsParatrooper { get; }
             public bool IsEnemy { get; }
             public bool IsMounted { get; }
+            public SiSquadType SquadType { get; }
             public string DisplayArchetype =>
                 string.IsNullOrWhiteSpace(WebbingSubtype)
                     ? "trooper"
@@ -50,6 +55,7 @@ namespace Si.UtilityAI
             public bool IsParatrooper;
             public bool IsEnemy;
             public bool IsMounted;
+            public SiSquadType SquadType;
             public MatrixD Transform;
             public bool HasWaypoint;
             public Vector3D Waypoint;
@@ -95,6 +101,9 @@ namespace Si.UtilityAI
 
             [XmlAttribute]
             public bool IsMounted;
+
+            [XmlAttribute]
+            public byte SquadType;
 
             public MyPositionAndOrientation Transform;
 
@@ -270,10 +279,10 @@ namespace Si.UtilityAI
 
     internal sealed class SiAiSquadMoveOrderState
     {
-        public SiAiSquadMoveOrderState(in Vector3D target)
+        public SiAiSquadMoveOrderState(in Vector3D target, SiSquadFormation formation)
         {
             Target = target;
-            Formation = SiSquadFormation.Column;
+            Formation = formation;
         }
 
         public Vector3D Target { get; set; }
