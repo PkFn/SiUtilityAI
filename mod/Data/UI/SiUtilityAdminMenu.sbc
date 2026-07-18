@@ -37,7 +37,7 @@
             <Button StyleName="ContextButtonSliced"><Text>List NPCs</Text><Tooltip>Show the current custom NPC count.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuList" /></Action></Button>
             <Button StyleName="ContextButtonSliced"><Text>Squad Roster</Text><Tooltip>Show every known squad member.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuRoster" /></Action></Button>
             <Button StyleName="ContextButtonSliced"><Text>Clear NPCs</Text><Tooltip>Remove every custom NPC and squad assignment.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuClear" /></Action></Button>
-            <Button StyleName="ContextButtonSliced"><Text>Utility AI</Text><Tooltip>Enable or disable UtilityAI decision making.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuUtilityAi" /></Action></Button>
+            <Button StyleName="ContextButtonSliced"><Text>Spotting</Text><Tooltip>Enable or disable NPC spotting and target acquisition.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuUtilityAi" /></Action></Button>
             <Button StyleName="ContextButtonSliced"><Text>Game Log</Text><Tooltip>Enable or disable Si Utility AI game logging.</Tooltip><Action xsi:type="MyObjectBuilder_CMA_AddController"><Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuGameLog" /></Action></Button>
         </Buttons>
     </Definition>
@@ -137,8 +137,8 @@
 
     <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
         <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiUtilityAdminMenuUtilityAi" />
-        <Title>Utility AI Decision Making</Title><Width>650</Width><AutoCommit>true</AutoCommit>
-        <Checkbox DataId="AdminUtilityDecisionMaking"><Text>Enabled</Text><Tooltip>Allow NPC UtilityAI decision making.</Tooltip></Checkbox>
+        <Title>NPC Spotting</Title><Width>650</Width><AutoCommit>true</AutoCommit>
+        <Checkbox DataId="AdminSpottingEnabled"><Text>Enabled</Text><Tooltip>Allow NPC spotting and target acquisition.</Tooltip></Checkbox>
     </Definition>
 
     <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">

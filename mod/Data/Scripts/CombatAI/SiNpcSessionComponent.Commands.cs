@@ -179,7 +179,7 @@ namespace Si.UtilityAI
         internal string AdminNpcCountText() =>
             Npcs == null ? "Custom NPC system is not available." : $"Custom NPCs alive: {Npcs.Npcs.Count}.";
 
-        internal bool AdminUtilityDecisionMakingEnabled => _utilityDecisionMakingEnabled;
+        internal bool AdminSpottingEnabled => _spottingEnabled;
         internal bool AdminGameLogEnabled => SiGameLog.Enabled;
 
         internal void RequestAdminSpawn(string webbingSubtype, bool isParatrooper, bool isEnemy)
@@ -239,17 +239,17 @@ namespace Si.UtilityAI
             ExecuteAdminClear(LocalPlayer());
         }
 
-        internal void RequestAdminSetUtilityDecisionMaking(bool enabled)
+        internal void RequestAdminSetSpottingEnabled(bool enabled)
         {
             if (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer)
             {
                 MyMultiplayerModApi.Static.RaiseStaticEvent(
-                    x => RequestAdminSetUtilityDecisionMakingServer,
+                    x => RequestAdminSetSpottingEnabledServer,
                     enabled);
                 return;
             }
 
-            ExecuteAdminSetUtilityDecisionMaking(LocalPlayer(), enabled);
+            ExecuteAdminSetSpottingEnabled(LocalPlayer(), enabled);
         }
 
         internal void RequestAdminSetGameLog(bool enabled)
@@ -311,13 +311,14 @@ namespace Si.UtilityAI
             Respond(player.Id.SteamId, $"Removed {removed} custom NPC(s).");
         }
 
-        private void ExecuteAdminSetUtilityDecisionMaking(MyPlayer player, bool enabled)
+        private void ExecuteAdminSetSpottingEnabled(MyPlayer player, bool enabled)
         {
             if (player == null || !CanManageNpcs(player.Id.SteamId))
                 return;
 
-            _utilityDecisionMakingEnabled = enabled;
-            Respond(player.Id.SteamId, UtilityAiDecisionMakingStatusText());
+            _spottingEnabled = enabled;
+            Spotting?.SetEnabled(enabled);
+            Respond(player.Id.SteamId, SpottingStatusText());
         }
 
         private void ExecuteAdminSetGameLog(MyPlayer player, bool enabled)
@@ -1123,8 +1124,8 @@ namespace Si.UtilityAI
         private static string FriendlyTrooperName(SiNpc npc) =>
             "AI";
 
-        private string UtilityAiDecisionMakingStatusText() =>
-            $"UtilityAI decision making {(_utilityDecisionMakingEnabled ? "enabled" : "disabled")}.";
+        private string SpottingStatusText() =>
+            $"NPC spotting {(_spottingEnabled ? "enabled" : "disabled")}.";
 
         private bool Respond(ulong sender, string response)
         {

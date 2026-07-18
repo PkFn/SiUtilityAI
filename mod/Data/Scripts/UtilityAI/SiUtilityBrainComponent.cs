@@ -205,29 +205,6 @@ namespace Si.UtilityAI
             _decisionMakingEnabled = true;
         }
 
-        internal void SetDecisionMakingEnabled(bool enabled)
-        {
-            if (_decisionMakingEnabled == enabled)
-                return;
-
-            _decisionMakingEnabled = enabled;
-            if (!_decisionMakingEnabled)
-            {
-                EndActiveBehavior();
-                _decisionCountdown = 0;
-                ActiveBehaviorScore = 0;
-                return;
-            }
-
-            if (_context == null || !IsAuthoritative)
-                return;
-
-            _startupDelayCountdown = 0;
-            _decisionCountdown = 0;
-            Decide();
-            TickActiveBehavior(0);
-        }
-
         private void Decide()
         {
             _decisionCountdown = _definition.DecisionIntervalMilliseconds;

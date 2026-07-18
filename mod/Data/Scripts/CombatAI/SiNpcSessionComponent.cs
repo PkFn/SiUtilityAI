@@ -79,7 +79,7 @@ namespace Si.UtilityAI
 
         private bool _showTroopMarkers;
         private bool _showSquadChatter;
-        private bool _utilityDecisionMakingEnabled = true;
+        private bool _spottingEnabled = true;
         private readonly SiGameLog _log = new SiGameLog(nameof(SiNpcSessionComponent), "[SiCover]");
         private long _lastCoverCleanupLogTime = long.MinValue;
         private bool _restoreSavedStatePending;
@@ -92,7 +92,6 @@ namespace Si.UtilityAI
         internal SiMarkerSystemDefinition MarkerSettings { get; private set; }
         internal SiVehicleSystemDefinition VehicleSettings { get; private set; }
         internal bool ShowSquadChatter => _showSquadChatter;
-        internal bool UtilityDecisionMakingEnabled => _utilityDecisionMakingEnabled;
 
         protected override void OnLoad()
         {
@@ -102,6 +101,7 @@ namespace Si.UtilityAI
             Squads = new SiSquadBook();
             StaticDefenders = new SiStaticDefenderSystem(this);
             Spotting = new SiSpottingSystem(this);
+            Spotting.SetEnabled(_spottingEnabled);
             MarkerSettings = SiMarkerSystemDefinition.Load();
             VehicleSettings = SiVehicleSystemDefinition.Load();
             Npcs.WaypointSet += OnWaypointSet;

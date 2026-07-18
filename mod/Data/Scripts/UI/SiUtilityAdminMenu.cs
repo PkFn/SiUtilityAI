@@ -23,7 +23,7 @@ namespace Si.UtilityAI
         private static readonly MyStringId SelectedSquadMembersVersion = MyStringId.GetOrCompute("AdminSelectedSquadMembersVersion");
         private static readonly MyStringId NpcCount = MyStringId.GetOrCompute("AdminNpcCount");
         private static readonly MyStringId SquadRoster = MyStringId.GetOrCompute("AdminSquadRoster");
-        private static readonly MyStringId UtilityDecisionMaking = MyStringId.GetOrCompute("AdminUtilityDecisionMaking");
+        private static readonly MyStringId SpottingEnabled = MyStringId.GetOrCompute("AdminSpottingEnabled");
         private static readonly MyStringId GameLog = MyStringId.GetOrCompute("AdminGameLog");
 
         private string _selectedWebbing;
@@ -31,13 +31,13 @@ namespace Si.UtilityAI
         private bool _spawnParatrooper;
         private bool _spawnEnemy;
         private bool _squadEnemy;
-        private bool _utilityDecisionMakingEnabled;
+        private bool _spottingEnabled;
         private bool _gameLogEnabled;
         private long _selectedSquadMembersVersion;
 
         public override void Init(object[] contextParams)
         {
-            _utilityDecisionMakingEnabled = SiNpcSessionComponent.Instance?.AdminUtilityDecisionMakingEnabled ?? false;
+            _spottingEnabled = SiNpcSessionComponent.Instance?.AdminSpottingEnabled ?? true;
             _gameLogEnabled = SiNpcSessionComponent.Instance?.AdminGameLogEnabled ?? false;
 
             m_dataSources.Add(Webbings, new DynamicListDataSource<string>(
@@ -78,9 +78,9 @@ namespace Si.UtilityAI
                 item => item,
                 () => null,
                 value => { }));
-            m_dataSources.Add(UtilityDecisionMaking, SimpleDataSources.Simple(
-                () => _utilityDecisionMakingEnabled,
-                SetUtilityDecisionMaking));
+            m_dataSources.Add(SpottingEnabled, SimpleDataSources.Simple(
+                () => _spottingEnabled,
+                SetSpottingEnabled));
             m_dataSources.Add(GameLog, SimpleDataSources.Simple(
                 () => _gameLogEnabled,
                 SetGameLog));
@@ -106,10 +106,10 @@ namespace Si.UtilityAI
             SiNpcSessionComponent.Instance?.RequestAdminClear();
         }
 
-        private void SetUtilityDecisionMaking(bool enabled)
+        private void SetSpottingEnabled(bool enabled)
         {
-            _utilityDecisionMakingEnabled = enabled;
-            SiNpcSessionComponent.Instance?.RequestAdminSetUtilityDecisionMaking(enabled);
+            _spottingEnabled = enabled;
+            SiNpcSessionComponent.Instance?.RequestAdminSetSpottingEnabled(enabled);
         }
 
         private void SetGameLog(bool enabled)

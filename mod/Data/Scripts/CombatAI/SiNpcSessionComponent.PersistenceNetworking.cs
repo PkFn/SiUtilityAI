@@ -835,10 +835,10 @@ namespace Si.UtilityAI
         }
 
         [Event, Reliable, Server]
-        private static void RequestAdminSetUtilityDecisionMakingServer(bool enabled)
+        private static void RequestAdminSetSpottingEnabledServer(bool enabled)
         {
             var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(MyEventContext.Current.Sender.Value, 0));
-            _instance?.ExecuteAdminSetUtilityDecisionMaking(player, enabled);
+            _instance?.ExecuteAdminSetSpottingEnabled(player, enabled);
         }
 
         [Event, Reliable, Server]

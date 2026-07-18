@@ -134,6 +134,7 @@ namespace Si.UtilityAI
 
         private MySectorWeatherComponent _weather;
         private long _nextPaxVehicleWeaponScanTime;
+        private bool _enabled;
 
         public SiSpottingSystem(SiNpcSessionComponent session)
         {
@@ -143,10 +144,28 @@ namespace Si.UtilityAI
             Definition = LoadDefinition();
             VehicleTargetingDefinition = LoadVehicleTargetingDefinition(Definition);
             LoadVehicleEngineMetadata();
+            _enabled = true;
         }
 
         public SiSpottingSystemDefinition Definition { get; }
         public SiVehicleTargetingSpotScoreDefinition VehicleTargetingDefinition { get; }
+
+        public void SetEnabled(bool enabled)
+        {
+            if (_enabled == enabled)
+                return;
+
+            _enabled = enabled;
+            if (!_enabled)
+            {
+                _observations.Clear();
+                _targetBank.Clear();
+                _recentShotTimes.Clear();
+                _recentPlayerEvidenceTimes.Clear();
+                _pendingObservers.Clear();
+                _queuedObservers.Clear();
+            }
+        }
 
         public void Clear()
         {
@@ -168,6 +187,9 @@ namespace Si.UtilityAI
 
         public void Update(long elapsedMilliseconds)
         {
+            if (!_enabled)
+                return;
+
             TryResolveWeather();
             UpdatePaxVehicleWeaponSubscriptions();
             UpdatePlayerFiringEvidence();
@@ -188,7 +210,7 @@ namespace Si.UtilityAI
             float aimHeight,
             double distance)
         {
-            if (observer == null || target == null || definition == null)
+            if (!_enabled || observer == null || target == null || definition == null)
                 return SiSpottingObservation.None;
 
             var now = CurrentTimeMilliseconds();
@@ -266,7 +288,7 @@ namespace Si.UtilityAI
 
         public void ReportShot(long shooterEntityId, MyEntity shooter)
         {
-            if (shooterEntityId == 0 || shooter == null)
+            if (!_enabled || shooterEntityId == 0 || shooter == null)
                 return;
 
             var now = CurrentTimeMilliseconds();
@@ -282,7 +304,7 @@ namespace Si.UtilityAI
 
         public bool HasSpottedTargetNearby(long observerEntityId, double distance)
         {
-            if (observerEntityId == 0 || distance < 0)
+            if (!_enabled || observerEntityId == 0 || distance < 0)
                 return false;
 
             var observer = ResolveObserver(observerEntityId);
