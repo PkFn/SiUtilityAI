@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Equinox76561198048419394.Core.Inventory;
 using Equinox76561198048419394.Core.Util;
 using Medieval.GameSystems;
 using Medieval.GameSystems.Factions;
@@ -12,8 +11,6 @@ using Sandbox.Game.Players;
 using Sandbox.ModAPI;
 using SiCore.Core.Debug;
 using VRage;
-using VRage.Collections;
-using VRage.Components.Physics;
 using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.Entity;
@@ -567,8 +564,19 @@ namespace Si.UtilityAI
                 return;
             }
 
-            var refundedCount = 0;
-            var refundedNpcIds = new List<long>();
+            if (!TryGetBaseCampInventories(
+                    baseCampEntityId,
+                    out var recruits,
+                    out var webbings))
+            {
+                Respond(player.Id.SteamId, "The base camp inventories are not available.");
+                return;
+            }
+
+            var recruitId = new MyDefinitionId(
+                typeof(MyObjectBuilder_InventoryItem),
+                "DefenderRecruit");
+            var refundEntries = new List<SiBaseCampRefundEntry>();
             for (var i = 0; i < npcIds.Count; i++)
             {
                 SiNpc npc;
@@ -576,12 +584,67 @@ namespace Si.UtilityAI
                     || npc?.Entity == null
                     || npc.Entity.Closed
                     || npc.Entity.MarkedForClose)
-                    continue;
+                {
+                    Respond(player.Id.SteamId, "A selected squad member is no longer available; nothing was removed.");
+                    return;
+                }
 
-                if (!DropNpcInventoryToSack(npc))
-                    continue;
+                if (!TryGetBaseCampRefundWebbing(npc, out var webbingId))
+                {
+                    Respond(player.Id.SteamId, "A selected squad member has no compatible webbing; nothing was removed.");
+                    return;
+                }
 
-                if (Npcs.Close(npc.EntityId))
+                refundEntries.Add(new SiBaseCampRefundEntry(npc, webbingId));
+            }
+
+            if (!CanAcceptBaseCampRefund(
+                    recruits,
+                    webbings,
+                    refundEntries,
+                    recruitId,
+                    out var capacityFailure))
+            {
+                Respond(player.Id.SteamId, capacityFailure);
+                return;
+            }
+
+            if (!recruits.AddItems(
+                    recruitId,
+                    refundEntries.Count,
+                    MyInventoryBase.NewItemParams.ForcedInsertion))
+            {
+                Respond(player.Id.SteamId, "The recruit inventory changed before refund; nothing was removed.");
+                return;
+            }
+
+            var addedWebbings = new List<MyDefinitionId>();
+            for (var i = 0; i < refundEntries.Count; i++)
+            {
+                var webbingId = refundEntries[i].WebbingId;
+                if (webbings.AddItems(
+                        webbingId,
+                        1,
+                        MyInventoryBase.NewItemParams.ForcedInsertion))
+                {
+                    addedWebbings.Add(webbingId);
+                    continue;
+                }
+
+                recruits.RemoveItems(recruitId, refundEntries.Count);
+                for (var addedIndex = 0; addedIndex < addedWebbings.Count; addedIndex++)
+                    webbings.RemoveItems(addedWebbings[addedIndex], 1);
+
+                Respond(player.Id.SteamId, "The webbing inventory changed before refund; nothing was removed.");
+                return;
+            }
+
+            var refundedCount = 0;
+            var refundedNpcIds = new List<long>();
+            for (var i = 0; i < refundEntries.Count; i++)
+            {
+                var npc = refundEntries[i].Npc;
+                if (Npcs.Close(npc.EntityId, dropCasualLoot: false))
                 {
                     refundedCount++;
                     refundedNpcIds.Add(npc.EntityId);
@@ -594,50 +657,65 @@ namespace Si.UtilityAI
             Respond(
                 player.Id.SteamId,
                 refundedCount == npcIds.Count
-                    ? $"Refunded squad with {refundedCount} trooper(s)."
-                    : $"Refunded {refundedCount} of {npcIds.Count} trooper(s); unavailable members were left untouched.");
+                    ? $"Refunded squad with {refundedCount} trooper(s), including recruits and webbing."
+                    : $"Refunded {refundedCount} of {npcIds.Count} trooper(s); the returned recruits and webbing were kept.");
         }
 
-        private static bool DropNpcInventoryToSack(SiNpc npc)
+        private static bool TryGetBaseCampRefundWebbing(SiNpc npc, out MyDefinitionId webbingId)
         {
-            var entity = npc?.Entity;
-            if (entity == null || entity.Closed || entity.MarkedForClose)
+            webbingId = default(MyDefinitionId);
+            var dataDrivenNpc = npc as SiDataDrivenNpc;
+            if (dataDrivenNpc == null
+                || string.IsNullOrWhiteSpace(dataDrivenNpc.WebbingSubtype)
+                || !SiNpcTrooperCatalog.TryResolveLoadout(
+                    dataDrivenNpc.WebbingSubtype,
+                    false,
+                    out _,
+                    out var loadout)
+                || loadout == null)
                 return false;
 
-            if (_instance?.CasualModeEnabled == true)
-                return DropCasualNpcWebbing(npc);
+            webbingId = loadout.WebbingItemId;
+            return true;
+        }
 
-            var inventory = SiNpcEquipmentHelper.FindInventory(entity, out _) as MyInventory;
-            if (inventory == null)
+        private static bool CanAcceptBaseCampRefund(
+            MyInventory recruits,
+            MyInventory webbings,
+            List<SiBaseCampRefundEntry> entries,
+            MyDefinitionId recruitId,
+            out string failure)
+        {
+            failure = null;
+            if (recruits == null || webbings == null || entries == null || entries.Count == 0)
+            {
+                failure = "The base camp inventories are not available; nothing was removed.";
                 return false;
+            }
 
-            var recruitId = new MyDefinitionId(
-                typeof(MyObjectBuilder_InventoryItem),
-                "DefenderRecruit");
-            if (inventory.GetItemAmount(recruitId) <= 0
-                && !inventory.AddItems(
-                    recruitId,
-                    1,
-                    MyInventoryBase.NewItemParams.ForcedInsertion))
+            if (recruits.ComputeAmountThatFits(recruitId) < entries.Count)
+            {
+                failure = "The recruit inventory is full; nothing was removed.";
                 return false;
+            }
 
-            var items = new List<MyInventoryItem>();
-            foreach (var item in inventory.Items)
-                if (item != null)
-                    items.Add(item.Clone());
-
-            if (items.Count == 0)
+            // Webbings are equipment items and occupy one inventory slot each.
+            // Check the aggregate free slots so a multi-member refund cannot
+            // partially fill the inventory after individual checks pass.
+            if (webbings.MaxItemCount - webbings.ItemCount < entries.Count)
+            {
+                failure = "The webbing inventory is full; nothing was removed.";
                 return false;
+            }
 
-            var characterBagId = new MyDefinitionId(
-                typeof(MyObjectBuilder_InventoryBagEntity),
-                "CharacterBag");
-            var bag = InventoryDropper.DropItemsInBag(
-                new ListReader<MyInventoryItem>(items),
-                entity.WorldMatrix.Translation,
-                characterBagId,
-                entity.Get<MyPhysicsComponentBase>());
-            return bag != null;
+            for (var i = 0; i < entries.Count; i++)
+                if (!webbings.CanAddItems(entries[i].WebbingId, 1))
+                {
+                    failure = "The webbing inventory cannot accept the returned equipment; nothing was removed.";
+                    return false;
+                }
+
+            return true;
         }
 
         private static void RestoreBaseCampInventory(
@@ -678,6 +756,18 @@ namespace Si.UtilityAI
             public MyDefinitionId DefinitionId { get; }
             public string WebbingSubtype { get; }
             public int Amount { get; }
+        }
+
+        private sealed class SiBaseCampRefundEntry
+        {
+            public SiBaseCampRefundEntry(SiNpc npc, MyDefinitionId webbingId)
+            {
+                Npc = npc;
+                WebbingId = webbingId;
+            }
+
+            public SiNpc Npc { get; }
+            public MyDefinitionId WebbingId { get; }
         }
 
         private void ExecuteAdminRearm(MyPlayer player)
