@@ -403,6 +403,20 @@ namespace Si.UtilityAI
             if (state == null)
                 return;
 
+            // Order changes must not dismount an NPC that is still mounted.
+            // Keep the seat assignment alive and remove only its cached
+            // formation target; the transport behavior will stop the vehicle
+            // on its next tick.  Seat release is reserved for the explicit
+            // Disembark order below.
+            if (state.TransportMode == SiSquadTransportMode.Mount)
+            {
+                if (Squads != null && Npcs != null)
+                    foreach (var npc in Squads.GetLeaderNpcs(Npcs, leaderIdentityId))
+                        if (npc != null)
+                            ClearCachedFormationPosition(npc.EntityId);
+                return;
+            }
+
             ReleaseLeaderTransportSeats(leaderIdentityId);
             state.TransportMode = SiSquadTransportMode.None;
             state.TransportVehicleEntityId = 0;

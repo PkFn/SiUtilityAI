@@ -227,6 +227,11 @@ namespace Si.UtilityAI
             CachePosition(npc?.EntityId ?? 0, SiNpcCachedPositionKind.Formation, position);
         }
 
+        internal void ClearCachedFormationPosition(long entityId)
+        {
+            ClearCachedPosition(entityId, SiNpcCachedPositionKind.Formation);
+        }
+
         internal void CacheCombatPosition(SiNpc npc, SiCombatMovementRole role, in Vector3D position)
         {
             CachePosition(npc?.EntityId ?? 0, ToCachedPositionKind(role), position);
