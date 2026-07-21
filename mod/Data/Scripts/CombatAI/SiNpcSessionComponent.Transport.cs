@@ -187,7 +187,7 @@ namespace Si.UtilityAI
                 return false;
             }
 
-            if (!SiTransportSeatHelpers.TryGetSeatBlockGrid(seat, out var seatBlockEntity, out var vehicleGrid))
+            if (!TransportSeatQueries.TryGetSeatGrid(seat, out var seatBlockEntity, out var vehicleGrid))
             {
                 failure = "Failed to resolve the current vehicle grid.";
                 return false;
@@ -357,7 +357,7 @@ namespace Si.UtilityAI
             if (vehicle == null || !vehicle.Components.TryGet(out MyGridDataComponent gridData))
                 yield break;
 
-            foreach (var slot in SiTransportSeatHelpers.EnumerateSeatSlotsOnGrid(gridData))
+            foreach (var slot in TransportSeatQueries.EnumerateSlots(gridData))
                 yield return slot;
         }
 

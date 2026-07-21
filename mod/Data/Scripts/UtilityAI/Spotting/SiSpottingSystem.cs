@@ -1088,7 +1088,7 @@ namespace Si.UtilityAI
 
             MyEntity seatBlockEntity;
             MyGridDataComponent gridData;
-            if (!SiTransportSeatHelpers.TryGetSeatBlockGrid(slot, out seatBlockEntity, out gridData))
+            if (!TransportSeatQueries.TryGetSeatGrid(slot, out seatBlockEntity, out gridData))
                 return false;
 
             if (!TryBuildVehicleTarget(gridData, now, out vehicle))
@@ -1215,7 +1215,7 @@ namespace Si.UtilityAI
 
             if (!occupied)
             {
-                foreach (var seat in SiTransportSeatHelpers.EnumerateSeatSlotsOnGrid(gridData))
+                foreach (var seat in TransportSeatQueries.EnumerateSlots(gridData))
                     if (seat?.AttachedCharacter != null)
                     {
                         occupied = true;
@@ -1354,7 +1354,7 @@ namespace Si.UtilityAI
             MyGridDataComponent gridData,
             ref VehicleAttackPointSelection selection)
         {
-            foreach (var slot in SiTransportSeatHelpers.EnumerateSeatSlotsOnGrid(gridData))
+            foreach (var slot in TransportSeatQueries.EnumerateSlots(gridData))
             {
                 var occupant = slot?.AttachedCharacter;
                 if (!IsLiveCharacter(occupant))
@@ -1362,7 +1362,7 @@ namespace Si.UtilityAI
 
                 MyEntity seatBlockEntity;
                 MyGridDataComponent seatGrid;
-                if (!SiTransportSeatHelpers.TryGetSeatBlockGrid(slot, out seatBlockEntity, out seatGrid))
+                if (!TransportSeatQueries.TryGetSeatGrid(slot, out seatBlockEntity, out seatGrid))
                     continue;
                 if (seatGrid != gridData || !IsValidObservedEntity(seatBlockEntity))
                     continue;
