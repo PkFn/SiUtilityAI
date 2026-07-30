@@ -3,9 +3,9 @@ using Sandbox.Game.Players;
 
 namespace Si.UtilityAI
 {
-    internal static class SiFollowSpeedLogic
+    public static class SiFollowSpeedLogic
     {
-        internal static SiNpcMovementSpeed ResolveFollowerSpeed(
+        public static SiNpcMovementSpeed ResolveFollowerSpeed(
             SiSquadSystemDefinition definition,
             SiNpcMovementSpeed checkpointSpeed,
             double checkpointDistance)
@@ -15,7 +15,7 @@ namespace Si.UtilityAI
                 : checkpointSpeed;
         }
 
-        internal static SiNpcMovementSpeed GetPlayerCheckpointSpeed(MyPlayer player)
+        public static SiNpcMovementSpeed GetPlayerCheckpointSpeed(MyPlayer player)
         {
             var movement = player?.ControlledEntity?.Get<MyCharacterMovementComponent>();
             if (movement == null)

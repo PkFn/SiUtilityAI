@@ -41,7 +41,7 @@ namespace Si.UtilityAI
         public SiRankDefinition PlayerRank => GetRank(PlayerRankId);
         public SiRankDefinition NpcRank => GetRank(NpcRankId);
 
-        internal static SiSquadSystemDefinition LoadDefault()
+        public static SiSquadSystemDefinition LoadDefault()
         {
             SiSquadSystemDefinition definition;
             if (MyDefinitionManager.TryGet(DefaultDefinitionId, out definition))
