@@ -41,6 +41,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
         private static readonly Vector2 WaypointMarkerSize = new Vector2(0.012f, 0.012f);
         private static readonly Vector2 HoveredWaypointMarkerSize = new Vector2(0.016f, 0.016f);
         private const float WaypointLineWidthPixels = 2f;
+        private const float WaypointPreviewCursorOffsetPixels = 18f;
         private static readonly char[] PopupLineBreaks = { '\n' };
         private static readonly Vector2 CommandOverlayAnchor = new Vector2(-0.98f, -0.86f);
         private readonly Dictionary<string, string> _markerImages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -135,14 +136,21 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 : hoveredMarker != null
                     ? new SiMapCommandClickTarget(hoveredMarker, false)
                     : default(SiMapCommandClickTarget);
+            FindPlacementPreview(
+                session,
+                layout,
+                mouseNormalizedPosition,
+                out var previewLeaderMarker,
+                out var previewMapPosition);
 
             PollMiddleMouseCommandActivation(session, clickedTarget);
 
-            DrawWaypointConnections(layout, transitionAlpha);
+            DrawWaypointConnections(layout, transitionAlpha, previewLeaderMarker, previewMapPosition);
 
             for (var i = 0; i < layout.Count; i++)
             {
                 var marker = layout[i].Marker;
+                var selected = session.IsMapCommandLeaderSelected(marker.Leader);
 
                 if (layout[i].HasLeaderPosition)
                 {
@@ -151,12 +159,18 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                         marker.StyleId,
                         transitionAlpha,
                         false,
-                        session.IsMapCommandLeaderSelected(marker.Leader));
+                        selected);
                 }
+
+                if (selected && previewLeaderMarker != null && previewLeaderMarker.Leader.Equals(marker.Leader))
+                    continue;
 
                 if (layout[i].HasWaypointPosition)
                     DrawWaypointMarker(layout[i].WaypointMapPosition, transitionAlpha, false);
             }
+
+            if (previewLeaderMarker != null)
+                DrawWaypointMarker(previewMapPosition, transitionAlpha, true);
 
             if (hoveredWaypointMarker != null)
             {
@@ -251,17 +265,32 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                 SpriteBatchMode.Default);
         }
 
-        private void DrawWaypointConnections(IReadOnlyList<SiMarkerLayout> layout, float transitionAlpha)
+        private void DrawWaypointConnections(
+            IReadOnlyList<SiMarkerLayout> layout,
+            float transitionAlpha,
+            SiSquadMapMarker previewLeaderMarker,
+            Vector2 previewMapPosition)
         {
             if (string.IsNullOrWhiteSpace(_waypointLineImage))
                 return;
 
             for (var i = 0; i < layout.Count; i++)
             {
-                if (!layout[i].HasLeaderPosition || !layout[i].HasWaypointPosition)
+                if (!layout[i].HasLeaderPosition)
                     continue;
 
-                var direction = layout[i].WaypointMapPosition - layout[i].MapPosition;
+                var waypointMapPosition = layout[i].WaypointMapPosition;
+                var hasWaypointPosition = layout[i].HasWaypointPosition;
+                if (previewLeaderMarker != null && previewLeaderMarker.Leader.Equals(layout[i].Marker.Leader))
+                {
+                    waypointMapPosition = previewMapPosition;
+                    hasWaypointPosition = true;
+                }
+
+                if (!hasWaypointPosition)
+                    continue;
+
+                var direction = waypointMapPosition - layout[i].MapPosition;
                 var distance = direction.Length();
                 if (distance <= 0.0001f)
                     continue;
@@ -270,7 +299,7 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
                     layout[i].MapPosition,
                     false);
                 var waypointPixelPosition = MyGuiManager.GetScreenCoordinateFromNormalizedCoordinate(
-                    layout[i].WaypointMapPosition,
+                    waypointMapPosition,
                     false);
                 var pixelDirection = waypointPixelPosition - leaderPixelPosition;
                 var pixelDistance = pixelDirection.Length();
@@ -502,6 +531,19 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
             if (session == null || Map == null)
                 return;
 
+            if (session.HasSelectedMapCommandLeader())
+            {
+                if (!cell.HasValue)
+                    return;
+
+                Vector3D selectedTarget;
+                if (!TryResolveCommandTarget(cell.Value, out selectedTarget))
+                    return;
+
+                session.TryIssueSelectedMapMoveOrder(selectedTarget);
+                return;
+            }
+
             if (clickedTarget.IsWaypoint)
             {
                 session.TryOpenWaypointEditor(clickedTarget.Marker);
@@ -657,6 +699,40 @@ namespace Medieval.GUI.Ingame.Map.RenderLayers
         {
             _middleMouseDownLastFrame = false;
             _ignoreMiddleMouseUntilRelease = requireRelease;
+        }
+
+        private void FindPlacementPreview(
+            SiNpcSessionComponent session,
+            IReadOnlyList<SiMarkerLayout> layout,
+            Vector2 mouseNormalizedPosition,
+            out SiSquadMapMarker previewLeaderMarker,
+            out Vector2 previewMapPosition)
+        {
+            previewLeaderMarker = null;
+            previewMapPosition = default(Vector2);
+            if (session == null || !session.HasSelectedMapCommandLeader() || layout == null)
+                return;
+
+            for (var i = 0; i < layout.Count; i++)
+            {
+                var marker = layout[i].Marker;
+                if (marker == null || !layout[i].HasLeaderPosition || !session.IsMapCommandLeaderSelected(marker.Leader))
+                    continue;
+
+                previewLeaderMarker = marker;
+                previewMapPosition = OffsetMapPreviewBelowCursor(mouseNormalizedPosition);
+                return;
+            }
+        }
+
+        private static Vector2 OffsetMapPreviewBelowCursor(Vector2 mouseNormalizedPosition)
+        {
+            var screenSize = MyGuiManager.GetScreenSizeFromNormalizedSize(Vector2.One, false);
+            if (screenSize.Y <= 0f)
+                return mouseNormalizedPosition;
+
+            var offsetNormalizedY = WaypointPreviewCursorOffsetPixels / screenSize.Y;
+            return new Vector2(mouseNormalizedPosition.X, mouseNormalizedPosition.Y + offsetNormalizedY);
         }
 
         private static string FirstNonEmpty(params string[] values)

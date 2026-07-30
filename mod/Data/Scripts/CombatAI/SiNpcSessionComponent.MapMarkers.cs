@@ -109,19 +109,11 @@ namespace Si.UtilityAI
             if (_hasSelectedMapCommandLeader)
             {
                 var selectedName = MapCommandLeaderName(_selectedMapCommandLeader) ?? "Selected squad";
-                if (hoveredMarker != null
-                    && CanLocalPlayerCommandSquad(hoveredMarker)
-                    && IsMapCommandLeaderSelected(hoveredMarker.Leader))
-                    return $"{selectedName} selected | MBM marker to unselect | MBM map to move";
-
-                if (hoveredMarker != null && CanLocalPlayerCommandSquad(hoveredMarker))
-                    return $"{selectedName} selected | MBM hovered marker to switch squad | MBM map to move";
-
-                return $"{selectedName} selected | MBM map to move squad";
+                return $"{selectedName} selected | waypoint follows cursor | MBM to place move order";
             }
 
             if (hoveredMarker != null && CanLocalPlayerCommandSquad(hoveredMarker))
-                return $"MBM to select {hoveredMarker.Name ?? "allied squad"}";
+                return $"MBM to select {hoveredMarker.Name ?? "allied squad"} and place a waypoint";
 
             return "MBM an allied AI squad marker to select it";
         }
@@ -132,8 +124,8 @@ namespace Si.UtilityAI
                 return null;
 
             return IsMapCommandLeaderSelected(marker.Leader)
-                ? "Middle mouse: unselect squad"
-                : "Middle mouse: select squad";
+                ? "Middle mouse: place move order"
+                : "Middle mouse: select squad and place waypoint";
         }
 
         private void ClearLocalMapCommandSelection(bool notify)
