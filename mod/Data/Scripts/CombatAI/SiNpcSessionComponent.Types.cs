@@ -288,8 +288,7 @@ namespace Si.UtilityAI
         public long VehicleEntityId { get; set; }
         public long SeatEntityId { get; set; }
         public string SeatSlotName { get; set; }
-        public bool HasExitLocalPosition { get; set; }
-        public Vector3D ExitLocalPosition { get; set; }
+        public SiTransportSeatService.RelativeExitPointState ExitPoint { get; } = new SiTransportSeatService.RelativeExitPointState();
         public SiTransportSeatService.SeatApproachState SeatApproach { get; } = new SiTransportSeatService.SeatApproachState();
     }
 

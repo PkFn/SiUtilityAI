@@ -400,8 +400,7 @@ namespace Si.K9
             switch (mountResult)
             {
                 case SiTransportSeatService.SeatMountResult.Mounted:
-                    state.ExitPosition = exitPosition;
-                    state.HasExitPosition = true;
+                    SiTransportSeatService.TryRecordRelativeExitPoint(state.VehicleEntityId, state.ExitPoint, exitPosition);
                     ClearMotionTarget(state);
                     return;
                 case SiTransportSeatService.SeatMountResult.Approach:
@@ -417,9 +416,13 @@ namespace Si.K9
             MyEntity wolfEntity,
             EquiEntityControllerComponent controller)
         {
-            var exitPosition = state.HasExitPosition
-                ? state.ExitPosition
-                : wolfEntity.WorldMatrix.Translation;
+            Vector3D exitPosition;
+            var hasExitPosition = SiTransportSeatService.TryResolveRelativeExitPoint(
+                state.VehicleEntityId,
+                state.ExitPoint,
+                out exitPosition);
+            if (!hasExitPosition)
+                exitPosition = wolfEntity.WorldMatrix.Translation;
 
             if (controller.Controlled != null)
             {
@@ -429,7 +432,7 @@ namespace Si.K9
                 return;
             }
 
-            if (!state.HasExitPosition
+            if (!hasExitPosition
                 || Vector3D.DistanceSquared(wolfEntity.WorldMatrix.Translation, exitPosition)
                    <= ExitArrivalDistance * ExitArrivalDistance)
             {
@@ -523,8 +526,7 @@ namespace Si.K9
             state.VehicleEntityId = 0;
             state.SeatEntityId = 0;
             state.SeatSlotName = null;
-            state.HasExitPosition = false;
-            state.ExitPosition = Vector3D.Zero;
+            state.ExitPoint.Reset();
             state.SeatApproach.Reset();
             SetSeatedAnimationState(state.Entity, false);
             ClearMotionTarget(state);
@@ -828,8 +830,7 @@ namespace Si.K9
             public long VehicleEntityId;
             public long SeatEntityId;
             public string SeatSlotName;
-            public bool HasExitPosition;
-            public Vector3D ExitPosition;
+            public readonly SiTransportSeatService.RelativeExitPointState ExitPoint;
             public long LastSeatedLogTimeMilliseconds;
             public readonly SiTransportSeatService.SeatApproachState SeatApproach;
 
@@ -847,8 +848,7 @@ namespace Si.K9
                 VehicleEntityId = 0;
                 SeatEntityId = 0;
                 SeatSlotName = null;
-                HasExitPosition = false;
-                ExitPosition = Vector3D.Zero;
+                ExitPoint = new SiTransportSeatService.RelativeExitPointState();
                 LastSeatedLogTimeMilliseconds = long.MinValue;
                 SeatApproach = new SiTransportSeatService.SeatApproachState();
             }

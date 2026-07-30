@@ -326,8 +326,8 @@ namespace Si.UtilityAI
                 TransportVehicleEntityId = transportState?.VehicleEntityId ?? 0,
                 SeatEntityId = transportState?.SeatEntityId ?? 0,
                 SeatSlotName = transportState?.SeatSlotName,
-                HasTransportExitLocalPosition = transportState?.HasExitLocalPosition ?? false,
-                TransportExitLocalPosition = (SerializableVector3D)(transportState?.ExitLocalPosition ?? Vector3D.Zero),
+                HasTransportExitLocalPosition = transportState?.ExitPoint?.HasLocalPosition ?? false,
+                TransportExitLocalPosition = (SerializableVector3D)(transportState?.ExitPoint?.LocalPosition ?? Vector3D.Zero),
                 WasInTransportSeat = _instance?.IsNpcMountedInAssignedTransportSeat(npc, transportState) ?? false,
             };
         }
@@ -342,14 +342,15 @@ namespace Si.UtilityAI
                 || string.IsNullOrWhiteSpace(saved.SeatSlotName))
                 return;
 
-            _transportNpcStates[npc.EntityId] = new SiTransportNpcState
+            var state = new SiTransportNpcState
             {
                 VehicleEntityId = saved.TransportVehicleEntityId,
                 SeatEntityId = saved.SeatEntityId,
                 SeatSlotName = saved.SeatSlotName,
-                HasExitLocalPosition = saved.HasTransportExitLocalPosition,
-                ExitLocalPosition = saved.TransportExitLocalPosition,
             };
+            state.ExitPoint.HasLocalPosition = saved.HasTransportExitLocalPosition;
+            state.ExitPoint.LocalPosition = saved.TransportExitLocalPosition;
+            _transportNpcStates[npc.EntityId] = state;
 
             if (saved.WasInTransportSeat && !_pendingTransportSeatRestoreNpcIds.Contains(npc.EntityId))
                 _pendingTransportSeatRestoreNpcIds.Add(npc.EntityId);

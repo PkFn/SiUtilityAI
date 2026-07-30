@@ -33,6 +33,18 @@ namespace Si.UtilityAI
             }
         }
 
+        public sealed class RelativeExitPointState
+        {
+            public bool HasLocalPosition;
+            public Vector3D LocalPosition;
+
+            public void Reset()
+            {
+                HasLocalPosition = false;
+                LocalPosition = Vector3D.Zero;
+            }
+        }
+
         public static bool TryGetMountedVehicle(MyPlayer player, out MyEntity vehicle, out string failure)
         {
             vehicle = null;
@@ -123,6 +135,36 @@ namespace Si.UtilityAI
         {
             vehicle = MyEntities.GetEntityByIdOrDefault(vehicleEntityId);
             return vehicle != null && !vehicle.Closed && !vehicle.MarkedForClose;
+        }
+
+        public static bool TryRecordRelativeExitPoint(
+            long vehicleEntityId,
+            RelativeExitPointState exitPoint,
+            in Vector3D worldPosition)
+        {
+            if (exitPoint == null)
+                return false;
+            if (!TryGetTransportVehicleEntity(vehicleEntityId, out var vehicle) || vehicle?.PositionComp == null)
+                return false;
+
+            exitPoint.LocalPosition = Vector3D.Transform(worldPosition, vehicle.PositionComp.WorldMatrixInvScaled);
+            exitPoint.HasLocalPosition = true;
+            return true;
+        }
+
+        public static bool TryResolveRelativeExitPoint(
+            long vehicleEntityId,
+            RelativeExitPointState exitPoint,
+            out Vector3D worldPosition)
+        {
+            worldPosition = Vector3D.Zero;
+            if (exitPoint == null || !exitPoint.HasLocalPosition)
+                return false;
+            if (!TryGetTransportVehicleEntity(vehicleEntityId, out var vehicle) || vehicle?.PositionComp == null)
+                return false;
+
+            worldPosition = Vector3D.Transform(exitPoint.LocalPosition, vehicle.PositionComp.WorldMatrix);
+            return true;
         }
 
         public static SeatMountResult TryMountSeatOrApproach(

@@ -149,11 +149,8 @@ namespace Si.UtilityAI
                 return;
             if (!_transportNpcStates.TryGetValue(npc.EntityId, out var state))
                 return;
-            if (!SiTransportSeatService.TryGetTransportVehicleEntity(state.VehicleEntityId, out var vehicle))
-                return;
 
-            state.ExitLocalPosition = Vector3D.Transform(worldPosition, vehicle.PositionComp.WorldMatrixInvScaled);
-            state.HasExitLocalPosition = true;
+            SiTransportSeatService.TryRecordRelativeExitPoint(state.VehicleEntityId, state.ExitPoint, worldPosition);
         }
 
         internal bool TryGetTransportExitWorldPosition(SiNpc npc, out Vector3D worldPosition)
@@ -161,13 +158,10 @@ namespace Si.UtilityAI
             worldPosition = Vector3D.Zero;
             if (npc == null)
                 return false;
-            if (!_transportNpcStates.TryGetValue(npc.EntityId, out var state) || !state.HasExitLocalPosition)
-                return false;
-            if (!SiTransportSeatService.TryGetTransportVehicleEntity(state.VehicleEntityId, out var vehicle))
+            if (!_transportNpcStates.TryGetValue(npc.EntityId, out var state))
                 return false;
 
-            worldPosition = Vector3D.Transform(state.ExitLocalPosition, vehicle.PositionComp.WorldMatrix);
-            return true;
+            return SiTransportSeatService.TryResolveRelativeExitPoint(state.VehicleEntityId, state.ExitPoint, out worldPosition);
         }
 
         internal void CompleteTransportOrder(SiNpc npc)
