@@ -106,6 +106,43 @@ namespace Si.UtilityAI
                    && string.Equals(state.SeatSlotName, slot.Definition.Name, StringComparison.Ordinal);
         }
 
+        internal SiTransportSeatService.SeatMountResult TryMountAssignedTransportSeat(
+            SiNpc npc,
+            EquiEntityControllerComponent controller,
+            EquiPlayerAttachmentComponent.Slot slot,
+            double instantMountDistance,
+            long warpFallbackDelayMilliseconds,
+            double progressDistance,
+            out Vector3D seatPosition,
+            out Vector3D exitPosition)
+        {
+            seatPosition = Vector3D.Zero;
+            exitPosition = Vector3D.Zero;
+            if (npc?.Entity == null || controller == null || slot == null)
+                return SiTransportSeatService.SeatMountResult.Failed;
+            if (!_transportNpcStates.TryGetValue(npc.EntityId, out var state) || state == null)
+                return SiTransportSeatService.SeatMountResult.Failed;
+
+            return SiTransportSeatService.TryMountSeatOrApproach(
+                npc.Entity,
+                controller,
+                slot,
+                state.SeatApproach,
+                instantMountDistance,
+                warpFallbackDelayMilliseconds,
+                progressDistance,
+                out seatPosition,
+                out exitPosition);
+        }
+
+        internal void ResetTransportSeatApproach(SiNpc npc)
+        {
+            if (npc == null)
+                return;
+            if (_transportNpcStates.TryGetValue(npc.EntityId, out var state))
+                state?.SeatApproach.Reset();
+        }
+
         internal void RecordTransportExitPosition(SiNpc npc, in Vector3D worldPosition)
         {
             if (npc == null)
@@ -263,6 +300,7 @@ namespace Si.UtilityAI
             existing.VehicleEntityId = vehicleEntityId;
             existing.SeatEntityId = bestSeat.Controllable.Entity.EntityId;
             existing.SeatSlotName = bestSeat.Definition.Name;
+            existing.SeatApproach.Reset();
             assignedState = existing;
             return true;
         }

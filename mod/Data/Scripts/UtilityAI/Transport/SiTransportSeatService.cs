@@ -5,12 +5,34 @@ using Sandbox.Game.Players;
 using SiCore.Core.Grid;
 using VRage.Components.Entity.CubeGrid;
 using VRage.Game.Entity;
+using VRage.Session;
 using VRageMath;
 
 namespace Si.UtilityAI
 {
     public static class SiTransportSeatService
     {
+        public enum SeatMountResult : byte
+        {
+            Failed,
+            Approach,
+            Mounted,
+        }
+
+        public sealed class SeatApproachState
+        {
+            public bool HasProgressPosition;
+            public Vector3D ProgressPosition;
+            public long LastProgressTimeMilliseconds;
+
+            public void Reset()
+            {
+                HasProgressPosition = false;
+                ProgressPosition = Vector3D.Zero;
+                LastProgressTimeMilliseconds = 0;
+            }
+        }
+
         public static bool TryGetMountedVehicle(MyPlayer player, out MyEntity vehicle, out string failure)
         {
             vehicle = null;
@@ -101,6 +123,85 @@ namespace Si.UtilityAI
         {
             vehicle = MyEntities.GetEntityByIdOrDefault(vehicleEntityId);
             return vehicle != null && !vehicle.Closed && !vehicle.MarkedForClose;
+        }
+
+        public static SeatMountResult TryMountSeatOrApproach(
+            MyEntity passenger,
+            EquiEntityControllerComponent controller,
+            EquiPlayerAttachmentComponent.Slot seat,
+            SeatApproachState approachState,
+            double instantMountDistance,
+            long warpFallbackDelayMilliseconds,
+            double progressDistance,
+            out Vector3D seatPosition,
+            out Vector3D exitPosition)
+        {
+            seatPosition = Vector3D.Zero;
+            exitPosition = Vector3D.Zero;
+
+            if (passenger == null || controller == null || seat == null)
+                return SeatMountResult.Failed;
+
+            var seatEntity = seat.Controllable?.Entity;
+            if (seatEntity == null || !seatEntity.InScene)
+                return SeatMountResult.Failed;
+
+            seatPosition = seatEntity.WorldMatrix.Translation;
+            exitPosition = passenger.WorldMatrix.Translation;
+
+            var distanceSquared = Vector3D.DistanceSquared(exitPosition, seatPosition);
+            var shouldWarp = false;
+            if (distanceSquared > instantMountDistance * instantMountDistance)
+                shouldWarp = ShouldWarpToSeat(exitPosition, approachState, warpFallbackDelayMilliseconds, progressDistance);
+
+            if (shouldWarp)
+                WarpPassengerToSeat(passenger, seatEntity);
+            else if (distanceSquared > instantMountDistance * instantMountDistance)
+                return SeatMountResult.Approach;
+
+            controller.RequestControl(seat);
+            if (controller.Controlled == null || !IsSameSeat(controller.Controlled, seat.Controllable.Entity.EntityId, seat.Definition.Name))
+                return SeatMountResult.Failed;
+
+            approachState?.Reset();
+            return SeatMountResult.Mounted;
+        }
+
+        private static bool ShouldWarpToSeat(
+            in Vector3D passengerPosition,
+            SeatApproachState approachState,
+            long warpFallbackDelayMilliseconds,
+            double progressDistance)
+        {
+            if (approachState == null)
+                return false;
+
+            var now = (long)(MySession.Static?.ElapsedGameTime.TotalMilliseconds ?? 0);
+            if (!approachState.HasProgressPosition)
+            {
+                approachState.HasProgressPosition = true;
+                approachState.ProgressPosition = passengerPosition;
+                approachState.LastProgressTimeMilliseconds = now;
+                return false;
+            }
+
+            if (Vector3D.DistanceSquared(approachState.ProgressPosition, passengerPosition) >= progressDistance * progressDistance)
+            {
+                approachState.ProgressPosition = passengerPosition;
+                approachState.LastProgressTimeMilliseconds = now;
+                return false;
+            }
+
+            return now - approachState.LastProgressTimeMilliseconds >= warpFallbackDelayMilliseconds;
+        }
+
+        private static void WarpPassengerToSeat(MyEntity passenger, MyEntity seatEntity)
+        {
+            if (passenger?.PositionComp == null || seatEntity == null)
+                return;
+
+            var seatWorld = seatEntity.WorldMatrix;
+            passenger.PositionComp.WorldMatrix = MatrixD.CreateWorld(seatWorld.Translation, seatWorld.Forward, seatWorld.Up);
         }
     }
 }

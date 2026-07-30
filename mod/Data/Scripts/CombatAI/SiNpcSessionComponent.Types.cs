@@ -290,6 +290,7 @@ namespace Si.UtilityAI
         public string SeatSlotName { get; set; }
         public bool HasExitLocalPosition { get; set; }
         public Vector3D ExitLocalPosition { get; set; }
+        public SiTransportSeatService.SeatApproachState SeatApproach { get; } = new SiTransportSeatService.SeatApproachState();
     }
 
     internal struct SiCoverReservation

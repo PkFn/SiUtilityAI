@@ -36,6 +36,7 @@ namespace Si.K9
         private const double InstantMountDistance = 2.25;
         private const double SeatWaypointRefreshDistance = 0.75;
         private const double ExitArrivalDistance = 1.25;
+        private const long SeatWarpFallbackDelayMilliseconds = 2000L;
 
         private static readonly MyDefinitionId WolfDefinition =
             new MyDefinitionId(typeof(MyObjectBuilder_EntityBase), "SiK9Wolf");
@@ -377,6 +378,7 @@ namespace Si.K9
             {
                 if (IsAssignedTransportSeat(state, controller.Controlled))
                 {
+                    state.SeatApproach.Reset();
                     ApplySeatedIdleState(wolfEntity, state);
                     ClearMotionTarget(state);
                 }
@@ -385,22 +387,29 @@ namespace Si.K9
                 return;
             }
 
-            var seatEntity = seat.Controllable?.Entity;
-            if (seatEntity == null || !seatEntity.InScene)
-                return;
-
-            var seatPosition = seatEntity.WorldMatrix.Translation;
-            if (Vector3D.DistanceSquared(wolfEntity.WorldMatrix.Translation, seatPosition)
-                <= InstantMountDistance * InstantMountDistance)
+            var mountResult = SiTransportSeatService.TryMountSeatOrApproach(
+                wolfEntity,
+                controller,
+                seat,
+                state.SeatApproach,
+                InstantMountDistance,
+                SeatWarpFallbackDelayMilliseconds,
+                SeatWaypointRefreshDistance,
+                out var seatPosition,
+                out var exitPosition);
+            switch (mountResult)
             {
-                state.ExitPosition = wolfEntity.WorldMatrix.Translation;
-                state.HasExitPosition = true;
-                controller.RequestControl(seat);
-                ClearMotionTarget(state);
-                return;
+                case SiTransportSeatService.SeatMountResult.Mounted:
+                    state.ExitPosition = exitPosition;
+                    state.HasExitPosition = true;
+                    ClearMotionTarget(state);
+                    return;
+                case SiTransportSeatService.SeatMountResult.Approach:
+                    RefreshTransportWaypoint(state, seatPosition);
+                    return;
+                default:
+                    return;
             }
-
-            RefreshTransportWaypoint(state, seatPosition);
         }
 
         private void ApplyDogGetOutOrder(
@@ -466,6 +475,7 @@ namespace Si.K9
             state.VehicleEntityId = vehicle.EntityId;
             state.SeatEntityId = seat.Controllable.Entity.EntityId;
             state.SeatSlotName = seat.Definition.Name;
+            state.SeatApproach.Reset();
             return true;
         }
 
@@ -515,6 +525,7 @@ namespace Si.K9
             state.SeatSlotName = null;
             state.HasExitPosition = false;
             state.ExitPosition = Vector3D.Zero;
+            state.SeatApproach.Reset();
             SetSeatedAnimationState(state.Entity, false);
             ClearMotionTarget(state);
         }
@@ -820,6 +831,7 @@ namespace Si.K9
             public bool HasExitPosition;
             public Vector3D ExitPosition;
             public long LastSeatedLogTimeMilliseconds;
+            public readonly SiTransportSeatService.SeatApproachState SeatApproach;
 
             public SiK9WolfState(ulong ownerSteamId, SiK9DogMotionOrder order)
             {
@@ -838,6 +850,7 @@ namespace Si.K9
                 HasExitPosition = false;
                 ExitPosition = Vector3D.Zero;
                 LastSeatedLogTimeMilliseconds = long.MinValue;
+                SeatApproach = new SiTransportSeatService.SeatApproachState();
             }
         }
     }

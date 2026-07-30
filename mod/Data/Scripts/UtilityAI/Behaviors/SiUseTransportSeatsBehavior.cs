@@ -43,6 +43,7 @@ namespace Si.UtilityAI
         public float WaypointRefreshDistance { get; private set; }
         public float ExitArrivalDistance { get; private set; }
         public long ActionIntervalMilliseconds { get; private set; }
+        public long WarpFallbackDelayMilliseconds => ActionIntervalMilliseconds * 4;
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
         {
@@ -158,6 +159,7 @@ namespace Si.UtilityAI
             {
                 if (session.IsAssignedTransportSeat(context.Agent, controller.Controlled))
                 {
+                    session.ResetTransportSeatApproach(context.Agent);
                     if (context.HasWaypoint)
                         context.TryClearWaypoint();
                     return;
@@ -167,31 +169,31 @@ namespace Si.UtilityAI
                 return;
             }
 
-            var seatEntity = assignedSeat.Controllable?.Entity;
-            if (seatEntity == null || !seatEntity.InScene)
-                return;
-
-            var seatPosition = seatEntity.WorldMatrix.Translation;
-            if (Vector3D.DistanceSquared(context.Position, seatPosition)
-                <= _definition.InstantMountDistance * _definition.InstantMountDistance)
+            var mountResult = session.TryMountAssignedTransportSeat(
+                context.Agent,
+                controller,
+                assignedSeat,
+                _definition.InstantMountDistance,
+                _definition.WarpFallbackDelayMilliseconds,
+                _definition.WaypointRefreshDistance,
+                out var seatPosition,
+                out var exitPosition);
+            switch (mountResult)
             {
-                if (!session.TryConsumeTransportActionSlot(
-                    context.Agent,
-                    SiSquadTransportMode.Mount,
-                    _definition.ActionIntervalMilliseconds))
+                case SiTransportSeatService.SeatMountResult.Mounted:
+                    session.RecordTransportExitPosition(context.Agent, exitPosition);
+                    if (context.HasWaypoint)
+                        context.TryClearWaypoint();
                     return;
-
-                session.RecordTransportExitPosition(context.Agent, context.Position);
-                controller.RequestControl(assignedSeat);
-                if (context.HasWaypoint)
-                    context.TryClearWaypoint();
-                return;
+                case SiTransportSeatService.SeatMountResult.Approach:
+                    if (!context.HasWaypoint
+                        || Vector3D.DistanceSquared(context.Waypoint, seatPosition)
+                           > _definition.WaypointRefreshDistance * _definition.WaypointRefreshDistance)
+                        context.TrySetWaypoint(seatPosition);
+                    return;
+                default:
+                    return;
             }
-
-            if (!context.HasWaypoint
-                || Vector3D.DistanceSquared(context.Waypoint, seatPosition)
-                   > _definition.WaypointRefreshDistance * _definition.WaypointRefreshDistance)
-                context.TrySetWaypoint(seatPosition);
         }
 
         private void ApplyDisembarkOrder(SiNpcSessionComponent session, SiUtilityContext context)
