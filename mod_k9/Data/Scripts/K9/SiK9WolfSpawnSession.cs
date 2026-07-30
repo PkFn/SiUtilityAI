@@ -27,10 +27,9 @@ namespace Si.K9
     [MyDependency(typeof(MyChatSystem), Critical = false)]
     public sealed class SiK9WolfSpawnSession : MySessionComponent
     {
+        private const double MinimumDirectionLengthSquared = 0.0001;
+        private const double WaypointArrivalRadius = 0.75;
         private const double FollowTeleportDistance = 20.0;
-        private const double WolfSprintForwardSpeed = 12.0;
-        private const double WolfRunForwardSpeed = 4.3;
-        private const double WolfWalkForwardSpeed = 1.8;
 
         private static readonly MyDefinitionId WolfDefinition =
             new MyDefinitionId(typeof(MyObjectBuilder_EntityBase), "SiK9Wolf");
@@ -141,32 +140,31 @@ namespace Si.K9
             _staleWolves.Clear();
             foreach (var pair in _wolves)
             {
-                MyEntity wolfEntity;
-                if (!MyEntities.TryGetEntityById(new EntityId((ulong)pair.Key), out wolfEntity)
-                    || wolfEntity == null
-                    || wolfEntity.Closed
-                    || wolfEntity.MarkedForClose
-                    || !wolfEntity.InScene)
+                var state = pair.Value;
+                if (!TryResolveWolfEntity(pair.Key, state, out var wolfEntity))
                 {
+                    UnregisterMovementHandlers(state);
                     _staleWolves.Add(pair.Key);
                     continue;
                 }
 
-                if (pair.Value.Order == SiK9DogMotionOrder.Stop)
+                EnsureMovementHandlers(state, wolfEntity);
+
+                if (state.Order == SiK9DogMotionOrder.Stop)
                 {
-                    ApplyIdle(wolfEntity);
+                    ClearMotionTarget(state);
                     continue;
                 }
 
-                var owner = MyPlayers.Static?.GetPlayer(new MyPlayer.PlayerId(pair.Value.OwnerSteamId, 0));
+                var owner = MyPlayers.Static?.GetPlayer(new MyPlayer.PlayerId(state.OwnerSteamId, 0));
                 var target = owner?.ControlledEntity;
                 if (target == null)
                 {
-                    ApplyIdle(wolfEntity);
+                    ClearMotionTarget(state);
                     continue;
                 }
 
-                FollowOwner(wolfEntity, owner, target, elapsedMilliseconds, pair.Value.Order, _followSpeedDefinition);
+                FollowOwner(state, wolfEntity, owner, target, elapsedMilliseconds, state.Order, _followSpeedDefinition);
             }
 
             for (var i = 0; i < _staleWolves.Count; i++)
@@ -196,6 +194,7 @@ namespace Si.K9
         }
 
         private static void FollowOwner(
+            SiK9WolfState state,
             MyEntity wolfEntity,
             MyPlayer owner,
             MyEntity target,
@@ -204,6 +203,12 @@ namespace Si.K9
             SiSquadSystemDefinition followSpeedDefinition)
         {
             var movement = wolfEntity.Components.Get<MyCharacterMovementComponent>();
+            if (movement == null)
+            {
+                ClearMotionTarget(state);
+                return;
+            }
+
             var current = wolfEntity.WorldMatrix;
             var targetMatrix = target.WorldMatrix;
             var up = ResolveUp(current.Translation);
@@ -212,68 +217,29 @@ namespace Si.K9
             var followDistance = followSpeedDefinition?.FollowDistance ?? 2.5;
             if (distance <= followDistance)
             {
-                ApplyIdle(wolfEntity);
+                ClearMotionTarget(state);
                 return;
             }
 
             var direction = distance > 0.001 ? toTarget / distance : Vector3D.Zero;
             var destination = targetMatrix.Translation - direction * followDistance;
-            if (distance >= FollowTeleportDistance)
-            {
-                var teleportMatrix = MatrixD.CreateWorld(destination, direction, up);
-                wolfEntity.PositionComp.SetWorldMatrix(teleportMatrix, null, true);
-                if (movement != null)
-                {
-                    movement.Teleport(destination);
-                    movement.MoveIndicator = Vector3.Zero;
-                    movement.WantsSprint = false;
-                    movement.WantsWalk = false;
-                }
-
-                if (wolfEntity.Physics != null)
-                    wolfEntity.Physics.LinearVelocity = Vector3.Zero;
-                return;
-            }
 
             var checkpointSpeed = SiFollowSpeedLogic.GetPlayerCheckpointSpeed(owner);
             var followSpeed = SiFollowSpeedLogic.ResolveFollowerSpeed(
                 followSpeedDefinition,
                 checkpointSpeed,
                 distance);
-            var stepSpeed = SpeedFor(followSpeed, order);
-
-            var step = Math.Min(
-                stepSpeed * Math.Max(0.01, elapsedMilliseconds / 1000.0),
-                Math.Max(0, distance - followDistance));
-            var nextPosition = current.Translation + direction * step;
-            var nextMatrix = MatrixD.CreateWorld(nextPosition, direction, up);
-            wolfEntity.PositionComp.SetWorldMatrix(nextMatrix, null, true);
-
-            if (movement != null)
-            {
-                movement.MoveIndicator = Vector3.Forward;
-                movement.WantsSprint = followSpeed == SiNpcMovementSpeed.Sprint;
-                movement.WantsWalk = followSpeed == SiNpcMovementSpeed.Walk;
-                movement.MoveAndRotate();
-            }
-
-            if (wolfEntity.Physics != null)
-                wolfEntity.Physics.LinearVelocity = (Vector3)(direction * (step / Math.Max(0.01, elapsedMilliseconds / 1000.0)));
+            state.MovementSpeed = distance >= FollowTeleportDistance && order == SiK9DogMotionOrder.Follow
+                ? SiNpcMovementSpeed.Sprint
+                : followSpeed;
+            state.Waypoint = destination;
+            state.HasWaypoint = true;
         }
 
-        private static void ApplyIdle(MyEntity wolfEntity)
+        private static void ClearMotionTarget(SiK9WolfState state)
         {
-            var movement = wolfEntity.Components.Get<MyCharacterMovementComponent>();
-            if (movement != null)
-            {
-                movement.MoveIndicator = Vector3.Zero;
-                movement.WantsSprint = false;
-                movement.WantsWalk = false;
-                movement.MoveAndRotate();
-            }
-
-            if (wolfEntity.Physics != null)
-                wolfEntity.Physics.LinearVelocity = Vector3.Zero;
+            state.HasWaypoint = false;
+            state.MovementSpeed = SiNpcMovementSpeed.Run;
         }
 
         private static Vector3D ResolveUp(in Vector3D position)
@@ -284,17 +250,171 @@ namespace Si.K9
             return Vector3D.Up;
         }
 
-        private static double SpeedFor(SiNpcMovementSpeed speed, SiK9DogMotionOrder order)
+        private static bool TryResolveWolfEntity(long entityId, SiK9WolfState state, out MyEntity entity)
         {
-            switch (speed)
+            if (state.Entity != null
+                && !state.Entity.Closed
+                && !state.Entity.MarkedForClose
+                && state.Entity.InScene
+                && state.Entity.EntityId == entityId)
             {
-                case SiNpcMovementSpeed.Walk:
-                    return WolfWalkForwardSpeed;
-                case SiNpcMovementSpeed.Sprint:
-                    return order == SiK9DogMotionOrder.Follow ? WolfSprintForwardSpeed : WolfRunForwardSpeed;
-                default:
-                    return WolfRunForwardSpeed;
+                entity = state.Entity;
+                return true;
             }
+
+            entity = null;
+            if (!MyEntities.TryGetEntityById(new EntityId((ulong)entityId), out entity)
+                || entity == null
+                || entity.Closed
+                || entity.MarkedForClose
+                || !entity.InScene)
+                return false;
+
+            state.Entity = entity;
+            return true;
+        }
+
+        private void EnsureMovementHandlers(SiK9WolfState state, MyEntity wolfEntity)
+        {
+            if (state.HandlersRegistered)
+                return;
+
+            var movement = wolfEntity.Components.Get<MyCharacterMovementComponent>();
+            if (movement == null)
+                return;
+
+            state.Entity = wolfEntity;
+            state.Movement = movement;
+            movement.MovementIndicatorHandler += MovementIndicatorHandler;
+            movement.RotationIndicatorHandler += RotationIndicatorHandler;
+            movement.OnPostProcessPhysicalMovement += PostProcessPhysicalMovement;
+            state.HandlersRegistered = true;
+        }
+
+        private void UnregisterMovementHandlers(SiK9WolfState state)
+        {
+            if (!state.HandlersRegistered || state.Movement == null)
+                return;
+
+            state.Movement.MovementIndicatorHandler -= MovementIndicatorHandler;
+            state.Movement.RotationIndicatorHandler -= RotationIndicatorHandler;
+            state.Movement.OnPostProcessPhysicalMovement -= PostProcessPhysicalMovement;
+            state.HandlersRegistered = false;
+            state.Movement = null;
+            state.Entity = null;
+        }
+
+        private void MovementIndicatorHandler(
+            MyCharacterMovementComponent movement,
+            ref Vector3 moveIndicator)
+        {
+            var state = FindState(movement?.Entity?.EntityId ?? 0);
+            if (state == null)
+            {
+                moveIndicator = Vector3.Zero;
+                return;
+            }
+
+            ApplyMovementSpeed(movement, state.MovementSpeed);
+            if (!TryGetMoveDirection(state, out var direction))
+            {
+                moveIndicator = Vector3.Zero;
+                return;
+            }
+
+            var localDirection = Vector3D.TransformNormal(
+                direction,
+                state.Entity.PositionComp.WorldMatrixNormalizedInv);
+            moveIndicator = new Vector3(0f, (float)localDirection.Y, (float)localDirection.Z);
+        }
+
+        private void RotationIndicatorHandler(
+            MyCharacterMovementComponent movement,
+            ref Vector2 rotationIndicator,
+            ref Vector3? forcedForward)
+        {
+            var state = FindState(movement?.Entity?.EntityId ?? 0);
+            if (state == null || !TryGetMoveDirection(state, out var direction))
+                return;
+
+            var gravity = (Vector3D)(-MyGravityProviderSystem.CalculateTotalGravityInPoint(state.Entity.GetPosition()));
+            if (gravity.LengthSquared() <= MinimumDirectionLengthSquared)
+                gravity = Vector3D.Up;
+            gravity.Normalize();
+
+            Vector3D.Cross(ref direction, ref gravity, out var right);
+            Vector3D.Cross(ref gravity, ref right, out var forward);
+            if (forward.Normalize() < 1e-2f)
+                return;
+
+            forcedForward = (Vector3)forward;
+        }
+
+        private void PostProcessPhysicalMovement(
+            MyCharacterMovementComponent movement,
+            ref MatrixD transform)
+        {
+            var state = FindState(movement?.Entity?.EntityId ?? 0);
+            if (state == null)
+            {
+                movement.BlockMovement = false;
+                return;
+            }
+
+            ApplyMovementSpeed(movement, state.MovementSpeed);
+            movement.BlockMovement = false;
+        }
+
+        private static void ApplyMovementSpeed(
+            MyCharacterMovementComponent movement,
+            SiNpcMovementSpeed speed)
+        {
+            if (movement == null)
+                return;
+
+            movement.WantsWalk = speed == SiNpcMovementSpeed.Walk;
+            movement.WantsSprint = speed == SiNpcMovementSpeed.Sprint;
+        }
+
+        private static bool TryGetMoveDirection(SiK9WolfState state, out Vector3D direction)
+        {
+            direction = Vector3D.Zero;
+            if (state == null || !state.HasWaypoint || state.Entity == null)
+                return false;
+
+            var world = state.Entity.WorldMatrix;
+            var position = world.Translation;
+            var gravity = (Vector3D)MyGravityProviderSystem.CalculateTotalGravityInPoint(position);
+            var up = gravity.LengthSquared() > MinimumDirectionLengthSquared
+                ? -Vector3D.Normalize(gravity)
+                : NormalizedOrFallback(world.Up, Vector3D.Up);
+            var toWaypoint = Vector3D.Reject(state.Waypoint - position, up);
+            var distanceSquared = toWaypoint.LengthSquared();
+            if (distanceSquared <= WaypointArrivalRadius * WaypointArrivalRadius)
+            {
+                state.HasWaypoint = false;
+                return false;
+            }
+
+            direction = toWaypoint / Math.Sqrt(distanceSquared);
+            return true;
+        }
+
+        private static Vector3D NormalizedOrFallback(in Vector3D value, in Vector3D fallback)
+        {
+            var lengthSquared = value.LengthSquared();
+            return lengthSquared > MinimumDirectionLengthSquared
+                ? value / Math.Sqrt(lengthSquared)
+                : fallback;
+        }
+
+        private SiK9WolfState FindState(long entityId)
+        {
+            if (entityId == 0)
+                return null;
+
+            SiK9WolfState state;
+            return _wolves.TryGetValue(entityId, out state) ? state : null;
         }
 
         [Event, Reliable, Server]
@@ -317,15 +437,27 @@ namespace Si.K9
             return true;
         }
 
-        private struct SiK9WolfState
+        private sealed class SiK9WolfState
         {
             public readonly ulong OwnerSteamId;
             public SiK9DogMotionOrder Order;
+            public MyEntity Entity;
+            public MyCharacterMovementComponent Movement;
+            public bool HandlersRegistered;
+            public bool HasWaypoint;
+            public Vector3D Waypoint;
+            public SiNpcMovementSpeed MovementSpeed;
 
             public SiK9WolfState(ulong ownerSteamId, SiK9DogMotionOrder order)
             {
                 OwnerSteamId = ownerSteamId;
                 Order = order;
+                Entity = null;
+                Movement = null;
+                HandlersRegistered = false;
+                HasWaypoint = false;
+                Waypoint = Vector3D.Zero;
+                MovementSpeed = SiNpcMovementSpeed.Run;
             }
         }
     }
