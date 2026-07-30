@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Equinox76561198048419394.Core.Controller;
 using Sandbox.Game;
+using Sandbox.Game.EntityComponents;
 using Sandbox.Game.EntityComponents.Character;
 using Sandbox.Game.Entities;
 using Sandbox.Game.GameSystems.Chat;
@@ -373,7 +374,10 @@ namespace Si.K9
             if (controller.Controlled != null)
             {
                 if (IsAssignedTransportSeat(state, controller.Controlled))
+                {
+                    ApplySeatedIdleState(wolfEntity, state);
                     ClearMotionTarget(state);
+                }
                 else
                     controller.ReleaseControl();
                 return;
@@ -408,6 +412,7 @@ namespace Si.K9
 
             if (controller.Controlled != null)
             {
+                ApplySeatedIdleState(wolfEntity, state);
                 controller.ReleaseControl();
                 RefreshTransportWaypoint(state, exitPosition);
                 return;
@@ -511,6 +516,30 @@ namespace Si.K9
             ClearMotionTarget(state);
         }
 
+        private static void ApplySeatedIdleState(MyEntity wolfEntity, SiK9WolfState state)
+        {
+            if (state == null)
+                return;
+
+            state.HasWaypoint = false;
+            state.MovementSpeed = SiNpcMovementSpeed.Run;
+
+            var movement = wolfEntity?.Components.Get<MyCharacterMovementComponent>();
+            if (movement != null)
+            {
+                movement.WantsWalk = false;
+                movement.WantsSprint = false;
+                movement.BlockMovement = true;
+            }
+
+            var animation = wolfEntity?.Components.Get<MyAnimationControllerComponent>();
+            if (animation?.Variables == null)
+                return;
+
+            animation.Variables.SetValue(MyStringId.GetOrCompute("speed"), 0f);
+            animation.Variables.SetValue(MyStringId.GetOrCompute("Speed"), 0f);
+        }
+
         private static Vector3D ResolveUp(in Vector3D position)
         {
             var gravity = MyGravityProviderSystem.CalculateTotalGravityInPoint(position);
@@ -584,6 +613,14 @@ namespace Si.K9
                 return;
             }
 
+            var controller = movement?.Entity?.Components.Get<EquiEntityControllerComponent>();
+            if (controller?.Controlled != null)
+            {
+                ApplySeatedIdleState(state.Entity, state);
+                moveIndicator = Vector3.Zero;
+                return;
+            }
+
             ApplyMovementSpeed(movement, state.MovementSpeed);
             if (!TryGetMoveDirection(state, out var direction))
             {
@@ -603,6 +640,13 @@ namespace Si.K9
             ref Vector3? forcedForward)
         {
             var state = FindState(movement?.Entity?.EntityId ?? 0);
+            if (movement?.Entity?.Components.Get<EquiEntityControllerComponent>()?.Controlled != null)
+            {
+                rotationIndicator = Vector2.Zero;
+                forcedForward = null;
+                return;
+            }
+
             if (state == null || !TryGetMoveDirection(state, out var direction))
                 return;
 
@@ -627,6 +671,12 @@ namespace Si.K9
             if (state == null)
             {
                 movement.BlockMovement = false;
+                return;
+            }
+
+            if (movement?.Entity?.Components.Get<EquiEntityControllerComponent>()?.Controlled != null)
+            {
+                ApplySeatedIdleState(state.Entity, state);
                 return;
             }
 
