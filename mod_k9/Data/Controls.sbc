@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://storage.googleapis.com/unofficial-keen-schemas/latest/medieval-modded.xsd">
+    <Definition xsi:type="MyObjectBuilder_ControlCategoryDefinition">
+        <Id Type="MyObjectBuilder_ControlCategoryDefinition" Subtype="SiK9Category" />
+        <DisplayName>Si K9</DisplayName>
+        <Description>Bindings for Si K9 dog commands.</Description>
+        <Icon>Textures/GUI/Icons/Controls/RemoteRope.png</Icon>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_ControlDefinition">
+        <Id Type="MyObjectBuilder_ControlDefinition" Subtype="SiK9CommandMenu" />
+        <DisplayName>Open Si K9 Command Menu</DisplayName>
+        <Description>Opens the Si K9 dog command menu.</Description>
+        <Category>SiK9Category</Category>
+        <Primary Key="P" />
+    </Definition>
+</Definitions>

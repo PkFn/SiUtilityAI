@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://storage.googleapis.com/unofficial-keen-schemas/latest/medieval-modded.xsd">
+    <Definition xsi:type="MyObjectBuilder_ContextMenuDefinition">
+        <Id Type="MyObjectBuilder_ContextMenu" Subtype="SiK9CommandMenu" />
+        <StyleName>ContextMenuDefault</StyleName>
+        <Position x="0.35" y="0.32" />
+        <MainController Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiK9CommandMenuRoot" />
+        <ContextType>MyObjectBuilder_SiK9CommandMenuContext</ContextType>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+        <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiK9CommandMenuRoot" />
+        <Title>Dog Command Menu</Title>
+        <Width>520</Width>
+        <AutoCommit>true</AutoCommit>
+        <Embedded>
+            <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiK9CommandMenuRootButtons" />
+        </Embedded>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
+        <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiK9CommandMenuRootButtons" />
+        <Columns>1</Columns>
+        <Rows>1</Rows>
+        <ButtonStyleId>ButtonListWide</ButtonStyleId>
+        <Buttons>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Motion</Text>
+                <Tooltip>Regulate how your dogs should move.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_AddController">
+                    <Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiK9CommandMenuMotion" />
+                </Action>
+            </Button>
+        </Buttons>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+        <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiK9CommandMenuMotion" />
+        <Title>Motion</Title>
+        <Width>520</Width>
+        <AutoCommit>true</AutoCommit>
+        <Embedded>
+            <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiK9CommandMenuMotionButtons" />
+        </Embedded>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
+        <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiK9CommandMenuMotionButtons" />
+        <Columns>2</Columns>
+        <Rows>1</Rows>
+        <ButtonStyleId>ButtonListWide</ButtonStyleId>
+        <Buttons>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Stop</Text>
+                <Tooltip>Keep your dogs in place.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandMotionStop" />
+            </Button>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Follow</Text>
+                <Tooltip>Order your dogs to follow you.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandMotionFollow" />
+            </Button>
+        </Buttons>
+    </Definition>
+</Definitions>
