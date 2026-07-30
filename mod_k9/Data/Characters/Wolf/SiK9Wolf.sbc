@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Definition xsi:type="MyObjectBuilder_ContainerDefinition" Copy="Append">
+    <Id Type="EntityBase" Subtype="SiK9Wolf" />
+    <CopyFrom Type="EntityBase" Subtype="AnimalBot" />
+    <Tag>AI</Tag>
+
+    <Component Type="CharacterPhysics" Subtype="SiK9Wolf" />
+    <Component Type="ModelComponent" Subtype="SiK9Wolf" />
+    <Component Type="SkeletonComponent" Subtype="SiK9Wolf" />
+    <Component Type="CharacterAnimationControllerComponent" Subtype="SiK9Wolf" />
+    <Component Type="CharacterMovementComponent" Subtype="SiK9Wolf" />
+    <Component Type="RenderComponentCharacter" />
+    <Component Type="ThirdPersonCameraComponent" Subtype="DefaultThirdPerson" />
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_ModelComponentDefinition">
+    <Id Type="MyObjectBuilder_ModelComponent" Subtype="SiK9Wolf" />
+    <DisplayName>Si K9 Wolf</DisplayName>
+    <Model>Models\Characters\Wildlife\Wolf\Wolf01.mwm</Model>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_SkeletonComponentDefinition">
+    <Id Type="SkeletonComponent" Subtype="SiK9Wolf" />
+    <BoneFirstPersonCamera>deer_Scull</BoneFirstPersonCamera>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_CharacterMovementComponentDefinition">
+    <Id Type="CharacterMovementComponent" Subtype="SiK9Wolf" />
+    <MaxSlope>65</MaxSlope>
+    <SprintSpeed Forward="12" Backward="0" Strafing="0" />
+    <RunSpeed Forward="10" Backward="8" Strafing="0" />
+    <WalkSpeed Forward="1" Backward="1" Strafing="0" />
+    <CrouchSpeed Forward="1" Backward="1" Strafing="0" />
+    <JumpForce>10</JumpForce>
+    <RotationToSupport>OneAxis</RotationToSupport>
+  </Definition>
+
+  <Definition xsi:type="MyObjectBuilder_CharacterPhysicsDefinition">
+    <Id Type="CharacterPhysics" Subtype="SiK9Wolf" />
+    <MaxImpulse>100000</MaxImpulse>
+    <MaxForce>100000</MaxForce>
+    <MaxSpeedRelativeToShip>7</MaxSpeedRelativeToShip>
+    <MaxSlope>64</MaxSlope>
+    <PhysicalMaterial>Flesh</PhysicalMaterial>
+    <Mass>80</Mass>
+    <UseCustomSupport>true</UseCustomSupport>
+    <CharacterWidth>0.7</CharacterWidth>
+    <CharacterHeight>1.2</CharacterHeight>
+    <CharacterCrouchHeight>1.2</CharacterCrouchHeight>
+  </Definition>
+</Definitions>
