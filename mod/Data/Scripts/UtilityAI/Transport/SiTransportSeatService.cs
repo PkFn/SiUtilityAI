@@ -19,7 +19,15 @@ namespace Si.UtilityAI
             Mounted,
         }
 
-        public sealed class SeatApproachState
+        public enum TransportTravelResult : byte
+        {
+            Failed,
+            Approach,
+            Arrived,
+            Warped,
+        }
+
+        public class ProgressState
         {
             public bool HasProgressPosition;
             public Vector3D ProgressPosition;
@@ -31,6 +39,14 @@ namespace Si.UtilityAI
                 ProgressPosition = Vector3D.Zero;
                 LastProgressTimeMilliseconds = 0;
             }
+        }
+
+        public sealed class SeatApproachState : ProgressState
+        {
+        }
+
+        public sealed class ExitApproachState : ProgressState
+        {
         }
 
         public sealed class RelativeExitPointState
@@ -209,9 +225,35 @@ namespace Si.UtilityAI
             return SeatMountResult.Mounted;
         }
 
+        public static TransportTravelResult TryReachOrWarpToPoint(
+            MyEntity passenger,
+            in Vector3D targetPosition,
+            ProgressState progressState,
+            double arrivalDistance,
+            long warpFallbackDelayMilliseconds,
+            double progressDistance)
+        {
+            if (passenger == null)
+                return TransportTravelResult.Failed;
+
+            var passengerPosition = passenger.WorldMatrix.Translation;
+            if (Vector3D.DistanceSquared(passengerPosition, targetPosition) <= arrivalDistance * arrivalDistance)
+            {
+                progressState?.Reset();
+                return TransportTravelResult.Arrived;
+            }
+
+            if (!ShouldWarpToSeat(passengerPosition, progressState, warpFallbackDelayMilliseconds, progressDistance))
+                return TransportTravelResult.Approach;
+
+            WarpPassengerToPoint(passenger, targetPosition);
+            progressState?.Reset();
+            return TransportTravelResult.Warped;
+        }
+
         private static bool ShouldWarpToSeat(
             in Vector3D passengerPosition,
-            SeatApproachState approachState,
+            ProgressState approachState,
             long warpFallbackDelayMilliseconds,
             double progressDistance)
         {
@@ -244,6 +286,15 @@ namespace Si.UtilityAI
 
             var seatWorld = seatEntity.WorldMatrix;
             passenger.PositionComp.WorldMatrix = MatrixD.CreateWorld(seatWorld.Translation, seatWorld.Forward, seatWorld.Up);
+        }
+
+        private static void WarpPassengerToPoint(MyEntity passenger, in Vector3D targetPosition)
+        {
+            if (passenger?.PositionComp == null)
+                return;
+
+            var world = passenger.WorldMatrix;
+            passenger.PositionComp.WorldMatrix = MatrixD.CreateWorld(targetPosition, world.Forward, world.Up);
         }
     }
 }

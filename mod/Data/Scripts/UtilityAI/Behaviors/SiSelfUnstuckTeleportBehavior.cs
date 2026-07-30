@@ -96,15 +96,11 @@ namespace Si.UtilityAI
     [MyDefinitionRequired(typeof(SiSelfUnstuckTeleportBehaviorDefinition))]
     public class SiSelfUnstuckTeleportBehaviorComponent : MyEntityComponent, ISiUtilityBehavior
     {
-        private static readonly Random AttemptRandom = new Random();
-        private static readonly object AttemptRandomLock = new object();
-
         private SiSelfUnstuckTeleportBehaviorDefinition _definition;
         private SiTakeCoverBehaviorComponent _takeCoverBehavior;
         private SiTakePlainViewBehaviorComponent _takePlainViewBehavior;
         private long _lastEvaluationTime = -1;
-        private long _stuckMilliseconds;
-        private long _retryAfterMilliseconds = -1;
+        private readonly SiUnstuckTeleportService.State _unstuckState = new SiUnstuckTeleportService.State();
 
         public string BehaviorName => DefinitionId.ToString();
 
@@ -151,26 +147,15 @@ namespace Si.UtilityAI
                 : Math.Max(0, now - _lastEvaluationTime);
             _lastEvaluationTime = now;
 
-            if (ResolvePlanarSpeed(context) <= _definition.MaximumPlanarSpeed)
-                _stuckMilliseconds = Math.Min(
-                    Math.Max(0, _stuckMilliseconds + elapsedSinceLastEvaluation),
-                    _definition.StuckTimeoutMilliseconds);
-            else
-                _stuckMilliseconds = 0;
-
-            if (_stuckMilliseconds < _definition.StuckTimeoutMilliseconds)
-                return 0;
-            if (_retryAfterMilliseconds > now)
-                return 0;
-
-            return _definition.ActivationScore;
+            return IsStuckAndEligible(context, elapsedSinceLastEvaluation, now)
+                ? _definition.ActivationScore
+                : 0;
         }
 
         void ISiUtilityBehavior.Begin(SiUtilityContext context)
         {
             var now = CurrentTimeMilliseconds();
-            _retryAfterMilliseconds = now + _definition.RetryCooldownMilliseconds;
-            if (TryTeleportToEscapePoint(context))
+            if (TryTeleportToEscapePoint(context, now))
                 ResetTracking(now);
         }
 
@@ -195,86 +180,67 @@ namespace Si.UtilityAI
                    || (_takePlainViewBehavior?.IsMovingToPlainView(context) ?? false);
         }
 
-        private bool TryTeleportToEscapePoint(SiUtilityContext context)
+        private bool IsStuckAndEligible(SiUtilityContext context, long elapsedSinceLastEvaluation, long now)
         {
             if (context?.Entity == null)
                 return false;
 
-            var entity = context.Entity;
-            var up = ResolveUp(context.Position, entity.WorldMatrix.Up);
-            var world = entity.WorldMatrix;
-            var forward = SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(
-                Vector3D.Reject(world.Forward, up),
-                Vector3D.CalculatePerpendicularVector(up));
-            var right = SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(
-                Vector3D.Cross(forward, up),
-                world.Right);
-
-            double angle;
-            double distance;
-            lock (AttemptRandomLock)
-            {
-                angle = AttemptRandom.NextDouble() * Math.PI * 2d;
-                distance = MathHelper.Lerp(
-                    _definition.MinimumTeleportDistance,
-                    _definition.MaximumTeleportDistance,
-                    (float)AttemptRandom.NextDouble());
-            }
-
-            var direction = SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(
-                forward * Math.Cos(angle) + right * Math.Sin(angle),
-                forward);
-            var probeCenter = context.Position + direction * distance;
-            var rayStart = probeCenter + up * _definition.VerticalProbeHeight;
-            var rayEnd = probeCenter - up * _definition.VerticalProbeDepth;
-
-            IHitInfo hit;
-            if (!MyAPIGateway.Physics.CastRay(rayStart, rayEnd, out hit) || hit == null)
-                return false;
-
-            var hitUp = SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback((Vector3D)hit.Normal, up);
-            if (Vector3D.Dot(hitUp, up) < _definition.MinimumGroundUpDot)
-                return false;
-
-            var landingPosition = hit.Position + up * _definition.TeleportClearance;
-            entity.PositionComp.WorldMatrix = MatrixD.CreateWorld(landingPosition, forward, up);
-            if (entity.Physics != null)
-            {
-                entity.Physics.LinearVelocity = Vector3.Zero;
-                entity.Physics.AngularVelocity = Vector3.Zero;
-            }
-
-            return true;
+            return SiUnstuckTeleportService.TryUnstuckToWaypoint(
+                context.Entity,
+                context.Position,
+                context.Velocity,
+                context.Waypoint,
+                elapsedSinceLastEvaluation,
+                now,
+                CreateSettings(),
+                _unstuckState);
         }
 
-        private double ResolvePlanarSpeed(SiUtilityContext context)
+        private bool TryTeleportToEscapePoint(SiUtilityContext context, long now)
         {
-            var up = ResolveUp(context.Position, context.Entity.WorldMatrix.Up);
-            var planarVelocity = Vector3D.Reject(context.Velocity, up);
-            return planarVelocity.Length();
+            if (context?.Entity == null)
+                return false;
+
+            _unstuckState.StuckMilliseconds = _definition.StuckTimeoutMilliseconds;
+            _unstuckState.RetryAfterMilliseconds = Math.Min(_unstuckState.RetryAfterMilliseconds, now);
+            return SiUnstuckTeleportService.TryUnstuckToWaypoint(
+                context.Entity,
+                context.Position,
+                context.Velocity,
+                context.Waypoint,
+                0,
+                now,
+                CreateSettings(),
+                _unstuckState);
         }
 
         private void ResetTracking()
         {
             _lastEvaluationTime = -1;
-            _stuckMilliseconds = 0;
-            _retryAfterMilliseconds = -1;
+            _unstuckState.Reset();
         }
 
         private void ResetTracking(long now)
         {
             _lastEvaluationTime = now;
-            _stuckMilliseconds = 0;
-            _retryAfterMilliseconds = -1;
+            _unstuckState.Reset();
         }
 
-        private static Vector3D ResolveUp(in Vector3D position, in Vector3D fallbackUp)
+        private SiUnstuckTeleportService.Settings CreateSettings()
         {
-            var gravity = MyGravityProviderSystem.CalculateTotalGravityInPoint(position);
-            if (gravity.LengthSquared() > 0.0001)
-                return -Vector3D.Normalize(gravity);
-
-            return SiShootOpposingNpcBehaviorComponent.NormalizedOrFallback(fallbackUp, Vector3D.Up);
+            return new SiUnstuckTeleportService.Settings
+            {
+                StuckTimeoutMilliseconds = _definition.StuckTimeoutMilliseconds,
+                MaximumPlanarSpeed = _definition.MaximumPlanarSpeed,
+                MinimumRemainingDistance = _definition.MinimumRemainingDistance,
+                MinimumTeleportDistance = _definition.MinimumTeleportDistance,
+                MaximumTeleportDistance = _definition.MaximumTeleportDistance,
+                VerticalProbeHeight = _definition.VerticalProbeHeight,
+                VerticalProbeDepth = _definition.VerticalProbeDepth,
+                TeleportClearance = _definition.TeleportClearance,
+                MinimumGroundUpDot = _definition.MinimumGroundUpDot,
+                RetryCooldownMilliseconds = _definition.RetryCooldownMilliseconds,
+            };
         }
 
         private static long CurrentTimeMilliseconds()

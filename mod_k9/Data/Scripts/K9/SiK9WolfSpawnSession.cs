@@ -37,6 +37,7 @@ namespace Si.K9
         private const double SeatWaypointRefreshDistance = 0.75;
         private const double ExitArrivalDistance = 1.25;
         private const long SeatWarpFallbackDelayMilliseconds = 2000L;
+        private static readonly SiUnstuckTeleportService.Settings UnstuckSettings = SiUnstuckTeleportService.Settings.CreateDefault();
 
         private static readonly MyDefinitionId WolfDefinition =
             new MyDefinitionId(typeof(MyObjectBuilder_EntityBase), "SiK9Wolf");
@@ -727,8 +728,39 @@ namespace Si.K9
                 return;
             }
 
+            TryUnstuckMovingDog(state, movement?.Entity);
             ApplyMovementSpeed(movement, state.MovementSpeed);
             movement.BlockMovement = false;
+        }
+
+        private static void TryUnstuckMovingDog(SiK9WolfState state, MyEntity entity)
+        {
+            if (state == null || entity == null || !state.HasWaypoint)
+            {
+                if (state != null)
+                {
+                    state.Unstuck.Reset();
+                    state.LastUnstuckEvaluationMilliseconds = -1;
+                }
+                return;
+            }
+
+            var physics = entity.Physics;
+            var velocity = physics != null ? (Vector3D)physics.LinearVelocity : Vector3D.Zero;
+            var now = (long)(MyAPIGateway.Session?.ElapsedPlayTime.TotalMilliseconds ?? 0);
+            var elapsedSinceLastEvaluation = state.LastUnstuckEvaluationMilliseconds < 0
+                ? 0
+                : Math.Max(0, now - state.LastUnstuckEvaluationMilliseconds);
+            state.LastUnstuckEvaluationMilliseconds = now;
+            SiUnstuckTeleportService.TryUnstuckToWaypoint(
+                entity,
+                entity.WorldMatrix.Translation,
+                velocity,
+                state.Waypoint,
+                elapsedSinceLastEvaluation,
+                now,
+                UnstuckSettings,
+                state.Unstuck);
         }
 
         private static void ApplyMovementSpeed(
@@ -832,7 +864,9 @@ namespace Si.K9
             public string SeatSlotName;
             public readonly SiTransportSeatService.RelativeExitPointState ExitPoint;
             public long LastSeatedLogTimeMilliseconds;
+            public long LastUnstuckEvaluationMilliseconds;
             public readonly SiTransportSeatService.SeatApproachState SeatApproach;
+            public readonly SiUnstuckTeleportService.State Unstuck;
 
             public SiK9WolfState(ulong ownerSteamId, SiK9DogMotionOrder order)
             {
@@ -850,7 +884,9 @@ namespace Si.K9
                 SeatSlotName = null;
                 ExitPoint = new SiTransportSeatService.RelativeExitPointState();
                 LastSeatedLogTimeMilliseconds = long.MinValue;
+                LastUnstuckEvaluationMilliseconds = -1;
                 SeatApproach = new SiTransportSeatService.SeatApproachState();
+                Unstuck = new SiUnstuckTeleportService.State();
             }
         }
     }
