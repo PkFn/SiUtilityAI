@@ -10,6 +10,9 @@ namespace Si.UtilityAI
     [MyDefinitionType(typeof(MyObjectBuilder_SiSquadSystemDefinition))]
     public class SiSquadSystemDefinition : MyDefinitionBase
     {
+        private static readonly MyDefinitionId DefaultDefinitionId =
+            new MyDefinitionId(typeof(MyObjectBuilder_SiSquadSystemDefinition), "SiDefaultSquadSystem");
+
         private readonly List<SiSquadLetterDefinition> _letters = new List<SiSquadLetterDefinition>();
         private readonly List<SiRankDefinition> _ranks = new List<SiRankDefinition>();
         private readonly Dictionary<string, SiRankDefinition> _ranksById =
@@ -37,6 +40,18 @@ namespace Si.UtilityAI
 
         public SiRankDefinition PlayerRank => GetRank(PlayerRankId);
         public SiRankDefinition NpcRank => GetRank(NpcRankId);
+
+        internal static SiSquadSystemDefinition LoadDefault()
+        {
+            SiSquadSystemDefinition definition;
+            if (MyDefinitionManager.TryGet(DefaultDefinitionId, out definition))
+                return definition;
+
+            foreach (var candidate in MyDefinitionManager.GetOfType<SiSquadSystemDefinition>())
+                if (candidate != null)
+                    return candidate;
+            return null;
+        }
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
         {

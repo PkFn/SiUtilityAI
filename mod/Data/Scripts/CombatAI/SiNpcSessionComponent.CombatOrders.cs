@@ -999,7 +999,8 @@ namespace Si.UtilityAI
 
             SetSquadMovementSpeed(
                 npc,
-                definition.ResolveFormationSpeed(
+                SiFollowSpeedLogic.ResolveFollowerSpeed(
+                    definition,
                     checkpointSpeed,
                     CheckpointDistance(npc, target)));
 
@@ -1046,19 +1047,7 @@ namespace Si.UtilityAI
                 if (player?.Identity == null || player.Identity.Id != leaderIdentityId)
                     continue;
 
-                var movement = player.ControlledEntity?.Get<MyCharacterMovementComponent>();
-                if (movement == null)
-                    return SiNpcMovementSpeed.Run;
-                if (movement.IsSprinting)
-                    return SiNpcMovementSpeed.Sprint;
-                if (movement.IsWalking)
-                    return SiNpcMovementSpeed.Walk;
-                if (movement.IsRunning)
-                    return SiNpcMovementSpeed.Run;
-
-                // A stationary leader has no committed movement state; preserve
-                // the existing default formation pace until movement resumes.
-                return SiNpcMovementSpeed.Run;
+                return SiFollowSpeedLogic.GetPlayerCheckpointSpeed(player);
             }
 
             return SiNpcMovementSpeed.Run;

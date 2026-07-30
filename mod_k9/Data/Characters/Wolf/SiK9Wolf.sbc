@@ -29,9 +29,9 @@
     <Id Type="CharacterMovementComponent" Subtype="SiK9Wolf" />
     <MaxSlope>65</MaxSlope>
     <SprintSpeed Forward="12" Backward="0" Strafing="0" />
-    <RunSpeed Forward="10" Backward="8" Strafing="0" />
-    <WalkSpeed Forward="1" Backward="1" Strafing="0" />
-    <CrouchSpeed Forward="1" Backward="1" Strafing="0" />
+    <RunSpeed Forward="4.3" Backward="3.55" Strafing="3.25" />
+    <WalkSpeed Forward="1.8" Backward="1.6" Strafing="1.45" />
+    <CrouchSpeed Forward="1.3" Backward="0.9" Strafing="0.9" />
     <JumpForce>10</JumpForce>
     <RotationToSupport>OneAxis</RotationToSupport>
   </Definition>

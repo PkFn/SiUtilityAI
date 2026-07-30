@@ -6,6 +6,7 @@ using Sandbox.Game.Entities;
 using Sandbox.Game.GameSystems.Chat;
 using Sandbox.Game.Players;
 using Sandbox.ModAPI;
+using Si.UtilityAI;
 using VRage;
 using VRage.Components;
 using VRage.Game;
@@ -26,10 +27,10 @@ namespace Si.K9
     [MyDependency(typeof(MyChatSystem), Critical = false)]
     public sealed class SiK9WolfSpawnSession : MySessionComponent
     {
-        private const double FollowStopDistance = 2.5;
-        private const double FollowResumeDistance = 3.5;
         private const double FollowTeleportDistance = 20.0;
-        private const double FollowStepSpeed = 5.0;
+        private const double WolfSprintForwardSpeed = 12.0;
+        private const double WolfRunForwardSpeed = 4.3;
+        private const double WolfWalkForwardSpeed = 1.8;
 
         private static readonly MyDefinitionId WolfDefinition =
             new MyDefinitionId(typeof(MyObjectBuilder_EntityBase), "SiK9Wolf");
@@ -42,11 +43,13 @@ namespace Si.K9
         private readonly MyChatSystem _chat = null;
 
         public static SiK9WolfSpawnSession Instance => _instance;
+        private SiSquadSystemDefinition _followSpeedDefinition;
 
         protected override void OnLoad()
         {
             base.OnLoad();
             _instance = this;
+            _followSpeedDefinition = SiSquadSystemDefinition.LoadDefault();
             _chat?.RegisterChatCommand(
                 "/si-k9",
                 HandleCommand,
@@ -58,6 +61,7 @@ namespace Si.K9
         {
             _wolves.Clear();
             _staleWolves.Clear();
+            _followSpeedDefinition = null;
             if (ReferenceEquals(_instance, this))
                 _instance = null;
             base.OnUnload();
@@ -162,7 +166,7 @@ namespace Si.K9
                     continue;
                 }
 
-                FollowOwner(wolfEntity, target, elapsedMilliseconds);
+                FollowOwner(wolfEntity, owner, target, elapsedMilliseconds, pair.Value.Order, _followSpeedDefinition);
             }
 
             for (var i = 0; i < _staleWolves.Count; i++)
@@ -191,7 +195,13 @@ namespace Si.K9
             }
         }
 
-        private static void FollowOwner(MyEntity wolfEntity, MyEntity target, long elapsedMilliseconds)
+        private static void FollowOwner(
+            MyEntity wolfEntity,
+            MyPlayer owner,
+            MyEntity target,
+            long elapsedMilliseconds,
+            SiK9DogMotionOrder order,
+            SiSquadSystemDefinition followSpeedDefinition)
         {
             var movement = wolfEntity.Components.Get<MyCharacterMovementComponent>();
             var current = wolfEntity.WorldMatrix;
@@ -199,14 +209,15 @@ namespace Si.K9
             var up = ResolveUp(current.Translation);
             var toTarget = Vector3D.Reject(targetMatrix.Translation - current.Translation, up);
             var distance = toTarget.Length();
-            if (distance <= FollowStopDistance)
+            var followDistance = followSpeedDefinition?.FollowDistance ?? 2.5;
+            if (distance <= followDistance)
             {
                 ApplyIdle(wolfEntity);
                 return;
             }
 
             var direction = distance > 0.001 ? toTarget / distance : Vector3D.Zero;
-            var destination = targetMatrix.Translation - direction * FollowStopDistance;
+            var destination = targetMatrix.Translation - direction * followDistance;
             if (distance >= FollowTeleportDistance)
             {
                 var teleportMatrix = MatrixD.CreateWorld(destination, direction, up);
@@ -224,15 +235,16 @@ namespace Si.K9
                 return;
             }
 
-            if (distance < FollowResumeDistance)
-            {
-                ApplyIdle(wolfEntity);
-                return;
-            }
+            var checkpointSpeed = SiFollowSpeedLogic.GetPlayerCheckpointSpeed(owner);
+            var followSpeed = SiFollowSpeedLogic.ResolveFollowerSpeed(
+                followSpeedDefinition,
+                checkpointSpeed,
+                distance);
+            var stepSpeed = SpeedFor(followSpeed, order);
 
             var step = Math.Min(
-                FollowStepSpeed * Math.Max(0.01, elapsedMilliseconds / 1000.0),
-                Math.Max(0, distance - FollowStopDistance));
+                stepSpeed * Math.Max(0.01, elapsedMilliseconds / 1000.0),
+                Math.Max(0, distance - followDistance));
             var nextPosition = current.Translation + direction * step;
             var nextMatrix = MatrixD.CreateWorld(nextPosition, direction, up);
             wolfEntity.PositionComp.SetWorldMatrix(nextMatrix, null, true);
@@ -240,8 +252,8 @@ namespace Si.K9
             if (movement != null)
             {
                 movement.MoveIndicator = Vector3.Forward;
-                movement.WantsSprint = distance > 8;
-                movement.WantsWalk = distance <= 4;
+                movement.WantsSprint = followSpeed == SiNpcMovementSpeed.Sprint;
+                movement.WantsWalk = followSpeed == SiNpcMovementSpeed.Walk;
                 movement.MoveAndRotate();
             }
 
@@ -270,6 +282,19 @@ namespace Si.K9
             if (gravity.LengthSquared() > 0.0001)
                 return -Vector3D.Normalize(gravity);
             return Vector3D.Up;
+        }
+
+        private static double SpeedFor(SiNpcMovementSpeed speed, SiK9DogMotionOrder order)
+        {
+            switch (speed)
+            {
+                case SiNpcMovementSpeed.Walk:
+                    return WolfWalkForwardSpeed;
+                case SiNpcMovementSpeed.Sprint:
+                    return order == SiK9DogMotionOrder.Follow ? WolfSprintForwardSpeed : WolfRunForwardSpeed;
+                default:
+                    return WolfRunForwardSpeed;
+            }
         }
 
         [Event, Reliable, Server]
