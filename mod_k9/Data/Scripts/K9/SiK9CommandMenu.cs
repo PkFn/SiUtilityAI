@@ -26,6 +26,16 @@ namespace Si.K9
         {
             _session?.CommandMotionFollow();
         }
+
+        public void CommandTransportationGetIn()
+        {
+            _session?.CommandTransportationGetIn();
+        }
+
+        public void CommandTransportationGetOut()
+        {
+            _session?.CommandTransportationGetOut();
+        }
     }
 
     [MyObjectBuilderDefinition]

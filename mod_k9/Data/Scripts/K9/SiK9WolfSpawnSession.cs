@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Equinox76561198048419394.Core.Controller;
 using Sandbox.Game;
 using Sandbox.Game.EntityComponents.Character;
 using Sandbox.Game.Entities;
@@ -30,6 +31,9 @@ namespace Si.K9
         private const double MinimumDirectionLengthSquared = 0.0001;
         private const double WaypointArrivalRadius = 0.75;
         private const double FollowTeleportDistance = 20.0;
+        private const double InstantMountDistance = 2.25;
+        private const double SeatWaypointRefreshDistance = 0.75;
+        private const double ExitArrivalDistance = 1.25;
 
         private static readonly MyDefinitionId WolfDefinition =
             new MyDefinitionId(typeof(MyObjectBuilder_EntityBase), "SiK9Wolf");
@@ -131,6 +135,25 @@ namespace Si.K9
             MyAPIGateway.Utilities?.ShowNotification(text, 1500);
         }
 
+        internal void RequestTransportOrder(SiK9DogTransportOrder order)
+        {
+            if (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer)
+            {
+                MyMultiplayerModApi.Static.RaiseStaticEvent(
+                    x => ApplyTransportOrderServer,
+                    (byte)order);
+                return;
+            }
+
+            ApplyTransportOrder(MyAPIGateway.Session?.Player as MyPlayer, order);
+        }
+
+        internal void NotifyLocalTransportOrder(SiK9DogTransportOrder order)
+        {
+            var text = order == SiK9DogTransportOrder.GetIn ? "Dogs ordered to get in." : "Dogs ordered to get out.";
+            MyAPIGateway.Utilities?.ShowNotification(text, 1500);
+        }
+
         [Update(100)]
         private void UpdateDogFollow(long elapsedMilliseconds)
         {
@@ -149,6 +172,12 @@ namespace Si.K9
                 }
 
                 EnsureMovementHandlers(state, wolfEntity);
+
+                if (state.TransportOrder != SiK9DogTransportOrder.None)
+                {
+                    ApplyDogTransportOrder(state, wolfEntity);
+                    continue;
+                }
 
                 if (state.Order == SiK9DogMotionOrder.Stop)
                 {
@@ -190,6 +219,61 @@ namespace Si.K9
 
                 state.Order = order;
                 _wolves[entityId] = state;
+            }
+        }
+
+        private void ApplyTransportOrder(MyPlayer player, SiK9DogTransportOrder order)
+        {
+            var ownerSteamId = player?.Id.SteamId ?? 0UL;
+            if (ownerSteamId == 0)
+                return;
+
+            if (order == SiK9DogTransportOrder.GetIn)
+            {
+                string failure;
+                MyEntity vehicle;
+                if (!SiTransportSeatService.TryGetMountedVehicle(player, out vehicle, out failure))
+                    return;
+
+                foreach (var entityId in new List<long>(_wolves.Keys))
+                {
+                    SiK9WolfState state;
+                    if (!_wolves.TryGetValue(entityId, out state) || state.OwnerSteamId != ownerSteamId)
+                        continue;
+                    if (!TryResolveWolfEntity(entityId, state, out var wolfEntity))
+                        continue;
+
+                    var controller = wolfEntity.Components.Get<EquiEntityControllerComponent>();
+                    if (controller == null)
+                        continue;
+
+                    if (controller.Controlled != null && !IsAssignedTransportSeat(state, controller.Controlled))
+                        controller.ReleaseControl();
+
+                    if (!TryAssignDogSeat(state, wolfEntity, vehicle))
+                        continue;
+
+                    state.TransportOrder = SiK9DogTransportOrder.GetIn;
+                    ClearMotionTarget(state);
+                }
+
+                return;
+            }
+
+            if (order == SiK9DogTransportOrder.GetOut)
+            {
+                foreach (var entityId in new List<long>(_wolves.Keys))
+                {
+                    SiK9WolfState state;
+                    if (!_wolves.TryGetValue(entityId, out state) || state.OwnerSteamId != ownerSteamId)
+                        continue;
+
+                    var controller = state.Entity?.Components.Get<EquiEntityControllerComponent>();
+                    if (controller?.Controlled == null && state.SeatEntityId == 0)
+                        continue;
+
+                    state.TransportOrder = SiK9DogTransportOrder.GetOut;
+                }
             }
         }
 
@@ -249,6 +333,182 @@ namespace Si.K9
         {
             state.HasWaypoint = false;
             state.MovementSpeed = SiNpcMovementSpeed.Run;
+        }
+
+        private void ApplyDogTransportOrder(SiK9WolfState state, MyEntity wolfEntity)
+        {
+            if (state == null || wolfEntity == null)
+                return;
+
+            var controller = wolfEntity.Components.Get<EquiEntityControllerComponent>();
+            if (controller == null)
+            {
+                ClearTransportState(state);
+                return;
+            }
+
+            switch (state.TransportOrder)
+            {
+                case SiK9DogTransportOrder.GetIn:
+                    ApplyDogGetInOrder(state, wolfEntity, controller);
+                    break;
+                case SiK9DogTransportOrder.GetOut:
+                    ApplyDogGetOutOrder(state, wolfEntity, controller);
+                    break;
+            }
+        }
+
+        private void ApplyDogGetInOrder(
+            SiK9WolfState state,
+            MyEntity wolfEntity,
+            EquiEntityControllerComponent controller)
+        {
+            EquiPlayerAttachmentComponent.Slot seat;
+            if (!TryGetAssignedTransportSeat(state, wolfEntity, out seat))
+            {
+                ClearTransportState(state);
+                return;
+            }
+
+            if (controller.Controlled != null)
+            {
+                if (IsAssignedTransportSeat(state, controller.Controlled))
+                    ClearMotionTarget(state);
+                else
+                    controller.ReleaseControl();
+                return;
+            }
+
+            var seatEntity = seat.Controllable?.Entity;
+            if (seatEntity == null || !seatEntity.InScene)
+                return;
+
+            var seatPosition = seatEntity.WorldMatrix.Translation;
+            if (Vector3D.DistanceSquared(wolfEntity.WorldMatrix.Translation, seatPosition)
+                <= InstantMountDistance * InstantMountDistance)
+            {
+                state.ExitPosition = wolfEntity.WorldMatrix.Translation;
+                state.HasExitPosition = true;
+                controller.RequestControl(seat);
+                ClearMotionTarget(state);
+                return;
+            }
+
+            RefreshTransportWaypoint(state, seatPosition);
+        }
+
+        private void ApplyDogGetOutOrder(
+            SiK9WolfState state,
+            MyEntity wolfEntity,
+            EquiEntityControllerComponent controller)
+        {
+            var exitPosition = state.HasExitPosition
+                ? state.ExitPosition
+                : wolfEntity.WorldMatrix.Translation;
+
+            if (controller.Controlled != null)
+            {
+                controller.ReleaseControl();
+                RefreshTransportWaypoint(state, exitPosition);
+                return;
+            }
+
+            if (!state.HasExitPosition
+                || Vector3D.DistanceSquared(wolfEntity.WorldMatrix.Translation, exitPosition)
+                   <= ExitArrivalDistance * ExitArrivalDistance)
+            {
+                ClearTransportState(state);
+                return;
+            }
+
+            RefreshTransportWaypoint(state, exitPosition);
+        }
+
+        private bool TryGetAssignedTransportSeat(
+            SiK9WolfState state,
+            MyEntity wolfEntity,
+            out EquiPlayerAttachmentComponent.Slot seat)
+        {
+            seat = null;
+            if (state == null || wolfEntity == null || state.VehicleEntityId == 0)
+                return false;
+
+            if (SiTransportSeatService.TryResolveSeat(state.SeatEntityId, state.SeatSlotName, out seat)
+                && (seat.AttachedCharacter == null || seat.AttachedCharacter == wolfEntity))
+                return true;
+
+            if (!SiTransportSeatService.TryGetTransportVehicleEntity(state.VehicleEntityId, out var vehicle))
+                return false;
+
+            return TryAssignDogSeat(state, wolfEntity, vehicle)
+                   && SiTransportSeatService.TryResolveSeat(state.SeatEntityId, state.SeatSlotName, out seat);
+        }
+
+        private bool TryAssignDogSeat(SiK9WolfState state, MyEntity wolfEntity, MyEntity vehicle)
+        {
+            if (state == null || wolfEntity == null || vehicle == null)
+                return false;
+
+            if (!SiTransportSeatService.TryFindNearestFreeSeat(
+                wolfEntity,
+                vehicle,
+                (seatEntityId, seatName) => IsSeatReservedByOtherDog(wolfEntity.EntityId, seatEntityId, seatName),
+                out var seat))
+                return false;
+
+            state.VehicleEntityId = vehicle.EntityId;
+            state.SeatEntityId = seat.Controllable.Entity.EntityId;
+            state.SeatSlotName = seat.Definition.Name;
+            return true;
+        }
+
+        private bool IsSeatReservedByOtherDog(long wolfEntityId, long seatEntityId, string seatName)
+        {
+            foreach (var pair in _wolves)
+            {
+                if (pair.Key == wolfEntityId)
+                    continue;
+
+                var state = pair.Value;
+                if (state == null)
+                    continue;
+                if (state.SeatEntityId == seatEntityId
+                    && string.Equals(state.SeatSlotName, seatName, StringComparison.Ordinal))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsAssignedTransportSeat(
+            SiK9WolfState state,
+            EquiPlayerAttachmentComponent.Slot seat)
+        {
+            return state != null
+                   && SiTransportSeatService.IsSameSeat(seat, state.SeatEntityId, state.SeatSlotName);
+        }
+
+        private static void RefreshTransportWaypoint(SiK9WolfState state, in Vector3D position)
+        {
+            if (!state.HasWaypoint
+                || Vector3D.DistanceSquared(state.Waypoint, position)
+                   > SeatWaypointRefreshDistance * SeatWaypointRefreshDistance)
+            {
+                state.Waypoint = position;
+                state.HasWaypoint = true;
+                state.MovementSpeed = SiNpcMovementSpeed.Run;
+            }
+        }
+
+        private static void ClearTransportState(SiK9WolfState state)
+        {
+            state.TransportOrder = SiK9DogTransportOrder.None;
+            state.VehicleEntityId = 0;
+            state.SeatEntityId = 0;
+            state.SeatSlotName = null;
+            state.HasExitPosition = false;
+            state.ExitPosition = Vector3D.Zero;
+            ClearMotionTarget(state);
         }
 
         private static Vector3D ResolveUp(in Vector3D position)
@@ -439,6 +699,19 @@ namespace Si.K9
             _instance?.ApplyMotionOrder(player, (SiK9DogMotionOrder)order);
         }
 
+        [Event, Reliable, Server]
+        private static void ApplyTransportOrderServer(byte order)
+        {
+            if (!Enum.IsDefined(typeof(SiK9DogTransportOrder), (int)order))
+            {
+                MyEventContext.ValidationFailed();
+                return;
+            }
+
+            var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(MyEventContext.Current.Sender.Value, 0));
+            _instance?.ApplyTransportOrder(player, (SiK9DogTransportOrder)order);
+        }
+
         private bool Respond(ulong sender, string text)
         {
             if (!string.IsNullOrEmpty(text))
@@ -456,6 +729,12 @@ namespace Si.K9
             public bool HasWaypoint;
             public Vector3D Waypoint;
             public SiNpcMovementSpeed MovementSpeed;
+            public SiK9DogTransportOrder TransportOrder;
+            public long VehicleEntityId;
+            public long SeatEntityId;
+            public string SeatSlotName;
+            public bool HasExitPosition;
+            public Vector3D ExitPosition;
 
             public SiK9WolfState(ulong ownerSteamId, SiK9DogMotionOrder order)
             {
@@ -467,6 +746,12 @@ namespace Si.K9
                 HasWaypoint = false;
                 Waypoint = Vector3D.Zero;
                 MovementSpeed = SiNpcMovementSpeed.Run;
+                TransportOrder = SiK9DogTransportOrder.None;
+                VehicleEntityId = 0;
+                SeatEntityId = 0;
+                SeatSlotName = null;
+                HasExitPosition = false;
+                ExitPosition = Vector3D.Zero;
             }
         }
     }
@@ -475,5 +760,12 @@ namespace Si.K9
     {
         Stop = 0,
         Follow = 1,
+    }
+
+    internal enum SiK9DogTransportOrder : byte
+    {
+        None = 0,
+        GetIn = 1,
+        GetOut = 2,
     }
 }

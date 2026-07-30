@@ -10,6 +10,7 @@
     <Component Type="SkeletonComponent" Subtype="SiK9Wolf" />
     <Component Type="CharacterAnimationControllerComponent" Subtype="SiK9Wolf" />
     <Component Type="CharacterMovementComponent" Subtype="SiK9Wolf" />
+    <Component Type="MyObjectBuilder_EquiEntityControllerComponent" />
     <Component Type="RenderComponentCharacter" />
     <Component Type="ThirdPersonCameraComponent" Subtype="DefaultThirdPerson" />
   </Definition>

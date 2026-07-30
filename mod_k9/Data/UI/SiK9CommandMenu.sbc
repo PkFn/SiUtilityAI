@@ -21,7 +21,7 @@
     <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
         <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiK9CommandMenuRootButtons" />
         <Columns>1</Columns>
-        <Rows>1</Rows>
+        <Rows>2</Rows>
         <ButtonStyleId>ButtonListWide</ButtonStyleId>
         <Buttons>
             <Button StyleName="ContextButtonSliced">
@@ -29,6 +29,13 @@
                 <Tooltip>Regulate how your dogs should move.</Tooltip>
                 <Action xsi:type="MyObjectBuilder_CMA_AddController">
                     <Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiK9CommandMenuMotion" />
+                </Action>
+            </Button>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Transport</Text>
+                <Tooltip>Vehicle boarding and disembark orders.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_AddController">
+                    <Controller Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiK9CommandMenuTransportation" />
                 </Action>
             </Button>
         </Buttons>
@@ -59,6 +66,35 @@
                 <Text>Follow</Text>
                 <Tooltip>Order your dogs to follow you.</Tooltip>
                 <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandMotionFollow" />
+            </Button>
+        </Buttons>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_EquiAdvancedControllerDefinition">
+        <Id Type="MyObjectBuilder_EquiAdvancedController" Subtype="SiK9CommandMenuTransportation" />
+        <Title>Transportation</Title>
+        <Width>520</Width>
+        <AutoCommit>true</AutoCommit>
+        <Embedded>
+            <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiK9CommandMenuTransportationButtons" />
+        </Embedded>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_ButtonListControllerDefinition">
+        <Id Type="MyObjectBuilder_ButtonListController" Subtype="SiK9CommandMenuTransportationButtons" />
+        <Columns>2</Columns>
+        <Rows>1</Rows>
+        <ButtonStyleId>ButtonListWide</ButtonStyleId>
+        <Buttons>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Get In</Text>
+                <Tooltip>Order your dogs to board available transportation.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandTransportationGetIn" />
+            </Button>
+            <Button StyleName="ContextButtonSliced">
+                <Text>Get Out</Text>
+                <Tooltip>Order your dogs to disembark.</Tooltip>
+                <Action xsi:type="MyObjectBuilder_CMA_ContextMethod" Name="CommandTransportationGetOut" />
             </Button>
         </Buttons>
     </Definition>

@@ -65,5 +65,17 @@ namespace Si.K9
             SiK9WolfSpawnSession.Instance?.RequestMotionOrder(SiK9DogMotionOrder.Follow);
             SiK9WolfSpawnSession.Instance?.NotifyLocalOrder(SiK9DogMotionOrder.Follow);
         }
+
+        internal void CommandTransportationGetIn()
+        {
+            SiK9WolfSpawnSession.Instance?.RequestTransportOrder(SiK9DogTransportOrder.GetIn);
+            SiK9WolfSpawnSession.Instance?.NotifyLocalTransportOrder(SiK9DogTransportOrder.GetIn);
+        }
+
+        internal void CommandTransportationGetOut()
+        {
+            SiK9WolfSpawnSession.Instance?.RequestTransportOrder(SiK9DogTransportOrder.GetOut);
+            SiK9WolfSpawnSession.Instance?.NotifyLocalTransportOrder(SiK9DogTransportOrder.GetOut);
+        }
     }
 }
