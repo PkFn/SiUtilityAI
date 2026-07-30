@@ -41,8 +41,13 @@ namespace Si.K9
             if (handledAsType != MyChatCommandType.Server)
                 return false;
 
-            var args = (message ?? string.Empty).Trim();
-            if (!string.Equals(args, "wolf", StringComparison.OrdinalIgnoreCase))
+            var tokens = (message ?? string.Empty).Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            var spawnWolf =
+                (tokens.Length == 1 && string.Equals(tokens[0], "wolf", StringComparison.OrdinalIgnoreCase))
+                || (tokens.Length >= 2
+                    && string.Equals(tokens[0], "/si-k9", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(tokens[1], "wolf", StringComparison.OrdinalIgnoreCase));
+            if (!spawnWolf)
                 return Respond(sender, "Usage: /si-k9 wolf");
 
             var player = MyPlayers.Static.GetPlayer(new MyPlayer.PlayerId(sender, 0));
