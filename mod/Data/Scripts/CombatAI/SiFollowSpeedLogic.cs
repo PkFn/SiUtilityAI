@@ -5,11 +5,16 @@ namespace Si.UtilityAI
 {
     public static class SiFollowSpeedLogic
     {
+        public const double DynamicWaypointSpeedHysteresis = 0.5;
+
         public static SiNpcMovementSpeed ResolveFollowerSpeed(
             SiSquadSystemDefinition definition,
             SiNpcMovementSpeed checkpointSpeed,
             double checkpointDistance)
         {
+            if (checkpointDistance <= DynamicWaypointSpeedHysteresis)
+                return checkpointSpeed;
+
             return definition != null
                 ? definition.ResolveFormationSpeed(checkpointSpeed, checkpointDistance)
                 : checkpointSpeed;

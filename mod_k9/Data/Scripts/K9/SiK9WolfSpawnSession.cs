@@ -215,6 +215,16 @@ namespace Si.K9
             var toTarget = Vector3D.Reject(targetMatrix.Translation - current.Translation, up);
             var distance = toTarget.Length();
             var followDistance = followSpeedDefinition?.FollowDistance ?? 2.5;
+            var checkpointSpeed = SiFollowSpeedLogic.GetPlayerCheckpointSpeed(owner);
+            var hysteresisDistance = followDistance + SiFollowSpeedLogic.DynamicWaypointSpeedHysteresis;
+            if (checkpointSpeed == SiNpcMovementSpeed.Walk && distance <= hysteresisDistance)
+            {
+                state.MovementSpeed = SiNpcMovementSpeed.Walk;
+                state.Waypoint = targetMatrix.Translation;
+                state.HasWaypoint = true;
+                return;
+            }
+
             if (distance <= followDistance)
             {
                 ClearMotionTarget(state);
@@ -224,7 +234,6 @@ namespace Si.K9
             var direction = distance > 0.001 ? toTarget / distance : Vector3D.Zero;
             var destination = targetMatrix.Translation - direction * followDistance;
 
-            var checkpointSpeed = SiFollowSpeedLogic.GetPlayerCheckpointSpeed(owner);
             var followSpeed = SiFollowSpeedLogic.ResolveFollowerSpeed(
                 followSpeedDefinition,
                 checkpointSpeed,
