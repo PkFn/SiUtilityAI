@@ -9,9 +9,9 @@ using VRageMath;
 
 namespace Si.UtilityAI
 {
-    internal static class SiTransportSeatService
+    public static class SiTransportSeatService
     {
-        internal static bool TryGetMountedVehicle(MyPlayer player, out MyEntity vehicle, out string failure)
+        public static bool TryGetMountedVehicle(MyPlayer player, out MyEntity vehicle, out string failure)
         {
             vehicle = null;
             failure = null;
@@ -35,7 +35,7 @@ namespace Si.UtilityAI
             return vehicle != null;
         }
 
-        internal static bool TryFindNearestFreeSeat(
+        public static bool TryFindNearestFreeSeat(
             MyEntity passenger,
             MyEntity vehicle,
             Func<long, string, bool> isSeatReserved,
@@ -71,7 +71,7 @@ namespace Si.UtilityAI
             return seat != null;
         }
 
-        internal static bool TryResolveSeat(
+        public static bool TryResolveSeat(
             long seatEntityId,
             string seatSlotName,
             out EquiPlayerAttachmentComponent.Slot slot)
@@ -87,7 +87,7 @@ namespace Si.UtilityAI
             return (slot = entity.Components.Get<EquiPlayerAttachmentComponent>()?.GetSlotOrDefault(seatSlotName)) != null;
         }
 
-        internal static bool IsSameSeat(
+        public static bool IsSameSeat(
             EquiPlayerAttachmentComponent.Slot slot,
             long seatEntityId,
             string seatSlotName)
@@ -97,7 +97,7 @@ namespace Si.UtilityAI
                    && string.Equals(seatSlotName, slot.Definition.Name, StringComparison.Ordinal);
         }
 
-        internal static bool TryGetTransportVehicleEntity(long vehicleEntityId, out MyEntity vehicle)
+        public static bool TryGetTransportVehicleEntity(long vehicleEntityId, out MyEntity vehicle)
         {
             vehicle = MyEntities.GetEntityByIdOrDefault(vehicleEntityId);
             return vehicle != null && !vehicle.Closed && !vehicle.MarkedForClose;
