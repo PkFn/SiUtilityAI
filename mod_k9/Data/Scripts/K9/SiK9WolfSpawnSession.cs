@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Xml.Serialization;
 using Equinox76561198048419394.Core.Controller;
 using Sandbox.Game;
 using Sandbox.Game.EntityComponents;
@@ -17,6 +18,7 @@ using VRage.Game.Components;
 using VRage.Game.Entity;
 using VRage.Network;
 using VRage.ObjectBuilders;
+using VRage.ObjectBuilders.Components;
 using VRage.Entities.Gravity;
 using VRage.Scene;
 using VRage.Session;
@@ -26,7 +28,7 @@ using VRageMath;
 namespace Si.K9
 {
     [StaticEventOwner]
-    [MySessionComponent(AllowAutomaticCreation = true, AlwaysOn = true)]
+    [MySessionComponent(typeof(MyObjectBuilder_SiK9WolfSpawnSession), AllowAutomaticCreation = true, AlwaysOn = true)]
     [MyDependency(typeof(MyChatSystem), Critical = false)]
     public sealed class SiK9WolfSpawnSession : MySessionComponent
     {
@@ -45,6 +47,7 @@ namespace Si.K9
 
         private readonly Dictionary<long, SiK9WolfState> _wolves = new Dictionary<long, SiK9WolfState>();
         private readonly List<long> _staleWolves = new List<long>();
+        private List<MyObjectBuilder_SiK9WolfSpawnSession.SavedWolf> _savedWolves;
 
         [Automatic]
         private readonly MyChatSystem _chat = null;
@@ -52,6 +55,7 @@ namespace Si.K9
 
         public static SiK9WolfSpawnSession Instance => _instance;
         private SiSquadSystemDefinition _followSpeedDefinition;
+        private bool _restoreSavedStatePending;
 
         protected override void OnLoad()
         {
@@ -65,14 +69,41 @@ namespace Si.K9
                 MyChatCommandType.Server);
         }
 
+        protected override void OnSessionReady()
+        {
+            base.OnSessionReady();
+            if (MyMultiplayerModApi.Static == null || MyMultiplayerModApi.Static.IsServer)
+                _restoreSavedStatePending = true;
+        }
+
         protected override void OnUnload()
         {
             _wolves.Clear();
             _staleWolves.Clear();
+            _savedWolves = null;
             _followSpeedDefinition = null;
+            _restoreSavedStatePending = false;
             if (ReferenceEquals(_instance, this))
                 _instance = null;
             base.OnUnload();
+        }
+
+        protected override bool IsSerialized =>
+            _wolves.Count > 0 || (_savedWolves != null && _savedWolves.Count > 0);
+
+        protected override MyObjectBuilder_SessionComponent Serialize()
+        {
+            var builder = (MyObjectBuilder_SiK9WolfSpawnSession)base.Serialize();
+            var saved = _wolves.Count > 0 ? CreateSavedWolves() : _savedWolves;
+            builder.Wolves = saved != null && saved.Count > 0 ? saved : null;
+            return builder;
+        }
+
+        protected override void Deserialize(MyObjectBuilder_SessionComponent objectBuilder)
+        {
+            base.Deserialize(objectBuilder);
+            var builder = (MyObjectBuilder_SiK9WolfSpawnSession)objectBuilder;
+            _savedWolves = builder.Wolves;
         }
 
         private bool HandleCommand(ulong sender, string message, MyChatCommandType handledAsType)
@@ -165,6 +196,7 @@ namespace Si.K9
             if (MyMultiplayerModApi.Static != null && !MyMultiplayerModApi.Static.IsServer)
                 return;
 
+            RestoreSavedStateIfPending();
             _staleWolves.Clear();
             foreach (var pair in _wolves)
             {
@@ -208,6 +240,76 @@ namespace Si.K9
         private void RegisterWolf(long entityId, ulong ownerSteamId)
         {
             _wolves[entityId] = new SiK9WolfState(ownerSteamId, SiK9DogMotionOrder.Stop);
+        }
+
+        private void RestoreSavedStateIfPending()
+        {
+            if (!_restoreSavedStatePending)
+                return;
+
+            _restoreSavedStatePending = false;
+            RestoreSavedWolves();
+        }
+
+        private List<MyObjectBuilder_SiK9WolfSpawnSession.SavedWolf> CreateSavedWolves()
+        {
+            var saved = new List<MyObjectBuilder_SiK9WolfSpawnSession.SavedWolf>(_wolves.Count);
+            foreach (var pair in _wolves)
+            {
+                var state = pair.Value;
+                if (state == null)
+                    continue;
+
+                saved.Add(new MyObjectBuilder_SiK9WolfSpawnSession.SavedWolf
+                {
+                    EntityId = pair.Key,
+                    OwnerSteamId = state.OwnerSteamId,
+                    Order = (byte)state.Order,
+                    TransportOrder = (byte)state.TransportOrder,
+                    VehicleEntityId = state.VehicleEntityId,
+                    SeatEntityId = state.SeatEntityId,
+                    SeatSlotName = state.SeatSlotName,
+                    HasTransportExitLocalPosition = state.ExitPoint != null && state.ExitPoint.HasLocalPosition,
+                    TransportExitLocalPosition = state.ExitPoint != null
+                        ? (SerializableVector3D)state.ExitPoint.LocalPosition
+                        : default(SerializableVector3D),
+                });
+            }
+
+            return saved;
+        }
+
+        private void RestoreSavedWolves()
+        {
+            var savedWolves = _savedWolves;
+            _savedWolves = null;
+            if (savedWolves == null)
+                return;
+
+            foreach (var saved in savedWolves)
+            {
+                if (saved == null
+                    || saved.EntityId == 0
+                    || saved.OwnerSteamId == 0
+                    || !Enum.IsDefined(typeof(SiK9DogMotionOrder), (int)saved.Order)
+                    || !Enum.IsDefined(typeof(SiK9DogTransportOrder), (int)saved.TransportOrder))
+                    continue;
+
+                var state = new SiK9WolfState(saved.OwnerSteamId, (SiK9DogMotionOrder)saved.Order)
+                {
+                    TransportOrder = (SiK9DogTransportOrder)saved.TransportOrder,
+                    VehicleEntityId = saved.VehicleEntityId,
+                    SeatEntityId = saved.SeatEntityId,
+                    SeatSlotName = saved.SeatSlotName,
+                };
+                if (saved.HasTransportExitLocalPosition)
+                {
+                    state.ExitPoint.HasLocalPosition = true;
+                    state.ExitPoint.LocalPosition = saved.TransportExitLocalPosition;
+                }
+
+                _wolves[saved.EntityId] = state;
+            }
         }
 
         private void ApplyMotionOrder(MyPlayer player, SiK9DogMotionOrder order)
@@ -902,5 +1004,42 @@ namespace Si.K9
         None = 0,
         GetIn = 1,
         GetOut = 2,
+    }
+
+    [MyObjectBuilderDefinition]
+    [XmlSerializerAssembly("MedievalEngineers.ObjectBuilders.XmlSerializers")]
+    public class MyObjectBuilder_SiK9WolfSpawnSession : MyObjectBuilder_SessionComponent
+    {
+        [XmlElement("Wolf")]
+        public List<SavedWolf> Wolves;
+
+        public class SavedWolf
+        {
+            [XmlAttribute]
+            public long EntityId;
+
+            [XmlAttribute]
+            public ulong OwnerSteamId;
+
+            [XmlAttribute]
+            public byte Order;
+
+            [XmlAttribute]
+            public byte TransportOrder;
+
+            [XmlAttribute]
+            public long VehicleEntityId;
+
+            [XmlAttribute]
+            public long SeatEntityId;
+
+            [XmlAttribute]
+            public string SeatSlotName;
+
+            [XmlAttribute]
+            public bool HasTransportExitLocalPosition;
+
+            public SerializableVector3D TransportExitLocalPosition;
+        }
     }
 }
