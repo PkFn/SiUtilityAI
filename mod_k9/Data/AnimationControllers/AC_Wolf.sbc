@@ -180,6 +180,14 @@
             </Conditions>
             <Priority xsi:nil="true" />
           </Transition>
+          <Transition From="Move" To="Idle/Idle1" TimeInSec="0.1" Sync="Restart">
+            <Conditions>
+              <Conjunction>
+                <Condition Lhs="seated" Op="GreaterOrEqual" Rhs="0.5" />
+              </Conjunction>
+            </Conditions>
+            <Priority>1</Priority>
+          </Transition>
           <Transition Name="Attack" From="Idle/Any" To="Attack" TimeInSec="0.1" Sync="Restart">
             <Priority xsi:nil="true" />
           </Transition>
@@ -194,6 +202,7 @@
           <Transition From="Idle/Any" To="Move" TimeInSec="0.2" Sync="Restart">
             <Conditions>
               <Conjunction>
+                <Condition Lhs="seated" Op="Less" Rhs="0.5" />
                 <Condition Lhs="speed" Op="Greater" Rhs="0.95" />
               </Conjunction>
             </Conditions>
@@ -304,6 +313,7 @@
           <Transition From="Idle1" To="IdleToHowl" TimeInSec="0" Sync="Restart">
             <Conditions>
               <Conjunction>
+                <Condition Lhs="seated" Op="Less" Rhs="0.5" />
                 <Condition Lhs="@animationfinished" Op="GreaterOrEqual" Rhs="1" />
               </Conjunction>
             </Conditions>

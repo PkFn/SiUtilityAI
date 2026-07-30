@@ -8,6 +8,7 @@ using Sandbox.Game.Entities;
 using Sandbox.Game.GameSystems.Chat;
 using Sandbox.Game.Players;
 using Sandbox.ModAPI;
+using SiCore.Core.Debug;
 using Si.UtilityAI;
 using VRage;
 using VRage.Components;
@@ -45,6 +46,7 @@ namespace Si.K9
 
         [Automatic]
         private readonly MyChatSystem _chat = null;
+        private readonly SiGameLog _log = new SiGameLog(nameof(SiK9WolfSpawnSession), "[SiK9Seat]");
 
         public static SiK9WolfSpawnSession Instance => _instance;
         private SiSquadSystemDefinition _followSpeedDefinition;
@@ -513,10 +515,11 @@ namespace Si.K9
             state.SeatSlotName = null;
             state.HasExitPosition = false;
             state.ExitPosition = Vector3D.Zero;
+            SetSeatedAnimationState(state.Entity, false);
             ClearMotionTarget(state);
         }
 
-        private static void ApplySeatedIdleState(MyEntity wolfEntity, SiK9WolfState state)
+        private void ApplySeatedIdleState(MyEntity wolfEntity, SiK9WolfState state)
         {
             if (state == null)
                 return;
@@ -532,12 +535,43 @@ namespace Si.K9
                 movement.BlockMovement = true;
             }
 
+            SetSeatedAnimationState(wolfEntity, true);
+
             var animation = wolfEntity?.Components.Get<MyAnimationControllerComponent>();
             if (animation?.Variables == null)
                 return;
 
             animation.Variables.SetValue(MyStringId.GetOrCompute("speed"), 0f);
             animation.Variables.SetValue(MyStringId.GetOrCompute("Speed"), 0f);
+            LogSeatedAnimationState(wolfEntity, state, movement, animation);
+        }
+
+        private static void SetSeatedAnimationState(MyEntity wolfEntity, bool seated)
+        {
+            var animation = wolfEntity?.Components.Get<MyAnimationControllerComponent>();
+            if (animation?.Variables == null)
+                return;
+
+            var value = seated ? 1f : 0f;
+            animation.Variables.SetValue(MyStringId.GetOrCompute("seated"), value);
+            animation.Variables.SetValue(MyStringId.GetOrCompute("Seated"), value);
+        }
+
+        private void LogSeatedAnimationState(
+            MyEntity wolfEntity,
+            SiK9WolfState state,
+            MyCharacterMovementComponent movement,
+            MyAnimationControllerComponent animation)
+        {
+            if (wolfEntity == null || state == null)
+                return;
+
+            var now = (long)(MySession.Static?.ElapsedGameTime.TotalMilliseconds ?? 0);
+            if (now - state.LastSeatedLogTimeMilliseconds < 1000)
+                return;
+
+            state.LastSeatedLogTimeMilliseconds = now;
+            _log.Info($"entityId={wolfEntity.EntityId} name={wolfEntity.DebugName ?? wolfEntity.DisplayName ?? wolfEntity.ToString()} seat={state.SeatEntityId}:{state.SeatSlotName ?? "none"} branch=seated-idle movementState={(movement?.GetMovementState().ToString() ?? "missing")} isRunning={(movement?.IsRunning.ToString() ?? "missing")} isWalking={(movement?.IsWalking.ToString() ?? "missing")} isSprinting={(movement?.IsSprinting.ToString() ?? "missing")} wantsWalk={(movement?.WantsWalk.ToString() ?? "missing")} wantsSprint={(movement?.WantsSprint.ToString() ?? "missing")} blockMovement={(movement?.BlockMovement.ToString() ?? "missing")} animPaused={(animation?.IsPaused.ToString() ?? "missing")} source={(animation?.SourceId.ToString() ?? "missing")} hasVars={(animation?.Variables != null)}"); // AGENT-DEBUG-LOG
         }
 
         private static Vector3D ResolveUp(in Vector3D position)
@@ -785,6 +819,7 @@ namespace Si.K9
             public string SeatSlotName;
             public bool HasExitPosition;
             public Vector3D ExitPosition;
+            public long LastSeatedLogTimeMilliseconds;
 
             public SiK9WolfState(ulong ownerSteamId, SiK9DogMotionOrder order)
             {
@@ -802,6 +837,7 @@ namespace Si.K9
                 SeatSlotName = null;
                 HasExitPosition = false;
                 ExitPosition = Vector3D.Zero;
+                LastSeatedLogTimeMilliseconds = long.MinValue;
             }
         }
     }
