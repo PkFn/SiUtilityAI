@@ -39,8 +39,6 @@
     <Components>
       <Component Tag="Timber" Count="2" />
       <Component Tag="Plank" Count="12" />
-      <Component Type="Block" Subtype="ChestWood" Count="1" />
-      <Component Type="Block" Subtype="TableWoodSmall" Count="1" />
       <Component Tag="Plank" Count="3" />
     </Components>
     <MaxIntegrity>500</MaxIntegrity>
